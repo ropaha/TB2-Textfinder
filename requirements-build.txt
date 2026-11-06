@@ -1,0 +1,3 @@
+# Nur zum Erstellen der Windows-EXE erforderlich.
+# Die normale Python-Version des TB2-Textfinders braucht keine Zusatzpakete.
+pyinstaller>=6.22,<7

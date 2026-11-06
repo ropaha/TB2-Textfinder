@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# PyInstaller build products
+build/
+dist/
+*.spec
+
+# Local virtual environment
+.venv/
+venv/
+
+# Editor / OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
