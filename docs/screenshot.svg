@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="760" viewBox="0 0 1200 760">
+ <defs><linearGradient id="bg" x2="0" y2="1"><stop stop-color="#e9edf2"/><stop offset="1" stop-color="#cbd3dd"/></linearGradient></defs>
+ <rect width="1200" height="760" fill="#dce2e9"/>
+ <rect x="40" y="30" width="1120" height="700" rx="16" fill="url(#bg)" stroke="#6d7885" stroke-width="3"/>
+ <path d="M56 30 H1144 Q1160 30 1160 46 V100 H40 V46 Q40 30 56 30" fill="#26364b"/>
+ <circle cx="76" cy="65" r="13" fill="#d6b36a"/><text x="105" y="76" font-family="Segoe UI,Arial" font-size="28" fill="#fff" font-weight="600">TB2-Textfinder</text>
+ <text x="82" y="158" font-family="Segoe UI,Arial" font-size="25" fill="#26364b">Gesuchter Text:</text>
+ <rect x="300" y="122" width="500" height="55" rx="6" fill="#fff" stroke="#8794a3" stroke-width="2"/><text x="322" y="159" font-family="Segoe UI,Arial" font-size="27" fill="#17202b">Müller</text>
+ <rect x="830" y="122" width="260" height="55" rx="7" fill="#e8eef6" stroke="#738396" stroke-width="2"/><text x="910" y="159" font-family="Segoe UI,Arial" font-size="24" fill="#26364b">⌕  Suchen</text>
+ <text x="300" y="220" font-family="Segoe UI,Arial" font-size="23" fill="#26364b">☑ Groß-/Kleinschreibung beachten</text><text x="300" y="260" font-family="Segoe UI,Arial" font-size="23" fill="#26364b">☐ Unterordner einbeziehen</text>
+ <rect x="78" y="300" width="1015" height="340" fill="#fff" stroke="#8794a3" stroke-width="2"/><rect x="80" y="302" width="1011" height="52" fill="#dbe3ec"/>
+ <text x="100" y="337" font-family="Segoe UI,Arial" font-size="23" font-weight="bold" fill="#26364b">Gefundene Dateien (vollständiger Pfad)</text>
+ <g font-family="Consolas,monospace" font-size="21" fill="#1e2936"><rect x="82" y="355" width="1007" height="48" fill="#2b69a5"/><text x="104" y="387" fill="#fff">D:\Signum\Daten\Personen.tb2</text><text x="104" y="443">D:\Signum\Archiv\Adressen.tb2</text><text x="104" y="499">D:\Signum\Altbestand\Kunden.tb2</text><text x="104" y="555">E:\Daten\Mitglieder.tb2</text></g>
+ <rect x="78" y="665" width="245" height="43" rx="6" fill="#e6ebf1" stroke="#8794a3"/><text x="112" y="694" font-family="Segoe UI,Arial" font-size="20" fill="#26364b">Datei öffnen</text>
+ <rect x="340" y="665" width="245" height="43" rx="6" fill="#e6ebf1" stroke="#8794a3"/><text x="368" y="694" font-family="Segoe UI,Arial" font-size="20" fill="#26364b">Pfade kopieren</text><text x="870" y="694" font-family="Segoe UI,Arial" font-size="19" fill="#465568">4 Treffer gefunden</text>
+</svg>

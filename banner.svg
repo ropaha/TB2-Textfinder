@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640">
+ <defs><linearGradient id="b" x2="1" y2="1"><stop stop-color="#101d2d"/><stop offset="1" stop-color="#30445a"/></linearGradient><linearGradient id="gold" x2="1" y2="1"><stop stop-color="#f6dda0"/><stop offset="1" stop-color="#b77a2e"/></linearGradient></defs>
+ <rect width="1280" height="640" fill="url(#b)"/>
+ <circle cx="185" cy="245" r="130" fill="none" stroke="url(#gold)" stroke-width="8"/>
+ <g transform="translate(60 105) scale(.48)"><path d="M256 70 C229 132 222 212 224 306 L256 412 L288 306 C290 212 283 132 256 70Z" fill="none" stroke="url(#gold)" stroke-width="18"/><path d="M256 82 L256 400 M226 290 Q256 275 286 290 M218 228 Q256 245 294 228 M228 165 Q256 178 284 165" fill="none" stroke="url(#gold)" stroke-width="12" stroke-linecap="round"/><circle cx="256" cy="226" r="18" fill="#172436" stroke="url(#gold)" stroke-width="10"/></g>
+ <text x="370" y="190" font-family="Georgia,serif" font-size="74" font-weight="bold" fill="#f6e7c4">TB2-Textfinder</text>
+ <text x="375" y="250" font-family="Arial,sans-serif" font-size="32" fill="#d6e0eb">Search text in Signum TB2 files</text>
+ <text x="375" y="295" font-family="Arial,sans-serif" font-size="28" fill="#d6e0eb">across multiple file format generations</text>
+ <rect x="75" y="375" width="1130" height="175" rx="18" fill="#f1f3f5" stroke="#c4a46b" stroke-width="4"/>
+ <rect x="105" y="405" width="1070" height="42" rx="6" fill="#26364b"/><text x="130" y="435" font-family="Arial,sans-serif" font-size="25" fill="#fff">TB2-Textfinder  |  Search: Müller</text>
+ <g font-family="Arial,sans-serif" font-size="23" fill="#243449"><text x="130" y="490">✓ Case-insensitive search</text><text x="470" y="490">✓ Multiple TB2 generations</text><text x="850" y="490">✓ Open result in Windows</text><text x="130" y="530">Open source · MIT License · Windows / Python</text></g>
+ <text x="75" y="605" font-family="Georgia,serif" font-size="24" fill="#f6e7c4">A small tool for preserving access to valuable data.</text>
+</svg>
