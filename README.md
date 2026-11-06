@@ -1,5 +1,7 @@
 # TB2-Textfinder
 
+<p align="center"><img src="logo.svg" alt="TB2-Textfinder Bandzugfeder-Logo" width="150"></p>
+
 Ein kleines Windows-Programm zum Durchsuchen von `.TB2`-Dateien nach Texten, die in unterschiedlichen Signum-/SignumNext-Dateigenerationen gespeichert sein können.
 
 **Aktueller Entwicklungsstand:** 0.7 (experimentell) · [English version](README_EN.md)
