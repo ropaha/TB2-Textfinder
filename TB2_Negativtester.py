@@ -11,7 +11,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 from TB2_Textfinder import has_variable_80_pattern, has_wide_587_pattern, has_early_80_pattern, has_early_82_pattern, has_variable_98_pattern, has_variable_106_pattern
 
-APP_VERSION = "1.2 – Testversion"
+APP_VERSION = "1.2"
 MIN_CHARACTERS = 3
 
 # Empirisch beobachtete Marker und Abstände aus dem TB2-Textfinder-Projekt.
