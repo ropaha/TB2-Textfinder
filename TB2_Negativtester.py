@@ -384,7 +384,8 @@ class App(tk.Tk):
                  "Ein Nichttreffer beweist nicht, dass die Datei keinen Text enthält.",
                  f"Aktiver Filter: {self.filter_var.get()}",
                  f"Angezeigte Treffer: {len(visible)} von {len(self.rows)}", ""]
-        lines.extend(f"{category}\t{path}\t{detail}" for category, path, detail in visible)
+        lines.extend(f"{'Ignoriert' if self.is_ignored(path) else category}\t{path}\t{detail}"
+                     for category, path, detail in visible)
         try:
             Path(destination).write_text("\n".join(lines) + "\n", encoding="utf-8")
         except OSError as exc:
