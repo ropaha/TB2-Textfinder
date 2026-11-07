@@ -24,7 +24,12 @@ call ".venv\Scripts\activate.bat"
 if errorlevel 1 goto :error
 python -m pip install -r requirements-build.txt
 if errorlevel 1 goto :error
-python -m PyInstaller --noconfirm --clean --onefile --windowed --name "TB2_Textfinder" --distpath dist --workpath build --specpath build "TB2_Textfinder.py"
+if not exist "%~dp0logo.ico" (
+ echo FEHLER: logo.ico fehlt neben dieser BAT-Datei.
+ pause
+ exit /b 1
+)
+python -m PyInstaller --noconfirm --clean --onefile --windowed --icon "%~dp0logo.ico" --add-data "%~dp0logo.ico;." --name "TB2_Textfinder" --distpath "%~dp0dist" --workpath "%~dp0build" --specpath "%~dp0" "%~dp0TB2_Textfinder.py"
 if errorlevel 1 goto :error
 echo ERFOLG: dist\TB2_Textfinder.exe
 explorer "%CD%\dist"
