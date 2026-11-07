@@ -477,12 +477,12 @@ class App(tk.Tk):
         actions.grid(row=3, column=0, columnspan=3, sticky="w", pady=(12, 10))
         self.search_button = ttk.Button(actions, text="Suchen", command=self.start_scan)
         self.search_button.pack(side="left")
-        self.copy_button = ttk.Button(actions, text="Pfade kopieren", command=self.copy_paths, state="disabled")
-        self.copy_button.pack(side="left", padx=(8, 0))
         self.open_button = ttk.Button(
             actions, text="Datei öffnen", command=self.open_selected_file, state="disabled"
         )
         self.open_button.pack(side="left", padx=(8, 0))
+        self.copy_button = ttk.Button(actions, text="Pfade kopieren", command=self.copy_paths, state="disabled")
+        self.copy_button.pack(side="left", padx=(8, 0))
         self.save_button = ttk.Button(actions, text="Pfade als TXT speichern …", command=self.save_paths, state="disabled")
         self.save_button.pack(side="left", padx=(8, 0))
         ttk.Button(actions, text="Leeren", command=self.clear_results).pack(side="left", padx=(8, 0))
