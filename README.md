@@ -4,7 +4,7 @@
 
 Ein kleines Windows-Programm zum Durchsuchen von `.TB2`-Dateien nach Texten, die in unterschiedlichen Signum-/SignumNext-Dateigenerationen gespeichert sein können.
 
-**Aktueller Entwicklungsstand:** 0.7 (experimentell) · [English version](README_EN.md)
+**Stand des GitHub-Quellcodes:** 0.7 (experimentell). **Neuere Testversion:** Finder 1.7 / Negativtester 1.2, Paket v1.8.0 (Veröffentlichung der Quellcodedateien und GitHub-Release noch ausstehend). Siehe [CHANGELOG.md](CHANGELOG.md). · [English version](README_EN.md)
 
 ![TB2-Textfinder Projektbanner](banner.svg)
 
