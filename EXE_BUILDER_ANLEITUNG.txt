@@ -1,0 +1,6 @@
+EXE-Builder fuer Windows
+
+ZIP komplett entpacken. Dann Build_TB2_Negativtester_EXE.bat oder Build_TB2_Textfinder_EXE.bat doppelklicken.
+Python 3.10+ ist zum Bauen erforderlich; beim ersten Mal Internet fuer PyInstaller.
+Die fertige EXE liegt im Unterordner dist und braucht kein Python.
+Windows-Build nicht automatisiert getestet.
