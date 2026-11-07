@@ -16,7 +16,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
 APP_TITLE = "TB2-Textfinder"
-APP_VERSION = "1.7 – Testversion"
+APP_VERSION = "1.7"
 PROFILES = (
     # Neue und mittlere Generation: Zeichen + Marker, Abstand 106 Bytes.
     ("SignumNext-Profil A", b"\x81\x00\x00", (0x6A,)),
