@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""TB2-Textfinder 0.7
+"""TB2-Textfinder 1.6
 
 Durchsucht .TB2-Dateien nach lesbarem Text und bislang beobachteten
 SignumNext-Glyphenprofilen mehrerer Formatgenerationen. Treffer werden
@@ -16,7 +16,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
 APP_TITLE = "TB2-Textfinder"
-APP_VERSION = "0.7 – Testversion"
+APP_VERSION = "1.7 – Testversion"
 PROFILES = (
     # Neue und mittlere Generation: Zeichen + Marker, Abstand 106 Bytes.
     ("SignumNext-Profil A", b"\x81\x00\x00", (0x6A,)),
@@ -27,6 +27,9 @@ PROFILES = (
     # Sehr frühe Generation (z. B. 8900001.TB2):
     # eigener Marker direkt hinter jedem Zeichen; ebenfalls 80 Bytes Abstand.
     ("Signum-Frühformat", b"\x81\x7C\xE9\xE4\x58\x09", (0x50,)),
+    # 1990–1993: 98-Byte-Datensaetze, variabler 6-Byte-Vorspann
+    # zwischen Zeichen und festem Marker 81 00 00.
+    ("Signum-90er-Profil", b"\x81\x00\x00", (0x62,)),
 )
 
 
@@ -90,11 +93,13 @@ def _glyph_char_codes(char: str, case_sensitive: bool) -> set[int]:
                 continue
             if len(raw) == 1:
                 codes.add(raw[0])
+    if char == " ":
+        codes.add(0xFA)  # Leerzeichen in älteren Signum-Glyphenfolgen
     return codes
 
 
 def _matches_glyph_profile(data: bytes, term: str, marker: bytes,
-                           stride: int, case_sensitive: bool) -> bool:
+                           stride: int, case_sensitive: bool, marker_offset: int = 1) -> bool:
     """Check one character per record with the selected record spacing."""
     if not term:
         return False
@@ -105,21 +110,301 @@ def _matches_glyph_profile(data: bytes, term: str, marker: bytes,
 
     # Locate possible first records, then verify each character's encoded byte.
     for first_code in char_codes[0]:
-        lead = bytes([first_code]) + marker
-        for start in _find_all(data, lead):
+        if marker_offset == 1:
+            candidates = _find_all(data, bytes([first_code]) + marker)
+        else:
+            candidates = (pos - marker_offset for pos in _find_all(data, marker)
+                          if pos >= marker_offset and data[pos - marker_offset] == first_code)
+        for start in candidates:
             matched = True
             for index, allowed_codes in enumerate(char_codes):
                 pos = start + index * stride
-                if pos + 1 + len(marker) > len(data):
+                if pos + marker_offset + len(marker) > len(data):
                     matched = False
                     break
                 if data[pos] not in allowed_codes:
                     matched = False
                     break
-                if data[pos + 1:pos + 1 + len(marker)] != marker:
+                if data[pos + marker_offset:pos + marker_offset + len(marker)] != marker:
                     matched = False
                     break
             if matched:
+                return True
+    return False
+
+
+
+def _variable_marker_record(data: bytes, pos: int) -> bool:
+    """Ältere 80-Byte-Glyphen: variable 5-Byte-Felder nach 0x81.
+
+    Beobachtet bei 9005016.TB2. Das Folgesteuerbyte an +7 ist
+    0x80 oder 0x81. Diese Struktur vermeidet blindes Stride-Matching.
+    """
+    return (pos >= 0 and pos + 8 <= len(data)
+            and data[pos + 1] == 0x81
+            and data[pos + 7] in (0x80, 0x81))
+
+
+def _early_80_record(data: bytes, pos: int) -> bool:
+    """Frühes 80-Byte-Profil mit 0x80 direkt nach dem Zeichen.
+
+    Beobachtet in 9518311I.TB2 (Kl.Gladebrügge). Die 5 variablen
+    Steuerbytes werden nicht als feste Signatur interpretiert.
+    """
+    return (0 <= pos and pos + 8 <= len(data)
+            and data[pos + 1] == 0x80
+            and data[pos + 7] in (0x80, 0x81))
+
+
+def _matches_early_80(data: bytes, term: str, case_sensitive: bool) -> bool:
+    if not term:
+        return False
+    codes = [_glyph_char_codes(ch, case_sensitive) for ch in term]
+    if any(not c for c in codes):
+        return False
+    for marker_pos in _find_all(data, b"\x80"):
+        start = marker_pos - 1
+        if start < 0 or data[start] not in codes[0]:
+            continue
+        if start + (len(codes) - 1) * 80 + 8 > len(data):
+            continue
+        if all(data[start + i * 80] in allowed
+               and _early_80_record(data, start + i * 80)
+               for i, allowed in enumerate(codes)):
+            return True
+    return False
+
+
+def has_early_80_pattern(data: bytes, minimum: int = 3) -> bool:
+    minimum = max(3, minimum)
+    for marker_pos in _find_all(data, b"\x80"):
+        start = marker_pos - 1
+        if start < 0 or start + (minimum - 1) * 80 + 8 > len(data):
+            continue
+        if all(_early_80_record(data, start + i * 80)
+               and (32 <= data[start + i * 80] <= 126
+                    or data[start + i * 80] >= 0x80)
+               for i in range(minimum)):
+            return True
+    return False
+
+
+def _matches_variable_80(data: bytes, term: str, case_sensitive: bool) -> bool:
+    if not term:
+        return False
+    codes = [_glyph_char_codes(ch, case_sensitive) for ch in term]
+    if any(not c for c in codes):
+        return False
+    # Marker als Anker, statt alle Bytepositionen zu durchsuchen.
+    for marker_pos in _find_all(data, b"\x81"):
+        start = marker_pos - 1
+        if start < 0 or data[start] not in codes[0]:
+            continue
+        if all(pos + 8 <= len(data)
+               and data[pos] in allowed
+               and _variable_marker_record(data, pos)
+               for pos, allowed in ((start + i * 80, c) for i, c in enumerate(codes))):
+            return True
+    return False
+
+
+def has_variable_80_pattern(data: bytes, minimum: int = 3) -> bool:
+    """Mindestens drei plausible Datensätze mit variablem Marker."""
+    if minimum < 3:
+        minimum = 3
+    for marker_pos in _find_all(data, b"\x81"):
+        start = marker_pos - 1
+        if start < 0:
+            continue
+        if all(_variable_marker_record(data, start + i * 80)
+               and (32 <= data[start + i * 80] <= 126
+                    or data[start + i * 80] >= 0x80)
+               for i in range(minimum)
+               if start + i * 80 < len(data)):
+            if start + (minimum - 1) * 80 + 8 <= len(data):
+                return True
+    return False
+
+def _wide_587_record(data: bytes, pos: int) -> bool:
+    """587-Byte-Glyphen mit beobachteten Steuerbytes 7E/7F/80/81/84."""
+    return (0 <= pos and pos + 8 <= len(data)
+            and data[pos + 1] in (0x7E, 0x7F, 0x80, 0x81, 0x84)
+            and data[pos + 7] in (0x80, 0x81))
+
+
+def _matches_wide_587(data: bytes, term: str, case_sensitive: bool) -> bool:
+    if not term:
+        return False
+    codes = [_glyph_char_codes(ch, case_sensitive) for ch in term]
+    if any(not c for c in codes):
+        return False
+    for marker in (b"\x7e", b"\x7f", b"\x80", b"\x81", b"\x84"):
+        for marker_pos in _find_all(data, marker):
+            start = marker_pos - 1
+            if start < 0 or data[start] not in codes[0]:
+                continue
+            last = start + (len(codes) - 1) * 587
+            if last + 8 > len(data):
+                continue
+            if all(data[start + i * 587] in allowed
+                   and _wide_587_record(data, start + i * 587)
+                   for i, allowed in enumerate(codes)):
+                return True
+    return False
+
+
+def has_wide_587_pattern(data: bytes, minimum: int = 3) -> bool:
+    """Mindestens drei aufeinanderfolgende plausible 587-Byte-Zeichen."""
+    minimum = max(3, minimum)
+    for marker in (b"\x7e", b"\x7f", b"\x80", b"\x81", b"\x84"):
+        for marker_pos in _find_all(data, marker):
+            start = marker_pos - 1
+            if start < 0 or start + (minimum - 1) * 587 + 8 > len(data):
+                continue
+            if all(_wide_587_record(data, start + i * 587)
+                   and (32 <= data[start + i * 587] <= 126
+                        or data[start + i * 587] >= 0x80)
+                   for i in range(minimum)):
+                return True
+    return False
+
+
+
+
+def _early_82_record(data: bytes, pos: int) -> bool:
+    """80-Byte-Zeichendatensatz mit 0x82 nach dem Zeichen.
+
+    Referenz: 9600246.TB2 (HANDELSHAUS). Der Vorspann an +2..+6
+    kann variieren; +7 ist bei diesem Datensatz 0x80 oder 0x81.
+    """
+    return (0 <= pos and pos + 8 <= len(data)
+            and data[pos + 1] == 0x82
+            and data[pos + 7] in (0x80, 0x81))
+
+
+def _matches_early_82(data: bytes, term: str, case_sensitive: bool) -> bool:
+    if not term:
+        return False
+    codes = [_glyph_char_codes(ch, case_sensitive) for ch in term]
+    if any(not c for c in codes):
+        return False
+    for marker_pos in _find_all(data, b"\x82"):
+        start = marker_pos - 1
+        if start < 0 or data[start] not in codes[0]:
+            continue
+        if start + (len(codes) - 1) * 80 + 8 > len(data):
+            continue
+        if all(data[start + i * 80] in allowed
+               and _early_82_record(data, start + i * 80)
+               for i, allowed in enumerate(codes)):
+            return True
+    return False
+
+
+def has_early_82_pattern(data: bytes, minimum: int = 3) -> bool:
+    minimum = max(3, minimum)
+    for marker_pos in _find_all(data, b"\x82"):
+        start = marker_pos - 1
+        if start < 0 or start + (minimum - 1) * 80 + 8 > len(data):
+            continue
+        if all(_early_82_record(data, start + i * 80)
+               and (32 <= data[start + i * 80] <= 126
+                    or data[start + i * 80] >= 0x80)
+               for i in range(minimum)):
+            return True
+    return False
+
+
+
+def _variable_98_record(data: bytes, pos: int) -> bool:
+    """98-Byte-Zeichen: variables Steuerfeld und 0x80/0x81 an Position +7.
+
+    Referenz 2006 18 178d.TB2 (1923 INGEBORG 2006).
+    Erfordert 0x80/0x81 an +1 und 0x80/0x81 an +7; kein blindes Stride-Matching.
+    """
+    return (0 <= pos and pos + 8 <= len(data)
+            and data[pos + 1] in (0x80, 0x81)
+            and data[pos + 7] in (0x80, 0x81))
+
+
+def _matches_variable_98(data: bytes, term: str, case_sensitive: bool) -> bool:
+    if not term:
+        return False
+    codes = [_glyph_char_codes(ch, case_sensitive) for ch in term]
+    if any(not c for c in codes):
+        return False
+    for marker in (b"\x80", b"\x81"):
+        for marker_pos in _find_all(data, marker):
+            start = marker_pos - 1
+            if start < 0 or data[start] not in codes[0]:
+                continue
+            if start + (len(codes) - 1) * 98 + 8 > len(data):
+                continue
+            if all(data[start + i * 98] in allowed
+                   and _variable_98_record(data, start + i * 98)
+                   for i, allowed in enumerate(codes)):
+                return True
+    return False
+
+
+def has_variable_98_pattern(data: bytes, minimum: int = 3) -> bool:
+    minimum = max(3, minimum)
+    for marker in (b"\x80", b"\x81"):
+        for marker_pos in _find_all(data, marker):
+            start = marker_pos - 1
+            if start < 0 or start + (minimum - 1) * 98 + 8 > len(data):
+                continue
+            if all(_variable_98_record(data, start + i * 98)
+                   and (32 <= data[start + i * 98] <= 126
+                        or data[start + i * 98] >= 0x80)
+                   for i in range(minimum)):
+                return True
+    return False
+
+def _variable_106_record(data: bytes, pos: int) -> bool:
+    """106-Byte-Glyphen mit variablen Steuerdaten.
+
+    Referenzen: 2018-00-149.TB2 (Fuchs) und 2020-01-012.TB2
+    (Oma, Felicitas). Das Steuerbyte an +1 darf 0x81 oder 0x82
+    sein; die 5 folgenden Bytes sind variabel. Die beobachtete
+    Abschlussstruktur +7..+9 bleibt verpflichtend.
+    """
+    return (0 <= pos and pos + 10 <= len(data)
+            and data[pos + 1] in (0x81, 0x82)
+            and data[pos + 7:pos + 10] == b"\x81\x00\x00")
+
+
+def _matches_variable_106(data: bytes, term: str, case_sensitive: bool) -> bool:
+    if not term:
+        return False
+    codes = [_glyph_char_codes(ch, case_sensitive) for ch in term]
+    if any(not c for c in codes):
+        return False
+    for marker in (b"\x81", b"\x82"):
+        for marker_pos in _find_all(data, marker):
+            start = marker_pos - 1
+            if start < 0 or data[start] not in codes[0]:
+                continue
+            if start + (len(codes) - 1) * 106 + 10 > len(data):
+                continue
+            if all(data[start + i * 106] in allowed
+                   and _variable_106_record(data, start + i * 106)
+                   for i, allowed in enumerate(codes)):
+                return True
+    return False
+
+
+def has_variable_106_pattern(data: bytes, minimum: int = 3) -> bool:
+    minimum = max(3, minimum)
+    for marker in (b"\x81", b"\x82"):
+        for marker_pos in _find_all(data, marker):
+            start = marker_pos - 1
+            if start < 0 or start + (minimum - 1) * 106 + 10 > len(data):
+                continue
+            if all(_variable_106_record(data, start + i * 106)
+                   and (32 <= data[start + i * 106] <= 126
+                        or data[start + i * 106] >= 0x80)
+                   for i in range(minimum)):
                 return True
     return False
 
@@ -129,9 +414,18 @@ def contains_term(data: bytes, term: str, case_sensitive: bool = False) -> bool:
         return True
     for _profile_name, marker, strides in PROFILES:
         for stride in strides:
-            if _matches_glyph_profile(data, term, marker, stride, case_sensitive):
-                return True
-    return False
+            # Auch bei 80-Byte-Datensaetzen kommt ein variabler 6-Byte-Vorspann
+            # vor (z. B. 9000143.TB2). Die Marker beginnen dann bei +7.
+            offsets = (1, 7) if stride == 0x50 and marker == b"\x81\x00\x00" else ((7,) if stride == 0x62 else (1,))
+            for marker_offset in offsets:
+                if _matches_glyph_profile(data, term, marker, stride, case_sensitive, marker_offset):
+                    return True
+    return (_matches_variable_80(data, term, case_sensitive)
+            or _matches_wide_587(data, term, case_sensitive)
+            or _matches_early_80(data, term, case_sensitive)
+            or _matches_early_82(data, term, case_sensitive)
+            or _matches_variable_98(data, term, case_sensitive)
+            or _matches_variable_106(data, term, case_sensitive))
 
 
 def scan_file(path: Path, term: str, case_sensitive: bool) -> tuple[bool, str | None]:
@@ -215,8 +509,8 @@ class App(tk.Tk):
 
         note = ("Datei in der Trefferliste markieren und auf 'Datei öffnen' klicken – "
                 "oder den Treffer doppelt anklicken. Die TB2-Datei wird mit dem in Windows "
-                "verknüpften Programm geöffnet. Suche in Klartext sowie in untersuchten TB2-Glyphenmustern mehrerer Generationen "
-                "(Datensatzabstände 80 und 106 Byte, mit unterschiedlichen Markern). Umlaute und weitere Ein-Byte-Zeichen werden "
+                "verknüpften Programm. Suche in Klartext sowie in untersuchten TB2-Glyphenmustern mehrerer Generationen "
+                "(Datensatzabstände 80, 98, 106 und 587 Byte, mit unterschiedlichen Markern). Umlaute und weitere Ein-Byte-Zeichen werden "
                 "berücksichtigt. Die Groß-/Kleinschreibung wird standardmäßig ignoriert – auch bei "
                 "Umlauten. Die Dateiformate werden weiter untersucht; ein Nichttreffer ist daher "
                 "noch kein Beweis, dass der Text fehlt.")
