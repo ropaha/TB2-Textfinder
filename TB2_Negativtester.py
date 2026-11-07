@@ -1,11 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""TB2-Negativtester – erkennt Dateien ohne bekannte TB2-Textstruktur.
-
-Ein Treffer bedeutet ausschließlich, dass mindestens drei aufeinanderfolgende
-Zeichen zu einem der bislang untersuchten Glyphenprofile passen. Ein Nichttreffer
-beweist nicht, dass eine Datei keinen Text enthält.
-"""
+"""TB2-Negativtester: prüft Dateien auf bislang bekannte TB2-Textmuster."""
 from __future__ import annotations
 
 import os
@@ -14,16 +9,32 @@ import threading
 from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
+from TB2_Textfinder import has_variable_80_pattern, has_wide_587_pattern, has_early_80_pattern, has_early_82_pattern, has_variable_98_pattern, has_variable_106_pattern
 
-from TB2_Textfinder import PROFILES, _find_all
-
-APP_TITLE = "TB2-Negativtester"
-APP_VERSION = "0.1 – Testversion"
+APP_VERSION = "1.2 – Testversion"
 MIN_CHARACTERS = 3
+
+# Empirisch beobachtete Marker und Abstände aus dem TB2-Textfinder-Projekt.
+PROFILES = (
+    ("SignumNext-Profil A", b"\x81\x00\x00", (0x6A,)),
+    ("SignumNext-Profil B", b"\x81\x67\x66\x66\x66\x66\x81", (0x6A,)),
+    ("Signum-Altformat", b"\x81\x00\x00", (0x50,)),
+    ("Signum-Frühformat", b"\x81\x7C\xE9\xE4\x58\x09", (0x50,)),
+    ("Signum-90er-Profil", b"\x81\x00\x00", (0x62,)),
+)
+
+
+def _find_all(data: bytes, needle: bytes):
+    start = 0
+    while True:
+        pos = data.find(needle, start)
+        if pos < 0:
+            return
+        yield pos
+        start = pos + 1
 
 
 def _printable_codes() -> set[int]:
-    """Bytewerte, die in den getesteten Ein-Byte-Zeichensätzen druckbar sind."""
     result: set[int] = set()
     for encoding in ("cp850", "cp437", "cp1252", "latin-1"):
         for value in range(256):
@@ -40,35 +51,38 @@ PRINTABLE_CODES = _printable_codes()
 
 
 def has_known_glyph_pattern(data: bytes, minimum: int = MIN_CHARACTERS) -> bool:
-    """Return True if a known marker/stride profile contains N valid records."""
+    """Mindestens N Zeichen müssen im bekannten Markerabstand aufeinanderfolgen."""
     if not data or minimum < 1:
         return False
-
     for _name, marker, strides in PROFILES:
         marker_length = len(marker)
         for stride in strides:
-            # The marker follows the character byte in every observed record.
-            for marker_pos in _find_all(data, marker):
-                first_char_pos = marker_pos - 1
-                if first_char_pos < 0 or data[first_char_pos] not in PRINTABLE_CODES:
-                    continue
-
-                matched = True
-                for index in range(1, minimum):
-                    char_pos = first_char_pos + index * stride
-                    next_marker_pos = char_pos + 1
-                    if (char_pos >= len(data)
-                            or data[char_pos] not in PRINTABLE_CODES
-                            or data[next_marker_pos:next_marker_pos + marker_length] != marker):
-                        matched = False
-                        break
-                if matched:
-                    return True
-    return False
+            offsets = (1, 7) if stride == 0x50 and marker == b"\x81\x00\x00" else ((7,) if stride == 0x62 else (1,))
+            for marker_offset in offsets:
+                for marker_pos in _find_all(data, marker):
+                    first_char_pos = marker_pos - marker_offset
+                    if first_char_pos < 0 or data[first_char_pos] not in PRINTABLE_CODES:
+                        continue
+                    matched = True
+                    for index in range(1, minimum):
+                        char_pos = first_char_pos + index * stride
+                        next_marker_pos = char_pos + marker_offset
+                        if (char_pos >= len(data)
+                                or data[char_pos] not in PRINTABLE_CODES
+                                or data[next_marker_pos:next_marker_pos + marker_length] != marker):
+                            matched = False
+                            break
+                    if matched:
+                        return True
+    return (has_variable_80_pattern(data, minimum)
+            or has_wide_587_pattern(data, minimum)
+            or has_early_80_pattern(data, minimum)
+            or has_early_82_pattern(data, minimum)
+            or has_variable_98_pattern(data, minimum)
+            or has_variable_106_pattern(data, minimum))
 
 
 def inspect_file(path: Path) -> tuple[str, str]:
-    """Return (category, detail): recognized, unknown, empty, or error."""
     try:
         data = path.read_bytes()
     except OSError as exc:
@@ -77,74 +91,70 @@ def inspect_file(path: Path) -> tuple[str, str]:
         return "Leer", "Datei enthält 0 Bytes"
     if has_known_glyph_pattern(data):
         return "Erkannt", "Bekanntes Muster (mindestens 3 Zeichen)"
-    return "Unbekannt", "Kein bekanntes Textmuster erkannt"
+    if has_known_glyph_pattern(data, minimum=2):
+        return "Fragment", "Könnte Text enthalten, muss analysiert werden"
+    return "Vermutlich kein Text", "Enthält vermutlich keinen Text"
 
 
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title(f"{APP_TITLE} – {APP_VERSION}")
+        self.title(f"TB2-Negativtester – {APP_VERSION}")
         self.geometry("1000x650")
         self.minsize(760, 460)
         self.events: queue.Queue = queue.Queue()
         self.scanning = False
         self.rows: list[tuple[str, str, str]] = []
+        self.filter_var = tk.StringVar(value="Alle auffälligen Dateien")
+        self.filter_options = {
+            "Alle auffälligen Dateien": None,
+            "Könnte Text enthalten, muss analysiert werden": {"Fragment"},
+            "Enthält vermutlich keinen Text": {"Vermutlich kein Text"},
+            "Lesefehler / Leere Dateien": {"Fehler", "Leer"},
+        }
+        self.scan_summary = ""
         self._build_ui()
         self.after(100, self._poll_events)
 
     def _build_ui(self):
         frame = ttk.Frame(self, padding=14)
         frame.pack(fill="both", expand=True)
-
         ttk.Label(frame, text="Zu prüfender Ordner:").grid(row=0, column=0, sticky="w")
         self.folder_var = tk.StringVar()
-        ttk.Entry(frame, textvariable=self.folder_var).grid(
-            row=0, column=1, sticky="ew", padx=10
-        )
-        ttk.Button(frame, text="Ordner wählen …", command=self.choose_folder).grid(
-            row=0, column=2
-        )
-
+        ttk.Entry(frame, textvariable=self.folder_var).grid(row=0, column=1, sticky="ew", padx=10)
+        ttk.Button(frame, text="Ordner wählen …", command=self.choose_folder).grid(row=0, column=2)
         self.recursive_var = tk.BooleanVar(value=True)
-        ttk.Checkbutton(
-            frame, text="Unterordner einbeziehen", variable=self.recursive_var
-        ).grid(row=1, column=1, sticky="w", pady=(9, 2))
-
+        ttk.Checkbutton(frame, text="Unterordner einbeziehen", variable=self.recursive_var).grid(
+            row=1, column=1, sticky="w", pady=(9, 2))
         actions = ttk.Frame(frame)
         actions.grid(row=2, column=0, columnspan=3, sticky="w", pady=(12, 10))
         self.scan_button = ttk.Button(actions, text="Ordner prüfen", command=self.start_scan)
         self.scan_button.pack(side="left")
-        self.open_button = ttk.Button(
-            actions, text="Datei öffnen", command=self.open_selected, state="disabled"
-        )
+        self.open_button = ttk.Button(actions, text="Datei öffnen", command=self.open_selected, state="disabled")
         self.open_button.pack(side="left", padx=(8, 0))
-        self.copy_button = ttk.Button(
-            actions, text="Pfade kopieren", command=self.copy_paths, state="disabled"
-        )
+        self.copy_button = ttk.Button(actions, text="Pfade kopieren", command=self.copy_paths, state="disabled")
         self.copy_button.pack(side="left", padx=(8, 0))
-        self.save_button = ttk.Button(
-            actions, text="Liste als TXT speichern …", command=self.save_report,
-            state="disabled"
-        )
+        self.save_button = ttk.Button(actions, text="Liste als TXT speichern …", command=self.save_report, state="disabled")
         self.save_button.pack(side="left", padx=(8, 0))
         ttk.Button(actions, text="Leeren", command=self.clear).pack(side="left", padx=(8, 0))
-
         self.progress = ttk.Progressbar(frame, mode="determinate")
         self.progress.grid(row=3, column=0, columnspan=3, sticky="ew", pady=(0, 7))
         self.status_var = tk.StringVar(value="Bereit. Ordner auswählen und Prüfung starten.")
-        ttk.Label(frame, textvariable=self.status_var).grid(
-            row=4, column=0, columnspan=3, sticky="w", pady=(0, 8)
-        )
-
-        ttk.Label(
-            frame, text="Auffällige Dateien (unbekannt, leer oder nicht lesbar):"
-        ).grid(row=5, column=0, columnspan=3, sticky="w", pady=(3, 4))
-
+        ttk.Label(frame, textvariable=self.status_var).grid(row=4, column=0, columnspan=3, sticky="w", pady=(0, 8))
+        filters = ttk.Frame(frame)
+        filters.grid(row=5, column=0, columnspan=3, sticky="ew", pady=(3, 7))
+        ttk.Label(filters, text="Trefferliste filtern:").pack(side="left", padx=(0, 9))
+        self.filter_box = ttk.Combobox(filters, textvariable=self.filter_var, state="readonly",
+                                       values=list(self.filter_options), width=51)
+        self.filter_box.pack(side="left")
+        self.filter_box.bind("<<ComboboxSelected>>", self.apply_filter)
+        self.visible_count_var = tk.StringVar(value="Noch keine Ergebnisse")
+        ttk.Label(filters, textvariable=self.visible_count_var).pack(side="left", padx=(14, 0))
         self.tree = ttk.Treeview(frame, columns=("category", "path", "detail"), show="headings")
         self.tree.heading("category", text="Status")
         self.tree.heading("path", text="Vollständiger Dateipfad")
         self.tree.heading("detail", text="Hinweis")
-        self.tree.column("category", width=105, stretch=False)
+        self.tree.column("category", width=160, stretch=False)
         self.tree.column("path", width=600, anchor="w")
         self.tree.column("detail", width=240, anchor="w")
         self.tree.grid(row=6, column=0, columnspan=2, sticky="nsew")
@@ -156,17 +166,12 @@ class App(tk.Tk):
         self.tree.configure(xscrollcommand=xscroll.set)
         self.tree.bind("<Double-1>", self.open_result)
         self.tree.bind("<<TreeviewSelect>>", self.update_buttons)
-
-        note = (
-            "Prüft .TB2-Dateien anhand der bislang bekannten Marker und Datensatzabstände "
-            "(80 bzw. 106 Byte). Als erkannt gelten mindestens drei aufeinanderfolgende "
-            "druckbare Zeichen mit passender Struktur. Die Liste zeigt nur auffällige Dateien. "
-            "„Kein bekanntes Textmuster erkannt“ bedeutet ausdrücklich nicht, dass die Datei "
-            "keinen Text enthält – möglicherweise verwendet sie ein noch unbekanntes Format."
-        )
+        note = ("Erkannt: mindestens 3 zusammenhängende Zeichen im bekannten TB2-Muster. "
+                "Fragment: 2 Zeichen in passender Struktur – könnte Text enthalten, muss analysiert werden. "
+                "Ohne Treffer: enthält vermutlich keinen Text. Dies ist keine sichere Aussage; "
+                "unbekannte Kodierungen können übersehen werden. Leer und Fehler werden separat gemeldet.")
         ttk.Label(frame, text=note, wraplength=950, foreground="#555555").grid(
-            row=8, column=0, columnspan=3, sticky="w", pady=(10, 0)
-        )
+            row=8, column=0, columnspan=3, sticky="w", pady=(10, 0))
         frame.columnconfigure(1, weight=1)
         frame.rowconfigure(6, weight=1)
 
@@ -182,26 +187,27 @@ class App(tk.Tk):
             return
         if self.scanning:
             return
-
         root = Path(folder_text)
         candidates = root.rglob("*") if self.recursive_var.get() else root.glob("*")
         files = [p for p in candidates if p.is_file() and p.suffix.lower() == ".tb2"]
         if not files:
             messagebox.showinfo("Keine TB2-Dateien", "Im Ordner wurden keine .TB2-Dateien gefunden.")
             return
-
         self.scanning = True
         self.rows = []
-        for item in self.tree.get_children():
-            self.tree.delete(item)
+        self.scan_summary = ""
+        self.apply_filter()
         self.scan_button.configure(state="disabled")
+        self.copy_button.configure(state="disabled")
+        self.save_button.configure(state="disabled")
+        self.open_button.configure(state="disabled")
         self.progress.configure(maximum=len(files), value=0)
         self.status_var.set(f"Prüfe {len(files)} TB2-Datei(en) …")
         threading.Thread(target=self._worker, args=(files,), daemon=True).start()
 
     def _worker(self, files: list[Path]):
-        flagged: list[tuple[str, str, str]] = []
-        recognized = errors = empty = 0
+        flagged = []
+        recognized = errors = empty = fragments = probably_no_text = 0
         for index, path in enumerate(files, start=1):
             category, detail = inspect_file(path)
             if category == "Erkannt":
@@ -212,8 +218,12 @@ class App(tk.Tk):
                     errors += 1
                 elif category == "Leer":
                     empty += 1
+                elif category == "Fragment":
+                    fragments += 1
+                elif category == "Vermutlich kein Text":
+                    probably_no_text += 1
             self.events.put(("progress", index, len(files), path.name))
-        self.events.put(("finished", flagged, len(files), recognized, empty, errors))
+        self.events.put(("finished", flagged, len(files), recognized, fragments, probably_no_text, empty, errors))
 
     def _poll_events(self):
         try:
@@ -224,30 +234,45 @@ class App(tk.Tk):
                     self.progress.configure(value=current)
                     self.status_var.set(f"Datei {current}/{total}: {name}")
                 elif event[0] == "finished":
-                    _, flagged, total, recognized, empty, errors = event
+                    _, flagged, total, recognized, fragments, probably_no_text, empty, errors = event
                     self.rows = flagged
-                    for category, path, detail in flagged:
-                        self.tree.insert("", "end", values=(category, path, detail))
+                    self.apply_filter()
                     self.scanning = False
                     self.scan_button.configure(state="normal")
-                    state = "normal" if flagged else "disabled"
-                    self.copy_button.configure(state=state)
-                    self.save_button.configure(state=state)
-                    self.open_button.configure(state="disabled")
-                    unknown = sum(1 for row in flagged if row[0] == "Unbekannt")
-                    self.status_var.set(
+                    self.scan_summary = (
                         f"Fertig: {total} Datei(en) geprüft | {recognized} erkannt | "
-                        f"{unknown} unbekannt | {empty} leer | {errors} Lesefehler."
-                    )
+                        f"{fragments} Fragmente | {probably_no_text} vermutlich ohne Text | "
+                        f"{empty} leer | {errors} Lesefehler.")
+                    self.status_var.set(self.scan_summary)
         except queue.Empty:
             pass
         self.after(100, self._poll_events)
 
-    def update_buttons(self, _event=None):
-        state = "normal" if len(self.tree.selection()) == 1 else "disabled"
-        self.open_button.configure(state=state)
+    def filtered_rows(self):
+        allowed = self.filter_options.get(self.filter_var.get())
+        return [row for row in self.rows if allowed is None or row[0] in allowed]
 
-    def selected_path(self) -> str | None:
+    def apply_filter(self, _event=None):
+        selected_path = self.selected_path() if hasattr(self, "tree") else None
+        if not hasattr(self, "tree"):
+            return
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+        visible = self.filtered_rows()
+        for category, path, detail in visible:
+            iid = self.tree.insert("", "end", values=(category, path, detail))
+            if path == selected_path:
+                self.tree.selection_set(iid)
+        self.visible_count_var.set(f"{len(visible)} von {len(self.rows)} angezeigt")
+        state = "normal" if visible and not self.scanning else "disabled"
+        self.copy_button.configure(state=state)
+        self.save_button.configure(state=state)
+        self.update_buttons()
+
+    def update_buttons(self, _event=None):
+        self.open_button.configure(state="normal" if len(self.tree.selection()) == 1 else "disabled")
+
+    def selected_path(self):
         selected = self.tree.selection()
         if len(selected) != 1:
             return None
@@ -266,7 +291,7 @@ class App(tk.Tk):
             if len(values) > 1:
                 self.open_path(str(values[1]))
 
-    def open_path(self, path: str):
+    def open_path(self, path):
         if not Path(path).is_file():
             messagebox.showerror("Datei nicht gefunden", f"Datei nicht erreichbar:\n\n{path}")
             return
@@ -279,28 +304,29 @@ class App(tk.Tk):
             messagebox.showerror("Öffnen fehlgeschlagen", str(exc))
 
     def copy_paths(self):
-        paths = [row[1] for row in self.rows]
+        paths = [row[1] for row in self.filtered_rows()]
         if paths:
             self.clipboard_clear()
             self.clipboard_append("\n".join(paths))
             self.status_var.set(f"{len(paths)} Pfad/Pfade kopiert.")
 
     def save_report(self):
-        if not self.rows:
+        visible = self.filtered_rows()
+        if not visible:
             return
         destination = filedialog.asksaveasfilename(
             title="Prüfbericht speichern", defaultextension=".txt",
             filetypes=[("Textdatei", "*.txt"), ("Alle Dateien", "*.*")],
-            initialfile="TB2_Negativtester_Bericht.txt"
-        )
+            initialfile="TB2_Negativtester_Bericht.txt")
         if not destination:
             return
-        lines = [
-            "TB2-Negativtester – Prüfbericht",
-            "Hinweis: Ein Nichttreffer beweist nicht, dass die Datei keinen Text enthält.",
-            ""
-        ]
-        lines.extend(f"{category}\t{path}\t{detail}" for category, path, detail in self.rows)
+        lines = ["TB2-Negativtester – Prüfbericht",
+                 "Fragmente: 2 Zeichen in bekannter Datensatzstruktur; manuelle Analyse empfohlen.",
+                 "Vermutlich kein Text: keine bekannten Muster oder 2-Zeichen-Fragmente.",
+                 "Ein Nichttreffer beweist nicht, dass die Datei keinen Text enthält.",
+                 f"Aktiver Filter: {self.filter_var.get()}",
+                 f"Angezeigte Treffer: {len(visible)} von {len(self.rows)}", ""]
+        lines.extend(f"{category}\t{path}\t{detail}" for category, path, detail in visible)
         try:
             Path(destination).write_text("\n".join(lines) + "\n", encoding="utf-8")
         except OSError as exc:
@@ -310,8 +336,8 @@ class App(tk.Tk):
 
     def clear(self):
         self.rows = []
-        for item in self.tree.get_children():
-            self.tree.delete(item)
+        self.scan_summary = ""
+        self.apply_filter()
         self.copy_button.configure(state="disabled")
         self.open_button.configure(state="disabled")
         self.save_button.configure(state="disabled")
