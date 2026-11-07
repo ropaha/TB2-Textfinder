@@ -522,7 +522,7 @@ class App(tk.Tk):
         self.term_entry.focus_set()
 
     def choose_folder(self):
-        folder = filedialog.askdirectory(title="Ordner mit TB2-Dateien auswählen")
+        folder = filedialog.askdirectory(title="Ordner mit TB2-/TBL-Dateien auswählen")
         if folder:
             self.folder_var.set(folder)
 
@@ -540,9 +540,9 @@ class App(tk.Tk):
 
         root = Path(folder_text)
         candidates = root.rglob("*") if self.recursive_var.get() else root.glob("*")
-        files = [p for p in candidates if p.is_file() and p.suffix.lower() == ".tb2"]
+        files = [p for p in candidates if p.is_file() and p.suffix.lower() in {".tb2", ".tbl"}]
         if not files:
-            messagebox.showinfo("Keine TB2-Dateien", "Im ausgewählten Ordner wurden keine .TB2-Dateien gefunden.")
+            messagebox.showinfo("Keine TB2-/TBL-Dateien", "Im ausgewählten Ordner wurden keine .TB2- oder .TBL-Dateien gefunden.")
             return
 
         self.scanning = True
@@ -554,7 +554,7 @@ class App(tk.Tk):
         for item in self.tree.get_children():
             self.tree.delete(item)
         self.progress.configure(maximum=len(files), value=0)
-        self.status_var.set(f"Untersuche {len(files)} TB2-Datei(en) …")
+        self.status_var.set(f"Untersuche {len(files)} TB2-/TBL-Datei(en) …")
         threading.Thread(
             target=self._scan_worker,
             args=(files, term, self.case_var.get()),
