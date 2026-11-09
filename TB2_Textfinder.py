@@ -409,6 +409,46 @@ def has_variable_106_pattern(data: bytes, minimum: int = 3) -> bool:
     return False
 
 
+
+def _matches_legacy_mixed_records(data: bytes, term: str, case_sensitive: bool) -> bool:
+    """1990s Signum glyphs retained in SignumNext files.
+
+    Observed in 9300061.TB2 (80-byte records) and its edited 2026 copy
+    (106-byte records). The first glyph has 82 + variable five bytes +
+    81 00 00; following glyphs have 82 + variable five bytes +
+    80 XX YY, with the same XX YY pair throughout a word.
+    Requiring the control-byte structure and consistent pair avoids
+    matching arbitrary bytes merely because they are 80/106 apart.
+    """
+    if len(term) < 2:
+        return False
+    codes = [_glyph_char_codes(ch, case_sensitive) for ch in term]
+    if any(not allowed for allowed in codes):
+        return False
+
+    for stride in (80, 106):
+        for first in codes[0]:
+            for start in _find_all(data, bytes((first, 0x82))):
+                end = start + (len(term) - 1) * stride + 10
+                if end > len(data) or data[start + 7:start + 10] != b"\x81\x00\x00":
+                    continue
+                pair = data[start + stride + 8:start + stride + 10]
+                if not pair or len(pair) != 2:
+                    continue
+                if all(
+                    data[pos] in allowed
+                    and data[pos + 1] == 0x82
+                    and data[pos + 7] == 0x80
+                    and data[pos + 8:pos + 10] == pair
+                    for pos, allowed in (
+                        (start + i * stride, allowed)
+                        for i, allowed in enumerate(codes[1:], start=1)
+                    )
+                ):
+                    return True
+    return False
+
+
 def contains_term(data: bytes, term: str, case_sensitive: bool = False) -> bool:
     if any(data.find(needle) >= 0 for needle in _plain_needles(term, case_sensitive)):
         return True
@@ -425,7 +465,8 @@ def contains_term(data: bytes, term: str, case_sensitive: bool = False) -> bool:
             or _matches_early_80(data, term, case_sensitive)
             or _matches_early_82(data, term, case_sensitive)
             or _matches_variable_98(data, term, case_sensitive)
-            or _matches_variable_106(data, term, case_sensitive))
+            or _matches_variable_106(data, term, case_sensitive)
+            or _matches_legacy_mixed_records(data, term, case_sensitive))
 
 
 def scan_file(path: Path, term: str, case_sensitive: bool) -> tuple[bool, str | None]:
