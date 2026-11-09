@@ -9,7 +9,6 @@ import threading
 from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
-from signum_theme import ThemeController
 from TB2_Textfinder import has_variable_80_pattern, has_wide_587_pattern, has_early_80_pattern, has_early_82_pattern, has_variable_98_pattern, has_variable_106_pattern
 
 APP_VERSION = "1.3"
@@ -117,15 +116,11 @@ class App(tk.Tk):
         }
         self.scan_summary = ""
         self._build_ui()
-        self.theme_controller = ThemeController(self, self.tree)
-        self.theme_controller.chooser(self.theme_holder).pack(side="right")
         self.after(100, self._poll_events)
 
     def _build_ui(self):
         frame = ttk.Frame(self, padding=14)
         frame.pack(fill="both", expand=True)
-        self.theme_holder = ttk.Frame(frame)
-        self.theme_holder.grid(row=1, column=2, sticky="e")
         ttk.Label(frame, text="Zu prüfender Ordner:").grid(row=0, column=0, sticky="w")
         self.folder_var = tk.StringVar()
         ttk.Entry(frame, textvariable=self.folder_var).grid(row=0, column=1, sticky="ew", padx=10)
@@ -180,7 +175,7 @@ class App(tk.Tk):
                 "Fragment: 2 Zeichen in passender Struktur – könnte Text enthalten, muss analysiert werden. "
                 "Ohne Treffer: enthält vermutlich keinen Text. Dies ist keine sichere Aussage; "
                 "unbekannte Kodierungen können übersehen werden. Leer und Fehler werden separat gemeldet.")
-        ttk.Label(frame, text=note, wraplength=950, style="Note.TLabel").grid(
+        ttk.Label(frame, text=note, wraplength=950, foreground="#555555").grid(
             row=8, column=0, columnspan=3, sticky="w", pady=(10, 0))
         frame.columnconfigure(1, weight=1)
         frame.rowconfigure(6, weight=1)
