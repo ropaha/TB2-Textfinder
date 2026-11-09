@@ -14,7 +14,6 @@ import threading
 from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
-from signum_theme import ThemeController
 
 APP_TITLE = "TB2-Textfinder"
 APP_VERSION = "1.8"
@@ -447,15 +446,11 @@ class App(tk.Tk):
         self.scanning = False
         self.result_paths: list[str] = []
         self._build_ui()
-        self.theme_controller = ThemeController(self, self.tree)
-        self.theme_controller.chooser(self.theme_holder).pack(side="right")
         self.after(100, self._poll_events)
 
     def _build_ui(self):
         frame = ttk.Frame(self, padding=14)
         frame.pack(fill="both", expand=True)
-        self.theme_holder = ttk.Frame(frame)
-        self.theme_holder.grid(row=0, column=2, sticky="e")
 
         ttk.Label(frame, text="Gesuchter Text:").grid(row=0, column=0, sticky="w")
         self.term_var = tk.StringVar()
@@ -519,7 +514,7 @@ class App(tk.Tk):
                 "berücksichtigt. Die Groß-/Kleinschreibung wird standardmäßig ignoriert – auch bei "
                 "Umlauten. Die Dateiformate werden weiter untersucht; ein Nichttreffer ist daher "
                 "noch kein Beweis, dass der Text fehlt.")
-        ttk.Label(frame, text=note, wraplength=900, style="Note.TLabel").grid(
+        ttk.Label(frame, text=note, wraplength=900, foreground="#555555").grid(
             row=9, column=0, columnspan=3, sticky="w", pady=(10, 0)
         )
         frame.columnconfigure(1, weight=1)
