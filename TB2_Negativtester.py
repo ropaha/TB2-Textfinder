@@ -11,7 +11,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 from TB2_Textfinder import has_variable_80_pattern, has_wide_587_pattern, has_early_80_pattern, has_early_82_pattern, has_variable_98_pattern, has_variable_106_pattern
 
-APP_VERSION = "1.2 – Testversion"
+APP_VERSION = "1.3"
 MIN_CHARACTERS = 3
 
 # Empirisch beobachtete Marker und Abstände aus dem TB2-Textfinder-Projekt.
@@ -105,12 +105,14 @@ class App(tk.Tk):
         self.events: queue.Queue = queue.Queue()
         self.scanning = False
         self.rows: list[tuple[str, str, str]] = []
+        self.ignored_paths: set[str] = set()
         self.filter_var = tk.StringVar(value="Alle auffälligen Dateien")
         self.filter_options = {
             "Alle auffälligen Dateien": None,
             "Könnte Text enthalten, muss analysiert werden": {"Fragment"},
             "Enthält vermutlich keinen Text": {"Vermutlich kein Text"},
             "Lesefehler / Leere Dateien": {"Fehler", "Leer"},
+            "Ignoriert": {"Ignoriert"},
         }
         self.scan_summary = ""
         self._build_ui()
@@ -132,6 +134,8 @@ class App(tk.Tk):
         self.scan_button.pack(side="left")
         self.open_button = ttk.Button(actions, text="Datei öffnen", command=self.open_selected, state="disabled")
         self.open_button.pack(side="left", padx=(8, 0))
+        self.ignore_button = ttk.Button(actions, text="Ignorieren", command=self.toggle_ignore, state="disabled")
+        self.ignore_button.pack(side="left", padx=(8, 0))
         self.copy_button = ttk.Button(actions, text="Pfade kopieren", command=self.copy_paths, state="disabled")
         self.copy_button.pack(side="left", padx=(8, 0))
         self.save_button = ttk.Button(actions, text="Liste als TXT speichern …", command=self.save_report, state="disabled")
@@ -155,6 +159,7 @@ class App(tk.Tk):
         self.tree.heading("path", text="Vollständiger Dateipfad")
         self.tree.heading("detail", text="Hinweis")
         self.tree.column("category", width=160, stretch=False)
+        self.tree.tag_configure("ignored", foreground="#777777")
         self.tree.column("path", width=600, anchor="w")
         self.tree.column("detail", width=240, anchor="w")
         self.tree.grid(row=6, column=0, columnspan=2, sticky="nsew")
@@ -187,9 +192,23 @@ class App(tk.Tk):
             return
         if self.scanning:
             return
-        root = Path(folder_text)
+        root = Path(folder_text).resolve()
         candidates = root.rglob("*") if self.recursive_var.get() else root.glob("*")
         files = [p for p in candidates if p.is_file() and p.suffix.lower() in {".tb2", ".tbl"}]
+        try:
+            ignored = set()
+            for directory in {p.parent for p in files}:
+                ignore_file = directory / "ignore.txt"
+                if not ignore_file.is_file():
+                    continue
+                for line in ignore_file.read_text(encoding="utf-8").splitlines():
+                    entry = line.strip()
+                    if entry and not entry.startswith("#"):
+                        ignored.add(self._path_key(directory / entry))
+        except (OSError, UnicodeError) as exc:
+            messagebox.showerror("Ignorierliste nicht lesbar", str(exc))
+            return
+        self.ignored_paths = ignored
         if not files:
             messagebox.showinfo("Keine TB2-/TBL-Dateien", "Im Ordner wurden keine .TB2- oder .TBL-Dateien gefunden.")
             return
@@ -201,6 +220,7 @@ class App(tk.Tk):
         self.copy_button.configure(state="disabled")
         self.save_button.configure(state="disabled")
         self.open_button.configure(state="disabled")
+        self.ignore_button.configure(state="disabled")
         self.progress.configure(maximum=len(files), value=0)
         self.status_var.set(f"Prüfe {len(files)} TB2-/TBL-Datei(en) …")
         threading.Thread(target=self._worker, args=(files,), daemon=True).start()
@@ -248,9 +268,20 @@ class App(tk.Tk):
             pass
         self.after(100, self._poll_events)
 
+    @staticmethod
+    def _path_key(path: Path) -> str:
+        return os.path.normcase(os.path.abspath(path))
+
+    def is_ignored(self, path: str) -> bool:
+        return self._path_key(Path(path)) in self.ignored_paths
+
     def filtered_rows(self):
-        allowed = self.filter_options.get(self.filter_var.get())
-        return [row for row in self.rows if allowed is None or row[0] in allowed]
+        selected_filter = self.filter_var.get()
+        if selected_filter == "Ignoriert":
+            return [row for row in self.rows if self.is_ignored(row[1])]
+        allowed = self.filter_options.get(selected_filter)
+        return [row for row in self.rows if allowed is None or
+                (not self.is_ignored(row[1]) and row[0] in allowed)]
 
     def apply_filter(self, _event=None):
         selected_path = self.selected_path() if hasattr(self, "tree") else None
@@ -260,7 +291,10 @@ class App(tk.Tk):
             self.tree.delete(item)
         visible = self.filtered_rows()
         for category, path, detail in visible:
-            iid = self.tree.insert("", "end", values=(category, path, detail))
+            ignored = self.is_ignored(path)
+            iid = self.tree.insert("", "end", values=(
+                "Ignoriert" if ignored else category, path, detail),
+                tags=("ignored",) if ignored else ())
             if path == selected_path:
                 self.tree.selection_set(iid)
         self.visible_count_var.set(f"{len(visible)} von {len(self.rows)} angezeigt")
@@ -270,7 +304,39 @@ class App(tk.Tk):
         self.update_buttons()
 
     def update_buttons(self, _event=None):
-        self.open_button.configure(state="normal" if len(self.tree.selection()) == 1 else "disabled")
+        selected = self.selected_path()
+        state = "normal" if selected and not self.scanning else "disabled"
+        self.open_button.configure(state=state)
+        self.ignore_button.configure(state=state)
+        self.ignore_button.configure(text="Ignorieren aufheben" if selected and self.is_ignored(selected) else "Ignorieren")
+
+    def toggle_ignore(self):
+        selected = self.selected_path()
+        if not selected or self.scanning:
+            return
+        file_path = Path(selected)
+        ignore_file = file_path.parent / "ignore.txt"
+        key = self._path_key(file_path)
+        updated = set(self.ignored_paths)
+        if key in updated:
+            updated.remove(key)
+        else:
+            updated.add(key)
+        try:
+            # Jede Ignorierliste enthält nur Dateien aus ihrem eigenen Verzeichnis.
+            names = sorted(
+                (Path(p).name for p in updated
+                 if self._path_key(Path(p).parent) == self._path_key(file_path.parent)),
+                key=str.casefold)
+            temporary = ignore_file.with_name("ignore.txt.tmp")
+            temporary.write_text("\n".join(names) + ("\n" if names else ""), encoding="utf-8")
+            temporary.replace(ignore_file)
+        except (OSError, ValueError) as exc:
+            messagebox.showerror("Ignorierliste nicht gespeichert", str(exc))
+            return
+        self.ignored_paths = updated
+        self.apply_filter()
+        self.status_var.set(f"Ignorierliste aktualisiert: {ignore_file}")
 
     def selected_path(self):
         selected = self.tree.selection()
@@ -326,7 +392,8 @@ class App(tk.Tk):
                  "Ein Nichttreffer beweist nicht, dass die Datei keinen Text enthält.",
                  f"Aktiver Filter: {self.filter_var.get()}",
                  f"Angezeigte Treffer: {len(visible)} von {len(self.rows)}", ""]
-        lines.extend(f"{category}\t{path}\t{detail}" for category, path, detail in visible)
+        lines.extend(f"{'Ignoriert' if self.is_ignored(path) else category}\t{path}\t{detail}"
+                     for category, path, detail in visible)
         try:
             Path(destination).write_text("\n".join(lines) + "\n", encoding="utf-8")
         except OSError as exc:
@@ -340,6 +407,7 @@ class App(tk.Tk):
         self.apply_filter()
         self.copy_button.configure(state="disabled")
         self.open_button.configure(state="disabled")
+        self.ignore_button.configure(state="disabled")
         self.save_button.configure(state="disabled")
         self.status_var.set("Ergebnisliste geleert.")
 

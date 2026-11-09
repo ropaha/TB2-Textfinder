@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""TB2-Textfinder 1.6
+"""TB2-Textfinder 1.8
 
 Durchsucht .TB2-Dateien nach lesbarem Text und bislang beobachteten
 SignumNext-Glyphenprofilen mehrerer Formatgenerationen. Treffer werden
@@ -16,7 +16,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
 APP_TITLE = "TB2-Textfinder"
-APP_VERSION = "1.7 – Testversion"
+APP_VERSION = "1.8"
 PROFILES = (
     # Neue und mittlere Generation: Zeichen + Marker, Abstand 106 Bytes.
     ("SignumNext-Profil A", b"\x81\x00\x00", (0x6A,)),
@@ -477,12 +477,12 @@ class App(tk.Tk):
         actions.grid(row=3, column=0, columnspan=3, sticky="w", pady=(12, 10))
         self.search_button = ttk.Button(actions, text="Suchen", command=self.start_scan)
         self.search_button.pack(side="left")
-        self.copy_button = ttk.Button(actions, text="Pfade kopieren", command=self.copy_paths, state="disabled")
-        self.copy_button.pack(side="left", padx=(8, 0))
         self.open_button = ttk.Button(
             actions, text="Datei öffnen", command=self.open_selected_file, state="disabled"
         )
         self.open_button.pack(side="left", padx=(8, 0))
+        self.copy_button = ttk.Button(actions, text="Pfade kopieren", command=self.copy_paths, state="disabled")
+        self.copy_button.pack(side="left", padx=(8, 0))
         self.save_button = ttk.Button(actions, text="Pfade als TXT speichern …", command=self.save_paths, state="disabled")
         self.save_button.pack(side="left", padx=(8, 0))
         ttk.Button(actions, text="Leeren", command=self.clear_results).pack(side="left", padx=(8, 0))
