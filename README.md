@@ -8,6 +8,16 @@ Ein kleines Windows-Programm zum Durchsuchen von `.TB2`-Dateien nach Texten, die
 
 ![TB2-Textfinder Projektbanner](banner.svg)
 
+## Wie dieses Projekt entstanden ist
+
+Der Anlass war ein ganz praktisches Problem aus dem Steinmetzhandwerk: Eine Steininschrift aus dem Jahr 1992 sollte ergänzt werden. Die damalige Beschriftung war noch als Signum-Datei vorhanden – nur welche der vielen Dateien aus diesem Jahr war die richtige?
+
+Um die Vorlage wiederzufinden, musste ich zahlreiche Dateien einzeln in Signum öffnen und durchsehen. Das hat funktioniert, war aber mühsam und zeitaufwendig. Daraus entstand die Idee für den TB2-Textfinder: Warum nicht die alten Dateien direkt nach einem Namen oder einem Text durchsuchen und sich die passenden Dateipfade anzeigen lassen?
+
+Das Programm ist deshalb in erster Linie ein Werkzeug für meinen eigenen Arbeitsalltag. Vielleicht kennt aber auch der eine oder andere Kollege die Situation: Alte digitale Vorlagen sind noch da, doch die Suche nach der richtigen Datei dauert länger als die eigentliche Arbeit.
+
+Die bisher untersuchten Dateien lassen sich in meinem Bestand inzwischen praktisch vollständig bearbeiten beziehungsweise nach manueller Prüfung gezielt ausnehmen. Andere Bestände können bislang unbekannte Dateimuster enthalten; eine vollständige Erkennung aller Signum-Varianten ist nicht garantiert.
+
 ## Funktionen
 
 - Durchsucht einen gewählten Ordner nach `.TB2`-Dateien, auf Wunsch einschließlich Unterordnern.
