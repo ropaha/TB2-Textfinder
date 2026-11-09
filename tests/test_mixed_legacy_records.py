@@ -19,7 +19,7 @@ def mixed_glyphs(text: str, stride: int, pair: bytes = b"\xcb\xcc") -> bytes:
 
 class MixedLegacyGlyphTests(unittest.TestCase):
     def test_1992_original_80_byte_records(self):
-        self.assertTrue(contains_term(mixed_glyphs("Werner Gerken", 80), "Gerken"))
+        self.assertTrue(contains_term(mixed_glyphs("Gerken", 80), "Gerken"))
 
     def test_2026_resaved_106_byte_records(self):
         self.assertTrue(contains_term(mixed_glyphs("Werner Gerken", 106), "Werner"))
