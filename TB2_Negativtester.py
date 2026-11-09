@@ -106,7 +106,6 @@ class App(tk.Tk):
         self.scanning = False
         self.rows: list[tuple[str, str, str]] = []
         self.ignored_paths: set[str] = set()
-        self.ignore_file: Path | None = None
         self.filter_var = tk.StringVar(value="Alle auffälligen Dateien")
         self.filter_options = {
             "Alle auffälligen Dateien": None,
@@ -194,18 +193,22 @@ class App(tk.Tk):
         if self.scanning:
             return
         root = Path(folder_text).resolve()
-        self.ignore_file = root / "ignore.txt"
+        candidates = root.rglob("*") if self.recursive_var.get() else root.glob("*")
+        files = [p for p in candidates if p.is_file() and p.suffix.lower() in {".tb2", ".tbl"}]
         try:
-            self.ignored_paths = {
-                self._path_key(root / line.strip())
-                for line in self.ignore_file.read_text(encoding="utf-8").splitlines()
-                if line.strip() and not line.lstrip().startswith("#")
-            } if self.ignore_file.exists() else set()
+            ignored = set()
+            for directory in {p.parent for p in files}:
+                ignore_file = directory / "ignore.txt"
+                if not ignore_file.is_file():
+                    continue
+                for line in ignore_file.read_text(encoding="utf-8").splitlines():
+                    entry = line.strip()
+                    if entry and not entry.startswith("#"):
+                        ignored.add(self._path_key(directory / entry))
         except (OSError, UnicodeError) as exc:
             messagebox.showerror("Ignorierliste nicht lesbar", str(exc))
             return
-        candidates = root.rglob("*") if self.recursive_var.get() else root.glob("*")
-        files = [p for p in candidates if p.is_file() and p.suffix.lower() in {".tb2", ".tbl"}]
+        self.ignored_paths = ignored
         if not files:
             messagebox.showinfo("Keine TB2-/TBL-Dateien", "Im Ordner wurden keine .TB2- oder .TBL-Dateien gefunden.")
             return
@@ -309,26 +312,31 @@ class App(tk.Tk):
 
     def toggle_ignore(self):
         selected = self.selected_path()
-        if not selected or self.scanning or self.ignore_file is None:
+        if not selected or self.scanning:
             return
-        key = self._path_key(Path(selected))
+        file_path = Path(selected)
+        ignore_file = file_path.parent / "ignore.txt"
+        key = self._path_key(file_path)
         updated = set(self.ignored_paths)
         if key in updated:
             updated.remove(key)
         else:
             updated.add(key)
-        root = self.ignore_file.parent
         try:
-            relative_paths = sorted((os.path.relpath(p, root) for p in updated), key=str.casefold)
-            temporary = self.ignore_file.with_name("ignore.txt.tmp")
-            temporary.write_text("\n".join(relative_paths) + ("\n" if relative_paths else ""), encoding="utf-8")
-            temporary.replace(self.ignore_file)
+            # Jede Ignorierliste enthält nur Dateien aus ihrem eigenen Verzeichnis.
+            names = sorted(
+                (Path(p).name for p in updated
+                 if self._path_key(Path(p).parent) == self._path_key(file_path.parent)),
+                key=str.casefold)
+            temporary = ignore_file.with_name("ignore.txt.tmp")
+            temporary.write_text("\n".join(names) + ("\n" if names else ""), encoding="utf-8")
+            temporary.replace(ignore_file)
         except (OSError, ValueError) as exc:
             messagebox.showerror("Ignorierliste nicht gespeichert", str(exc))
             return
         self.ignored_paths = updated
         self.apply_filter()
-        self.status_var.set(f"Ignorierliste aktualisiert: {self.ignore_file}")
+        self.status_var.set(f"Ignorierliste aktualisiert: {ignore_file}")
 
     def selected_path(self):
         selected = self.tree.selection()
