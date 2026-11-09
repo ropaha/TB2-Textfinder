@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""TB2-Textfinder 1.8
+"""TB2-Textfinder 1.8.2
 
 Durchsucht .TB2-Dateien nach lesbarem Text und bislang beobachteten
 SignumNext-Glyphenprofilen mehrerer Formatgenerationen. Treffer werden
@@ -16,7 +16,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
 APP_TITLE = "TB2-Textfinder"
-APP_VERSION = "1.8"
+APP_VERSION = "1.8.2"
 PROFILES = (
     # Neue und mittlere Generation: Zeichen + Marker, Abstand 106 Bytes.
     ("SignumNext-Profil A", b"\x81\x00\x00", (0x6A,)),
