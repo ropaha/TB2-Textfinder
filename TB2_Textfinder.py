@@ -11,12 +11,13 @@ from __future__ import annotations
 import os
 import queue
 import threading
+from time import perf_counter
 from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
 APP_TITLE = "TB2-Textfinder"
-APP_VERSION = "1.8.2"
+APP_VERSION = "1.8.2-dev (Suchmodi)"
 PROFILES = (
     # Neue und mittlere Generation: Zeichen + Marker, Abstand 106 Bytes.
     ("SignumNext-Profil A", b"\x81\x00\x00", (0x6A,)),
@@ -511,11 +512,20 @@ class App(tk.Tk):
         options.grid(row=2, column=1, columnspan=2, sticky="w", pady=(10, 2))
         self.recursive_var = tk.BooleanVar(value=True)
         self.case_var = tk.BooleanVar(value=False)
+        self.search_mode_var = tk.StringVar(value="full")
         ttk.Checkbutton(options, text="Unterordner einbeziehen", variable=self.recursive_var).pack(side="left", padx=(0, 20))
         ttk.Checkbutton(options, text="Groß-/Kleinschreibung beachten", variable=self.case_var).pack(side="left")
 
+        mode_options = ttk.Frame(frame)
+        mode_options.grid(row=3, column=1, columnspan=2, sticky="w", pady=(4, 2))
+        ttk.Label(mode_options, text="Suchmodus:").pack(side="left", padx=(0, 10))
+        ttk.Radiobutton(mode_options, text="Vollständig (alle Bytes)", variable=self.search_mode_var,
+                        value="full").pack(side="left", padx=(0, 14))
+        ttk.Radiobutton(mode_options, text="Schnell (JPEG überspringen, experimentell)",
+                        variable=self.search_mode_var, value="fast").pack(side="left")
+
         actions = ttk.Frame(frame)
-        actions.grid(row=3, column=0, columnspan=3, sticky="w", pady=(12, 10))
+        actions.grid(row=4, column=0, columnspan=3, sticky="w", pady=(12, 10))
         self.search_button = ttk.Button(actions, text="Suchen", command=self.start_scan)
         self.search_button.pack(side="left")
         self.open_button = ttk.Button(
@@ -529,26 +539,27 @@ class App(tk.Tk):
         ttk.Button(actions, text="Leeren", command=self.clear_results).pack(side="left", padx=(8, 0))
 
         self.progress = ttk.Progressbar(frame, mode="determinate")
-        self.progress.grid(row=4, column=0, columnspan=3, sticky="ew", pady=(0, 6))
+        self.progress.grid(row=5, column=0, columnspan=3, sticky="ew", pady=(0, 6))
         self.status_var = tk.StringVar(value="Bereit. Suchtext und Ordner auswählen.")
-        ttk.Label(frame, textvariable=self.status_var).grid(row=5, column=0, columnspan=3, sticky="w", pady=(0, 8))
+        ttk.Label(frame, textvariable=self.status_var).grid(row=6, column=0, columnspan=3, sticky="w", pady=(0, 8))
 
-        ttk.Label(frame, text="Gefundene Dateien (vollständiger Pfad):").grid(row=6, column=0, columnspan=3, sticky="w", pady=(4, 4))
+        ttk.Label(frame, text="Gefundene Dateien (vollständiger Pfad):").grid(row=7, column=0, columnspan=3, sticky="w", pady=(4, 4))
         self.tree = ttk.Treeview(frame, columns=("path",), show="headings")
         self.tree.heading("path", text="Dateipfad")
         self.tree.column("path", width=880, anchor="w")
-        self.tree.grid(row=7, column=0, columnspan=2, sticky="nsew")
+        self.tree.grid(row=8, column=0, columnspan=2, sticky="nsew")
         yscroll = ttk.Scrollbar(frame, orient="vertical", command=self.tree.yview)
-        yscroll.grid(row=7, column=2, sticky="ns")
+        yscroll.grid(row=8, column=2, sticky="ns")
         self.tree.configure(yscrollcommand=yscroll.set)
         xscroll = ttk.Scrollbar(frame, orient="horizontal", command=self.tree.xview)
-        xscroll.grid(row=8, column=0, columnspan=2, sticky="ew")
+        xscroll.grid(row=9, column=0, columnspan=2, sticky="ew")
         self.tree.configure(xscrollcommand=xscroll.set)
         # Doppelklick oder die Schaltfläche öffnen die TB2-Datei mit dem in Windows verknüpften Programm.
         self.tree.bind("<Double-1>", self.open_result_file)
         self.tree.bind("<<TreeviewSelect>>", self._update_open_button_state)
 
-        note = ("Datei in der Trefferliste markieren und auf 'Datei öffnen' klicken – "
+        note = ("Schnell überspringt JPEG-Daten und kann Treffer übersehen; Vollständig entspricht der bisherigen Suche. "
+                "Datei in der Trefferliste markieren und auf 'Datei öffnen' klicken – "
                 "oder den Treffer doppelt anklicken. Die TB2-Datei wird mit dem in Windows "
                 "verknüpften Programm. Suche in Klartext sowie in untersuchten TB2-Glyphenmustern mehrerer Generationen "
                 "(Datensatzabstände 80, 98, 106 und 587 Byte, mit unterschiedlichen Markern). Umlaute und weitere Ein-Byte-Zeichen werden "
@@ -556,10 +567,10 @@ class App(tk.Tk):
                 "Umlauten. Die Dateiformate werden weiter untersucht; ein Nichttreffer ist daher "
                 "noch kein Beweis, dass der Text fehlt.")
         ttk.Label(frame, text=note, wraplength=900, foreground="#555555").grid(
-            row=9, column=0, columnspan=3, sticky="w", pady=(10, 0)
+            row=10, column=0, columnspan=3, sticky="w", pady=(10, 0)
         )
         frame.columnconfigure(1, weight=1)
-        frame.rowconfigure(7, weight=1)
+        frame.rowconfigure(8, weight=1)
         self.term_entry.focus_set()
 
     def choose_folder(self):
@@ -598,21 +609,30 @@ class App(tk.Tk):
         self.status_var.set(f"Untersuche {len(files)} TB2-/TBL-Datei(en) …")
         threading.Thread(
             target=self._scan_worker,
-            args=(files, term, self.case_var.get()),
+            args=(files, term, self.case_var.get(), self.search_mode_var.get()),
             daemon=True,
         ).start()
 
-    def _scan_worker(self, files: list[Path], term: str, case_sensitive: bool):
+    def _scan_worker(self, files: list[Path], term: str, case_sensitive: bool, mode: str):
         found: list[str] = []
         errors = 0
+        started = perf_counter()
         for index, path in enumerate(files, start=1):
-            hit, error = scan_file(path, term, case_sensitive)
+            if mode == "fast":
+                try:
+                    from tb2_jpeg_fast import contains_term_fast
+                    hit = contains_term_fast(path.read_bytes(), term, case_sensitive)
+                    error = None
+                except (OSError, ValueError, MemoryError) as exc:
+                    hit, error = False, str(exc)
+            else:
+                hit, error = scan_file(path, term, case_sensitive)
             if hit:
                 found.append(str(path.resolve()))
             if error:
                 errors += 1
             self.events.put(("progress", index, len(files), path.name))
-        self.events.put(("finished", found, len(files), errors))
+        self.events.put(("finished", found, len(files), errors, mode, perf_counter() - started))
 
     def _poll_events(self):
         try:
@@ -623,7 +643,7 @@ class App(tk.Tk):
                     self.progress.configure(value=current)
                     self.status_var.set(f"Datei {current}/{total}: {filename}")
                 elif event[0] == "finished":
-                    _, found, total, errors = event
+                    _, found, total, errors, mode, seconds = event
                     self.result_paths = found
                     for path in found:
                         self.tree.insert("", "end", values=(path,))
@@ -634,7 +654,7 @@ class App(tk.Tk):
                     self.save_button.configure(state=state)
                     # Die Datei-Öffnen-Schaltfläche wird erst nach Auswahl eines Treffers aktiviert.
                     self.open_button.configure(state="disabled")
-                    msg = f"Fertig: {len(found)} Treffer in {total} Datei(en)."
+                    msg = f"Fertig ({'Schnell' if mode == 'fast' else 'Vollständig'}): {len(found)} Treffer in {total} Datei(en) – {seconds:.2f} s."
                     if errors:
                         msg += f" {errors} Datei(en) konnten nicht gelesen werden."
                     self.status_var.set(msg)
