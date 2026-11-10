@@ -16,7 +16,7 @@ _RESOURCE_PATH = re.compile(
 # vorigen Ressourcennamen anschliessen (BENEKE.TB2: ...ORNHAGEN2\SYS\...).
 # Nur die konkrete historische Verzeichnisstruktur wird akzeptiert.
 _LEGACY_SERVER_PATH = re.compile(
-    rb"[A-Za-z0-9_-]+\\SYS\\STEIN\\SIGNUM\\TBL\\[A-Za-z0-9 _.-]+\\[A-Za-z0-9 _.-]+"
+    rb"[A-Za-z0-9_-]+\\SYS\\STEIN\\SIGNUM\\TBL\\[A-Za-z0-9 _.-]+\\[A-Za-z0-9 _.-]+",
     re.IGNORECASE,
 )
 
