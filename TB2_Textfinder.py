@@ -12,6 +12,7 @@ import os
 import queue
 import threading
 from time import perf_counter
+from tb2_resource_paths import mask_resource_paths
 from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
@@ -475,7 +476,7 @@ def scan_file(path: Path, term: str, case_sensitive: bool) -> tuple[bool, str | 
         data = path.read_bytes()
     except OSError as exc:
         return False, str(exc)
-    return contains_term(data, term, case_sensitive), None
+    return contains_term(mask_resource_paths(data), term, case_sensitive), None
 
 
 class App(tk.Tk):
@@ -628,7 +629,7 @@ class App(tk.Tk):
             if mode == "fast":
                 try:
                     from tb2_jpeg_fast import contains_term_fast
-                    hit = contains_term_fast(path.read_bytes(), term, case_sensitive)
+                    hit = contains_term_fast(mask_resource_paths(path.read_bytes()), term, case_sensitive)
                     error = None
                 except (OSError, ValueError, MemoryError) as exc:
                     hit, error = False, str(exc)
