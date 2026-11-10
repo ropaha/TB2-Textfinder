@@ -533,10 +533,10 @@ class App(tk.Tk):
         mode_options = ttk.Frame(frame)
         mode_options.grid(row=3, column=1, columnspan=2, sticky="w", pady=(4, 2))
         ttk.Label(mode_options, text="Suchmodus:").pack(side="left", padx=(0, 10))
-        ttk.Radiobutton(mode_options, text="Vollständig (alle Bytes)", variable=self.search_mode_var,
-                        value="full").pack(side="left", padx=(0, 14))
         ttk.Radiobutton(mode_options, text="Schnell (JPEG überspringen)",
-                        variable=self.search_mode_var, value="fast").pack(side="left")
+                        variable=self.search_mode_var, value="fast").pack(side="left", padx=(0, 14))
+        ttk.Radiobutton(mode_options, text="Vollständig (alle Bytes)", variable=self.search_mode_var,
+                        value="full").pack(side="left")
 
         actions = ttk.Frame(frame)
         actions.grid(row=4, column=0, columnspan=3, sticky="w", pady=(12, 10))
