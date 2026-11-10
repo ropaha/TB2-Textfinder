@@ -25,7 +25,7 @@ INFO_TEXT = (
     "Schnell überspringt JPEG-Daten und kann Treffer übersehen; Vollständig entspricht der bisherigen Suche. "
     "Datei in der Trefferliste markieren und auf 'Datei öffnen' klicken – "
     "oder den Treffer doppelt anklicken. Die TB2-Datei wird mit dem in Windows "
-    "verknüpften Programm. Suche in Klartext sowie in untersuchten TB2-Glyphenmustern mehrerer Generationen "
+    "verknüpften Programm geöffnet. Suche in Klartext sowie in untersuchten TB2-Glyphenmustern mehrerer Generationen "
     "(Datensatzabstände 80, 98, 106 und 587 Byte, mit unterschiedlichen Markern). Umlaute und weitere Ein-Byte-Zeichen werden "
     "berücksichtigt. Die Groß-/Kleinschreibung wird standardmäßig ignoriert – auch bei "
     "Umlauten. Die Dateiformate werden weiter untersucht; ein Nichttreffer ist daher "
