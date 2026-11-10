@@ -8,7 +8,7 @@ import re
 
 _RESOURCE_PATH = re.compile(
     rb"\\+[A-Za-z0-9 _.-]+(?:\\[A-Za-z0-9 _.-]+){2,}"
-    rb"\.(?:TB2|TBL|STNTN|JPG|JPEG|BMP|PNG)(?![A-Za-z0-9])",
+    rb"\.(?:TB2|TBL|STNTN|STN|ORN|JPG|JPEG|BMP|PNG)(?![A-Za-z0-9])",
     re.IGNORECASE,
 )
 
