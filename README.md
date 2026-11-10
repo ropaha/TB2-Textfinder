@@ -21,7 +21,11 @@ Die bisher untersuchten Dateien lassen sich in meinem Bestand inzwischen praktis
 ## Funktionen
 
 - Durchsucht einen gewählten Ordner nach `.TB2`- und `.TBL`-Dateien, auf Wunsch einschließlich Unterordnern.
-- Sucht Klartext und mehrere bislang empirisch beobachtete Glyphen-/Datensatzmuster.\n- Zwei Suchmodi: **Schnell** (Standard; überspringt erkannte JPEG-Bereiche) und **Vollständig** (prüft alle Bytes). Die schnelle Suche kann Treffer übersehen.\n- Filtert erkennbare eingebettete Ressourcen- und Netzwerkdateipfade, um Fehlalarme zu reduzieren.\n- Zeigt nach der Suche die benötigte Laufzeit an.\n- **Info**-Fenster mit Hinweisen und vollständiger MIT-Lizenz.
+- Sucht Klartext und mehrere bislang empirisch beobachtete Glyphen-/Datensatzmuster.
+- Zwei Suchmodi: **Schnell** (Standard; überspringt erkannte JPEG-Bereiche) und **Vollständig** (prüft alle Bytes). Die schnelle Suche kann Treffer übersehen.
+- Filtert erkennbare eingebettete Ressourcen- und Netzwerkdateipfade, um Fehlalarme zu reduzieren.
+- Zeigt nach der Suche die benötigte Laufzeit an.
+- **Info**-Fenster mit Hinweisen und vollständiger MIT-Lizenz.
 - Ignoriert standardmäßig die Groß-/Kleinschreibung, auch bei deutschen Umlauten.
 - Zeigt vollständige Dateipfade an.
 - Trefferpfade können kopiert oder als TXT-Datei gespeichert werden.
