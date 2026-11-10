@@ -17,7 +17,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
 APP_TITLE = "TB2-Textfinder"
-APP_VERSION = "1.8.2-dev (Suchmodi)"
+APP_VERSION = "1.8.3-dev"
 PROFILES = (
     # Neue und mittlere Generation: Zeichen + Marker, Abstand 106 Bytes.
     ("SignumNext-Profil A", b"\x81\x00\x00", (0x6A,)),
@@ -512,7 +512,7 @@ class App(tk.Tk):
         options.grid(row=2, column=1, columnspan=2, sticky="w", pady=(10, 2))
         self.recursive_var = tk.BooleanVar(value=True)
         self.case_var = tk.BooleanVar(value=False)
-        self.search_mode_var = tk.StringVar(value="full")
+        self.search_mode_var = tk.StringVar(value="fast")
         ttk.Checkbutton(options, text="Unterordner einbeziehen", variable=self.recursive_var).pack(side="left", padx=(0, 20))
         ttk.Checkbutton(options, text="Groß-/Kleinschreibung beachten", variable=self.case_var).pack(side="left")
 
@@ -521,7 +521,7 @@ class App(tk.Tk):
         ttk.Label(mode_options, text="Suchmodus:").pack(side="left", padx=(0, 10))
         ttk.Radiobutton(mode_options, text="Vollständig (alle Bytes)", variable=self.search_mode_var,
                         value="full").pack(side="left", padx=(0, 14))
-        ttk.Radiobutton(mode_options, text="Schnell (JPEG überspringen, experimentell)",
+        ttk.Radiobutton(mode_options, text="Schnell (JPEG überspringen)",
                         variable=self.search_mode_var, value="fast").pack(side="left")
 
         actions = ttk.Frame(frame)
