@@ -566,12 +566,19 @@ class App(tk.Tk):
                 "berücksichtigt. Die Groß-/Kleinschreibung wird standardmäßig ignoriert – auch bei "
                 "Umlauten. Die Dateiformate werden weiter untersucht; ein Nichttreffer ist daher "
                 "noch kein Beweis, dass der Text fehlt.")
-        ttk.Label(frame, text=note, wraplength=900, foreground="#555555").grid(
-            row=10, column=0, columnspan=3, sticky="w", pady=(10, 0)
-        )
+        self.note_label = ttk.Label(frame, text=note, wraplength=600, foreground="#555555", justify="left")
+        self.note_label.grid(row=10, column=0, columnspan=3, sticky="ew", pady=(10, 0))
+        frame.bind("<Configure>", self._resize_note)
+
         frame.columnconfigure(1, weight=1)
         frame.rowconfigure(8, weight=1)
         self.term_entry.focus_set()
+
+    def _resize_note(self, event):
+        """Keep the explanatory text wrapped inside the available frame width."""
+        available = max(200, event.width - 12)
+        if self.note_label.cget("wraplength") != available:
+            self.note_label.configure(wraplength=available)
 
     def choose_folder(self):
         folder = filedialog.askdirectory(title="Ordner mit TB2-/TBL-Dateien auswählen")
