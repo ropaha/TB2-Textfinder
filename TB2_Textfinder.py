@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""TB2-Textfinder 1.8.2
+"""TB2-Textfinder 1.8.4
 
 Durchsucht .TB2-Dateien nach lesbarem Text und bislang beobachteten
 SignumNext-Glyphenprofilen mehrerer Formatgenerationen. Treffer werden
@@ -11,12 +11,27 @@ from __future__ import annotations
 import os
 import queue
 import threading
+from time import perf_counter
+from tb2_resource_paths import mask_resource_paths
 from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
 APP_TITLE = "TB2-Textfinder"
-APP_VERSION = "1.8.2"
+APP_VERSION = "1.8.4"
+MIT_LICENSE = "MIT License\n\nCopyright (c) 2026 Roga Hagen (roga@hagen.me)\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE.\n"
+
+INFO_TEXT = (
+    "Schnell überspringt JPEG-Daten und kann Treffer übersehen; Vollständig entspricht der bisherigen Suche. "
+    "Datei in der Trefferliste markieren und auf 'Datei öffnen' klicken – "
+    "oder den Treffer doppelt anklicken. Die TB2-Datei wird mit dem in Windows "
+    "verknüpften Programm geöffnet. Suche in Klartext sowie in untersuchten TB2-Glyphenmustern mehrerer Generationen "
+    "(Datensatzabstände 80, 98, 106 und 587 Byte, mit unterschiedlichen Markern). Umlaute und weitere Ein-Byte-Zeichen werden "
+    "berücksichtigt. Die Groß-/Kleinschreibung wird standardmäßig ignoriert – auch bei "
+    "Umlauten. Die Dateiformate werden weiter untersucht; ein Nichttreffer ist daher "
+    "noch kein Beweis, dass der Text fehlt."
+)
+
 PROFILES = (
     # Neue und mittlere Generation: Zeichen + Marker, Abstand 106 Bytes.
     ("SignumNext-Profil A", b"\x81\x00\x00", (0x6A,)),
@@ -409,6 +424,46 @@ def has_variable_106_pattern(data: bytes, minimum: int = 3) -> bool:
     return False
 
 
+
+def _matches_legacy_mixed_records(data: bytes, term: str, case_sensitive: bool) -> bool:
+    """1990s Signum glyphs retained in SignumNext files.
+
+    Observed in 9300061.TB2 (80-byte records) and its edited 2026 copy
+    (106-byte records). The first glyph has 82 + variable five bytes +
+    81 00 00; following glyphs have 82 + variable five bytes +
+    80 XX YY, with the same XX YY pair throughout a word.
+    Requiring the control-byte structure and consistent pair avoids
+    matching arbitrary bytes merely because they are 80/106 apart.
+    """
+    if len(term) < 2:
+        return False
+    codes = [_glyph_char_codes(ch, case_sensitive) for ch in term]
+    if any(not allowed for allowed in codes):
+        return False
+
+    for stride in (80, 106):
+        for first in codes[0]:
+            for start in _find_all(data, bytes((first, 0x82))):
+                end = start + (len(term) - 1) * stride + 10
+                if end > len(data) or data[start + 7:start + 10] != b"\x81\x00\x00":
+                    continue
+                pair = data[start + stride + 8:start + stride + 10]
+                if not pair or len(pair) != 2:
+                    continue
+                if all(
+                    data[pos] in allowed
+                    and data[pos + 1] == 0x82
+                    and data[pos + 7] == 0x80
+                    and data[pos + 8:pos + 10] == pair
+                    for pos, allowed in (
+                        (start + i * stride, allowed)
+                        for i, allowed in enumerate(codes[1:], start=1)
+                    )
+                ):
+                    return True
+    return False
+
+
 def contains_term(data: bytes, term: str, case_sensitive: bool = False) -> bool:
     if any(data.find(needle) >= 0 for needle in _plain_needles(term, case_sensitive)):
         return True
@@ -425,7 +480,8 @@ def contains_term(data: bytes, term: str, case_sensitive: bool = False) -> bool:
             or _matches_early_80(data, term, case_sensitive)
             or _matches_early_82(data, term, case_sensitive)
             or _matches_variable_98(data, term, case_sensitive)
-            or _matches_variable_106(data, term, case_sensitive))
+            or _matches_variable_106(data, term, case_sensitive)
+            or _matches_legacy_mixed_records(data, term, case_sensitive))
 
 
 def scan_file(path: Path, term: str, case_sensitive: bool) -> tuple[bool, str | None]:
@@ -433,7 +489,7 @@ def scan_file(path: Path, term: str, case_sensitive: bool) -> tuple[bool, str | 
         data = path.read_bytes()
     except OSError as exc:
         return False, str(exc)
-    return contains_term(data, term, case_sensitive), None
+    return contains_term(mask_resource_paths(data), term, case_sensitive), None
 
 
 class App(tk.Tk):
@@ -470,11 +526,20 @@ class App(tk.Tk):
         options.grid(row=2, column=1, columnspan=2, sticky="w", pady=(10, 2))
         self.recursive_var = tk.BooleanVar(value=True)
         self.case_var = tk.BooleanVar(value=False)
+        self.search_mode_var = tk.StringVar(value="fast")
         ttk.Checkbutton(options, text="Unterordner einbeziehen", variable=self.recursive_var).pack(side="left", padx=(0, 20))
         ttk.Checkbutton(options, text="Groß-/Kleinschreibung beachten", variable=self.case_var).pack(side="left")
 
+        mode_options = ttk.Frame(frame)
+        mode_options.grid(row=3, column=1, columnspan=2, sticky="w", pady=(4, 2))
+        ttk.Label(mode_options, text="Suchmodus:").pack(side="left", padx=(0, 10))
+        ttk.Radiobutton(mode_options, text="Schnell (JPEG überspringen)",
+                        variable=self.search_mode_var, value="fast").pack(side="left", padx=(0, 14))
+        ttk.Radiobutton(mode_options, text="Vollständig (alle Bytes)", variable=self.search_mode_var,
+                        value="full").pack(side="left")
+
         actions = ttk.Frame(frame)
-        actions.grid(row=3, column=0, columnspan=3, sticky="w", pady=(12, 10))
+        actions.grid(row=4, column=0, columnspan=3, sticky="w", pady=(12, 10))
         self.search_button = ttk.Button(actions, text="Suchen", command=self.start_scan)
         self.search_button.pack(side="left")
         self.open_button = ttk.Button(
@@ -486,40 +551,78 @@ class App(tk.Tk):
         self.save_button = ttk.Button(actions, text="Pfade als TXT speichern …", command=self.save_paths, state="disabled")
         self.save_button.pack(side="left", padx=(8, 0))
         ttk.Button(actions, text="Leeren", command=self.clear_results).pack(side="left", padx=(8, 0))
+        ttk.Button(actions, text="Info", command=self.show_info).pack(side="left", padx=(8, 0))
 
         self.progress = ttk.Progressbar(frame, mode="determinate")
-        self.progress.grid(row=4, column=0, columnspan=3, sticky="ew", pady=(0, 6))
+        self.progress.grid(row=5, column=0, columnspan=3, sticky="ew", pady=(0, 6))
         self.status_var = tk.StringVar(value="Bereit. Suchtext und Ordner auswählen.")
-        ttk.Label(frame, textvariable=self.status_var).grid(row=5, column=0, columnspan=3, sticky="w", pady=(0, 8))
+        ttk.Label(frame, textvariable=self.status_var).grid(row=6, column=0, columnspan=3, sticky="w", pady=(0, 8))
 
-        ttk.Label(frame, text="Gefundene Dateien (vollständiger Pfad):").grid(row=6, column=0, columnspan=3, sticky="w", pady=(4, 4))
+        ttk.Label(frame, text="Gefundene Dateien (vollständiger Pfad):").grid(row=7, column=0, columnspan=3, sticky="w", pady=(4, 4))
         self.tree = ttk.Treeview(frame, columns=("path",), show="headings")
         self.tree.heading("path", text="Dateipfad")
         self.tree.column("path", width=880, anchor="w")
-        self.tree.grid(row=7, column=0, columnspan=2, sticky="nsew")
+        self.tree.grid(row=8, column=0, columnspan=2, sticky="nsew")
         yscroll = ttk.Scrollbar(frame, orient="vertical", command=self.tree.yview)
-        yscroll.grid(row=7, column=2, sticky="ns")
+        yscroll.grid(row=8, column=2, sticky="ns")
         self.tree.configure(yscrollcommand=yscroll.set)
         xscroll = ttk.Scrollbar(frame, orient="horizontal", command=self.tree.xview)
-        xscroll.grid(row=8, column=0, columnspan=2, sticky="ew")
+        xscroll.grid(row=9, column=0, columnspan=2, sticky="ew")
         self.tree.configure(xscrollcommand=xscroll.set)
         # Doppelklick oder die Schaltfläche öffnen die TB2-Datei mit dem in Windows verknüpften Programm.
         self.tree.bind("<Double-1>", self.open_result_file)
         self.tree.bind("<<TreeviewSelect>>", self._update_open_button_state)
 
-        note = ("Datei in der Trefferliste markieren und auf 'Datei öffnen' klicken – "
-                "oder den Treffer doppelt anklicken. Die TB2-Datei wird mit dem in Windows "
-                "verknüpften Programm. Suche in Klartext sowie in untersuchten TB2-Glyphenmustern mehrerer Generationen "
-                "(Datensatzabstände 80, 98, 106 und 587 Byte, mit unterschiedlichen Markern). Umlaute und weitere Ein-Byte-Zeichen werden "
-                "berücksichtigt. Die Groß-/Kleinschreibung wird standardmäßig ignoriert – auch bei "
-                "Umlauten. Die Dateiformate werden weiter untersucht; ein Nichttreffer ist daher "
-                "noch kein Beweis, dass der Text fehlt.")
-        ttk.Label(frame, text=note, wraplength=900, foreground="#555555").grid(
-            row=9, column=0, columnspan=3, sticky="w", pady=(10, 0)
-        )
         frame.columnconfigure(1, weight=1)
-        frame.rowconfigure(7, weight=1)
+        frame.rowconfigure(8, weight=1)
         self.term_entry.focus_set()
+
+    def show_info(self):
+        """Show application details and the former footer help text."""
+        dialog = tk.Toplevel(self)
+        dialog.title("Info – TB2-Textfinder")
+        dialog.geometry("650x380")
+        dialog.minsize(420, 280)
+        dialog.transient(self)
+        body = ttk.Frame(dialog, padding=18)
+        body.pack(fill="both", expand=True)
+        ttk.Label(body, text=f"{APP_TITLE} – Version {APP_VERSION}",
+                  font=("TkDefaultFont", 13, "bold")).pack(anchor="w", pady=(0, 12))
+        help_frame = ttk.Frame(body)
+        help_frame.pack(fill="both", expand=True)
+        help_text = tk.Text(help_frame, wrap="word", height=9, relief="flat",
+                            background=dialog.cget("background"), padx=2, pady=2)
+        help_text.insert("1.0", INFO_TEXT)
+        help_text.configure(state="disabled")
+        help_text.pack(side="left", fill="both", expand=True)
+        scrollbar = ttk.Scrollbar(help_frame, orient="vertical", command=help_text.yview)
+        scrollbar.pack(side="right", fill="y")
+        help_text.configure(yscrollcommand=scrollbar.set)
+        buttons = ttk.Frame(body)
+        buttons.pack(fill="x", pady=(14, 0))
+        ttk.Button(buttons, text="MIT-Lizenz anzeigen",
+                   command=lambda: self.show_license(dialog)).pack(side="left")
+        ttk.Button(buttons, text="Schließen", command=dialog.destroy).pack(side="right")
+
+    def show_license(self, parent):
+        """Display the complete license bundled with this program."""
+        dialog = tk.Toplevel(parent)
+        dialog.title("MIT-Lizenz – TB2-Textfinder")
+        dialog.geometry("720x450")
+        dialog.minsize(450, 300)
+        dialog.transient(parent)
+        body = ttk.Frame(dialog, padding=14)
+        body.pack(fill="both", expand=True)
+        text_frame = ttk.Frame(body)
+        text_frame.pack(fill="both", expand=True)
+        license_text = tk.Text(text_frame, wrap="word", font=("TkFixedFont", 10))
+        license_text.insert("1.0", MIT_LICENSE)
+        license_text.configure(state="disabled")
+        license_text.pack(side="left", fill="both", expand=True)
+        scrollbar = ttk.Scrollbar(text_frame, orient="vertical", command=license_text.yview)
+        scrollbar.pack(side="right", fill="y")
+        license_text.configure(yscrollcommand=scrollbar.set)
+        ttk.Button(body, text="Schließen", command=dialog.destroy).pack(anchor="e", pady=(10, 0))
 
     def choose_folder(self):
         folder = filedialog.askdirectory(title="Ordner mit TB2-/TBL-Dateien auswählen")
@@ -557,21 +660,30 @@ class App(tk.Tk):
         self.status_var.set(f"Untersuche {len(files)} TB2-/TBL-Datei(en) …")
         threading.Thread(
             target=self._scan_worker,
-            args=(files, term, self.case_var.get()),
+            args=(files, term, self.case_var.get(), self.search_mode_var.get()),
             daemon=True,
         ).start()
 
-    def _scan_worker(self, files: list[Path], term: str, case_sensitive: bool):
+    def _scan_worker(self, files: list[Path], term: str, case_sensitive: bool, mode: str):
         found: list[str] = []
         errors = 0
+        started = perf_counter()
         for index, path in enumerate(files, start=1):
-            hit, error = scan_file(path, term, case_sensitive)
+            if mode == "fast":
+                try:
+                    from tb2_jpeg_fast import contains_term_fast
+                    hit = contains_term_fast(mask_resource_paths(path.read_bytes()), term, case_sensitive)
+                    error = None
+                except (OSError, ValueError, MemoryError) as exc:
+                    hit, error = False, str(exc)
+            else:
+                hit, error = scan_file(path, term, case_sensitive)
             if hit:
                 found.append(str(path.resolve()))
             if error:
                 errors += 1
             self.events.put(("progress", index, len(files), path.name))
-        self.events.put(("finished", found, len(files), errors))
+        self.events.put(("finished", found, len(files), errors, mode, perf_counter() - started))
 
     def _poll_events(self):
         try:
@@ -582,7 +694,7 @@ class App(tk.Tk):
                     self.progress.configure(value=current)
                     self.status_var.set(f"Datei {current}/{total}: {filename}")
                 elif event[0] == "finished":
-                    _, found, total, errors = event
+                    _, found, total, errors, mode, seconds = event
                     self.result_paths = found
                     for path in found:
                         self.tree.insert("", "end", values=(path,))
@@ -593,7 +705,7 @@ class App(tk.Tk):
                     self.save_button.configure(state=state)
                     # Die Datei-Öffnen-Schaltfläche wird erst nach Auswahl eines Treffers aktiviert.
                     self.open_button.configure(state="disabled")
-                    msg = f"Fertig: {len(found)} Treffer in {total} Datei(en)."
+                    msg = f"Fertig ({'Schnell' if mode == 'fast' else 'Vollständig'}): {len(found)} Treffer in {total} Datei(en) – {seconds:.2f} s."
                     if errors:
                         msg += f" {errors} Datei(en) konnten nicht gelesen werden."
                     self.status_var.set(msg)
