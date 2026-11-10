@@ -19,6 +19,19 @@ from tkinter import filedialog, messagebox, ttk
 
 APP_TITLE = "TB2-Textfinder"
 APP_VERSION = "1.8.3-dev"
+MIT_LICENSE = "MIT License\n\nCopyright (c) 2026 Roga\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE.\n"
+
+INFO_TEXT = (
+    "Schnell überspringt JPEG-Daten und kann Treffer übersehen; Vollständig entspricht der bisherigen Suche. "
+    "Datei in der Trefferliste markieren und auf 'Datei öffnen' klicken – "
+    "oder den Treffer doppelt anklicken. Die TB2-Datei wird mit dem in Windows "
+    "verknüpften Programm. Suche in Klartext sowie in untersuchten TB2-Glyphenmustern mehrerer Generationen "
+    "(Datensatzabstände 80, 98, 106 und 587 Byte, mit unterschiedlichen Markern). Umlaute und weitere Ein-Byte-Zeichen werden "
+    "berücksichtigt. Die Groß-/Kleinschreibung wird standardmäßig ignoriert – auch bei "
+    "Umlauten. Die Dateiformate werden weiter untersucht; ein Nichttreffer ist daher "
+    "noch kein Beweis, dass der Text fehlt."
+)
+
 PROFILES = (
     # Neue und mittlere Generation: Zeichen + Marker, Abstand 106 Bytes.
     ("SignumNext-Profil A", b"\x81\x00\x00", (0x6A,)),
@@ -538,6 +551,7 @@ class App(tk.Tk):
         self.save_button = ttk.Button(actions, text="Pfade als TXT speichern …", command=self.save_paths, state="disabled")
         self.save_button.pack(side="left", padx=(8, 0))
         ttk.Button(actions, text="Leeren", command=self.clear_results).pack(side="left", padx=(8, 0))
+        ttk.Button(actions, text="Info", command=self.show_info).pack(side="left", padx=(8, 0))
 
         self.progress = ttk.Progressbar(frame, mode="determinate")
         self.progress.grid(row=5, column=0, columnspan=3, sticky="ew", pady=(0, 6))
@@ -559,27 +573,56 @@ class App(tk.Tk):
         self.tree.bind("<Double-1>", self.open_result_file)
         self.tree.bind("<<TreeviewSelect>>", self._update_open_button_state)
 
-        note = ("Schnell überspringt JPEG-Daten und kann Treffer übersehen; Vollständig entspricht der bisherigen Suche. "
-                "Datei in der Trefferliste markieren und auf 'Datei öffnen' klicken – "
-                "oder den Treffer doppelt anklicken. Die TB2-Datei wird mit dem in Windows "
-                "verknüpften Programm. Suche in Klartext sowie in untersuchten TB2-Glyphenmustern mehrerer Generationen "
-                "(Datensatzabstände 80, 98, 106 und 587 Byte, mit unterschiedlichen Markern). Umlaute und weitere Ein-Byte-Zeichen werden "
-                "berücksichtigt. Die Groß-/Kleinschreibung wird standardmäßig ignoriert – auch bei "
-                "Umlauten. Die Dateiformate werden weiter untersucht; ein Nichttreffer ist daher "
-                "noch kein Beweis, dass der Text fehlt.")
-        self.note_label = ttk.Label(frame, text=note, wraplength=600, foreground="#555555", justify="left")
-        self.note_label.grid(row=10, column=0, columnspan=3, sticky="ew", pady=(10, 0))
-        frame.bind("<Configure>", self._resize_note)
-
         frame.columnconfigure(1, weight=1)
         frame.rowconfigure(8, weight=1)
         self.term_entry.focus_set()
 
-    def _resize_note(self, event):
-        """Keep the explanatory text wrapped inside the available frame width."""
-        available = max(200, event.width - 12)
-        if self.note_label.cget("wraplength") != available:
-            self.note_label.configure(wraplength=available)
+    def show_info(self):
+        """Show application details and the former footer help text."""
+        dialog = tk.Toplevel(self)
+        dialog.title("Info – TB2-Textfinder")
+        dialog.geometry("650x380")
+        dialog.minsize(420, 280)
+        dialog.transient(self)
+        body = ttk.Frame(dialog, padding=18)
+        body.pack(fill="both", expand=True)
+        ttk.Label(body, text=f"{APP_TITLE} – Version {APP_VERSION}",
+                  font=("TkDefaultFont", 13, "bold")).pack(anchor="w", pady=(0, 12))
+        help_frame = ttk.Frame(body)
+        help_frame.pack(fill="both", expand=True)
+        help_text = tk.Text(help_frame, wrap="word", height=9, relief="flat",
+                            background=dialog.cget("background"), padx=2, pady=2)
+        help_text.insert("1.0", INFO_TEXT)
+        help_text.configure(state="disabled")
+        help_text.pack(side="left", fill="both", expand=True)
+        scrollbar = ttk.Scrollbar(help_frame, orient="vertical", command=help_text.yview)
+        scrollbar.pack(side="right", fill="y")
+        help_text.configure(yscrollcommand=scrollbar.set)
+        buttons = ttk.Frame(body)
+        buttons.pack(fill="x", pady=(14, 0))
+        ttk.Button(buttons, text="MIT-Lizenz anzeigen",
+                   command=lambda: self.show_license(dialog)).pack(side="left")
+        ttk.Button(buttons, text="Schließen", command=dialog.destroy).pack(side="right")
+
+    def show_license(self, parent):
+        """Display the complete license bundled with this program."""
+        dialog = tk.Toplevel(parent)
+        dialog.title("MIT-Lizenz – TB2-Textfinder")
+        dialog.geometry("720x450")
+        dialog.minsize(450, 300)
+        dialog.transient(parent)
+        body = ttk.Frame(dialog, padding=14)
+        body.pack(fill="both", expand=True)
+        text_frame = ttk.Frame(body)
+        text_frame.pack(fill="both", expand=True)
+        license_text = tk.Text(text_frame, wrap="word", font=("TkFixedFont", 10))
+        license_text.insert("1.0", MIT_LICENSE)
+        license_text.configure(state="disabled")
+        license_text.pack(side="left", fill="both", expand=True)
+        scrollbar = ttk.Scrollbar(text_frame, orient="vertical", command=license_text.yview)
+        scrollbar.pack(side="right", fill="y")
+        license_text.configure(yscrollcommand=scrollbar.set)
+        ttk.Button(body, text="Schließen", command=dialog.destroy).pack(anchor="e", pady=(10, 0))
 
     def choose_folder(self):
         folder = filedialog.askdirectory(title="Ordner mit TB2-/TBL-Dateien auswählen")
