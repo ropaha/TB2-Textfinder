@@ -4,7 +4,7 @@
 
 Ein kleines Windows-Programm zum Durchsuchen von `.TB2`-Dateien nach Texten, die in unterschiedlichen Signum-/SignumNext-Dateigenerationen gespeichert sein können.
 
-**Stand des GitHub-Quellcodes:** 0.7 (experimentell). **Neuere Testversion:** Finder 1.7 / Negativtester 1.2, Paket v1.8.0 (Veröffentlichung der Quellcodedateien und GitHub-Release noch ausstehend). Siehe [CHANGELOG.md](CHANGELOG.md). · [English version](README_EN.md)
+**Aktuelle Version:** 1.8.4. · [Änderungsverlauf](CHANGELOG.md) · [English version](README_EN.md)
 
 ![TB2-Textfinder Projektbanner](banner.svg)
 
@@ -20,8 +20,8 @@ Die bisher untersuchten Dateien lassen sich in meinem Bestand inzwischen praktis
 
 ## Funktionen
 
-- Durchsucht einen gewählten Ordner nach `.TB2`-Dateien, auf Wunsch einschließlich Unterordnern.
-- Sucht Klartext und mehrere bislang empirisch beobachtete Glyphen-/Datensatzmuster.
+- Durchsucht einen gewählten Ordner nach `.TB2`- und `.TBL`-Dateien, auf Wunsch einschließlich Unterordnern.
+- Sucht Klartext und mehrere bislang empirisch beobachtete Glyphen-/Datensatzmuster.\n- Zwei Suchmodi: **Schnell** (Standard; überspringt erkannte JPEG-Bereiche) und **Vollständig** (prüft alle Bytes). Die schnelle Suche kann Treffer übersehen.\n- Filtert erkennbare eingebettete Ressourcen- und Netzwerkdateipfade, um Fehlalarme zu reduzieren.\n- Zeigt nach der Suche die benötigte Laufzeit an.\n- **Info**-Fenster mit Hinweisen und vollständiger MIT-Lizenz.
 - Ignoriert standardmäßig die Groß-/Kleinschreibung, auch bei deutschen Umlauten.
 - Zeigt vollständige Dateipfade an.
 - Trefferpfade können kopiert oder als TXT-Datei gespeichert werden.
@@ -42,7 +42,7 @@ Voraussetzung: Windows und Python 3.10 oder neuer mit Tkinter.
 2. `Start_TB2_Textfinder.bat` doppelt anklicken.
 3. Suchbegriff und Ordner auswählen und auf **Suchen** klicken.
 
-Für den direkten Start des Python-Skripts werden keine zusätzlichen Pakete benötigt.
+Für den direkten Start des Python-Skripts werden keine zusätzlichen Pakete benötigt. Die Dateien `TB2_Textfinder.py`, `tb2_jpeg_fast.py` und `tb2_resource_paths.py` müssen im selben Verzeichnis liegen.
 
 ## Windows-EXE erstellen
 
@@ -79,7 +79,7 @@ Die Suche läuft lokal auf dem Rechner. Das Programm lädt keine TB2-Dateien hoc
 
 ## Lizenz
 
-Dieses Projekt steht unter der **MIT-Lizenz**. Den vollständigen Lizenztext findest Du in [LICENSE](LICENSE).
+Dieses Projekt steht unter der **MIT-Lizenz**. Den vollständigen Lizenztext findest du in [LICENSE](LICENSE) und über **Info → MIT-Lizenz anzeigen** im Programm.
 
 ## Hinweis
 
