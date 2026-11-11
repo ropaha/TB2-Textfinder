@@ -4,6 +4,28 @@ Alle wesentlichen Änderungen am TB2-Textfinder und Negativtester werden hier do
 
 Die Versionsnummer des Gesamtpakets ist unabhängig von den Programmversionen. Die Erkennung beruht auf empirisch untersuchten TB2-Dateien, nicht auf einer vollständigen offiziellen Formatspezifikation.
 
+## [1.8.6] – 2026-11-11
+
+### Neu
+- Option **„Nur ganze Wörter“** als zweites Kontrollkästchen ergänzt und standardmäßig aktiviert. Die Ganzwortsuche berücksichtigt Wortgrenzen in Klartext und bekannten TB2-Glyphenprofilen; Bindestriche gelten als Wortgrenzen.
+- Laufende Suche über **„Suche abbrechen“** abbrechbar.
+- Dauerhafte Zusammenfassung der letzten Suche getrennt von der laufenden Statusanzeige.
+
+### Verbesserungen
+- Zweistufige Ganzwortsuche: Zuerst schnelle Kandidatenprüfung, dann Wortgrenzenprüfung nur bei möglichen Treffern.
+- Während einer Suche ist **„Leeren“** deaktiviert.
+- Versionsnummern von Textfinder und Negativtester auf **1.8.6** vereinheitlicht.
+
+### Tests und Repository-Pflege
+- Regressionstests für Ganzwortsuche in Klartext und bekannten Glyphenprofilen ergänzt.
+- Manuelle Prüfung der Ganzwortsuche mit „Hagen“ und „Meyer“ auf 7.879 Dateien: kontrollierte Treffer korrekt; für „Hagen“ ca. 86 s mit Ganzwortsuche gegenüber ca. 88 s ohne Ganzwortfilter.
+- Vier Benchmark-Skripte in `tests/` verschoben; Import- und Aufrufpfade angepasst.
+- Vier interaktive Windows-Batchdateien zum Starten der Benchmarks mit Parameterabfrage ergänzt und ebenfalls in `tests/` abgelegt. Batchdateien unter Windows erfolgreich erprobt.
+
+### Hinweise
+- Die Ganzwortsuche basiert auf empirisch bekannten Dateimustern und kann bei unbekannten Varianten Treffer übersehen.
+- Die Aufräumarbeiten an den Benchmarks sind Bestandteil des Entwicklungsstands **1.8.6**; keine zusätzliche Versionsnummer.
+
 ## [1.8.5] – 2026-11-11
 
 ### Verbesserungen
