@@ -1,12 +1,16 @@
 """JPEG-Benchmark v2: echte Bereichssuche und Profilanalyse (nur dev).
 
-Aufruf: py -3 benchmark_jpeg_v2.py "C:\\Signum-Dateien" --term Gerken
+Aufruf: py -3 tests/benchmark_jpeg_v2.py "C:\\Signum-Dateien" --term Gerken
 Die Quelldateien werden nicht veraendert.
 """
 import argparse
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
+import sys
+
+# Auch beim direkten Aufruf aus tests/ die Projektmodule importieren.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from time import perf_counter
 
 import TB2_Textfinder as finder

@@ -1,7 +1,7 @@
 """TB2 JPEG Benchmark V3 - Multi-Term-Korrektheitstest (nur dev).
 
 Beispiel:
-    py -3 benchmark_jpeg_v3.py "C:\\Stein\\SignumNext\\TBL"
+    py -3 tests/benchmark_jpeg_v3.py "C:\\Stein\\SignumNext\\TBL"
 
 Liest Dateien nur, veraendert keine TB2/TBL-Dateien. V3 ist KEINE
 freigegebene Produktionsoptimierung. Vergleich mit bestehender Suche.
@@ -12,6 +12,10 @@ import argparse
 import csv
 from datetime import datetime
 from pathlib import Path
+import sys
+
+# Auch beim direkten Aufruf aus tests/ die Projektmodule importieren.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from time import perf_counter
 
 import TB2_Textfinder as finder

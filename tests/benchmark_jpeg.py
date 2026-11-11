@@ -1,10 +1,14 @@
 """Experimental benchmark: search original TB2 data vs JPEG-masked data.
 
-Run: py -3 benchmark_jpeg.py "C:\\Signum-Dateien" --term Gerken
+Run: py -3 tests/benchmark_jpeg.py "C:\\Signum-Dateien" --term Gerken
 No source files are modified. This is NOT a production optimization.
 """
 import argparse
 from pathlib import Path
+import sys
+
+# Auch beim direkten Aufruf aus tests/ die Projektmodule importieren.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from statistics import median
 from time import perf_counter
 
