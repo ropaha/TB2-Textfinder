@@ -564,25 +564,27 @@ class App(tk.Tk):
         self.progress = ttk.Progressbar(frame, mode="determinate")
         self.progress.grid(row=5, column=0, columnspan=3, sticky="ew", pady=(0, 6))
         self.status_var = tk.StringVar(value="Bereit. Suchtext und Ordner auswählen.")
-        ttk.Label(frame, textvariable=self.status_var).grid(row=6, column=0, columnspan=3, sticky="w", pady=(0, 8))
+        ttk.Label(frame, textvariable=self.status_var).grid(row=6, column=0, columnspan=3, sticky="w", pady=(0, 4))
+        self.summary_var = tk.StringVar(value="Noch keine Suche abgeschlossen.")
+        ttk.Label(frame, textvariable=self.summary_var).grid(row=7, column=0, columnspan=3, sticky="w", pady=(0, 8))
 
-        ttk.Label(frame, text="Gefundene Dateien (vollständiger Pfad):").grid(row=7, column=0, columnspan=3, sticky="w", pady=(4, 4))
+        ttk.Label(frame, text="Gefundene Dateien (vollständiger Pfad):").grid(row=8, column=0, columnspan=3, sticky="w", pady=(4, 4))
         self.tree = ttk.Treeview(frame, columns=("path",), show="headings")
         self.tree.heading("path", text="Dateipfad")
         self.tree.column("path", width=880, anchor="w")
-        self.tree.grid(row=8, column=0, columnspan=2, sticky="nsew")
+        self.tree.grid(row=9, column=0, columnspan=2, sticky="nsew")
         yscroll = ttk.Scrollbar(frame, orient="vertical", command=self.tree.yview)
-        yscroll.grid(row=8, column=2, sticky="ns")
+        yscroll.grid(row=9, column=2, sticky="ns")
         self.tree.configure(yscrollcommand=yscroll.set)
         xscroll = ttk.Scrollbar(frame, orient="horizontal", command=self.tree.xview)
-        xscroll.grid(row=9, column=0, columnspan=2, sticky="ew")
+        xscroll.grid(row=10, column=0, columnspan=2, sticky="ew")
         self.tree.configure(xscrollcommand=xscroll.set)
         # Doppelklick oder die Schaltfläche öffnen die TB2-Datei mit dem in Windows verknüpften Programm.
         self.tree.bind("<Double-1>", self.open_result_file)
         self.tree.bind("<<TreeviewSelect>>", self._update_open_button_state)
 
         frame.columnconfigure(1, weight=1)
-        frame.rowconfigure(8, weight=1)
+        frame.rowconfigure(9, weight=1)
         self.term_entry.focus_set()
 
     def show_info(self):
@@ -677,6 +679,7 @@ class App(tk.Tk):
         for item in self.tree.get_children():
             self.tree.delete(item)
         self.progress.configure(maximum=len(files), value=0)
+        self.summary_var.set("Suche läuft – Ergebnis folgt nach Abschluss oder Abbruch.")
         self.status_var.set(f"Untersuche {len(files)} TB2-/TBL-Datei(en) …")
         threading.Thread(
             target=self._scan_worker,
@@ -753,7 +756,8 @@ class App(tk.Tk):
                         msg = f"Fertig ({'Schnell' if mode == 'fast' else 'Vollständig'}): {len(found)} Treffer in {total} Datei(en) – {seconds:.2f} s."
                     if errors:
                         msg += f" {errors} Datei(en) konnten nicht gelesen werden."
-                    self.status_var.set(msg)
+                    self.summary_var.set(msg)
+                    self.status_var.set("Suche abgebrochen." if cancelled else "Suche abgeschlossen.")
         except queue.Empty:
             pass
         self.after(100, self._poll_events)
@@ -851,6 +855,7 @@ class App(tk.Tk):
         self.open_button.configure(state="disabled")
         self.save_button.configure(state="disabled")
         self.status_var.set("Ergebnisliste geleert.")
+        self.summary_var.set("Noch keine Suche abgeschlossen.")
 
 
 if __name__ == "__main__":
