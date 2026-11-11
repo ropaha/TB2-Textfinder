@@ -31,5 +31,5 @@ def mask_resource_paths(data: bytes) -> bytes:
         return data
     masked = bytearray(data)
     for match in matches:
-        masked[match.start():match.end()] = b"\\x00" * (match.end() - match.start())
+        masked[match.start():match.end()] = b"\x00" * (match.end() - match.start())
     return bytes(masked)
