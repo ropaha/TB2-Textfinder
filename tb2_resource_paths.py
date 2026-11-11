@@ -22,7 +22,7 @@ _LEGACY_SERVER_PATH = re.compile(
 
 
 def mask_resource_paths(data: bytes) -> bytes:
-    matches = list(_RESOURCE_PATH.finditer(data)) + list(_LEGACY_SERVER_PATH.finditer(data))
+    # Der historische Netzwerkpfad enthaelt zwingend \\SYS\\.\n    # Vorfilter spart den teuren zweiten Regex-Durchlauf bei Dateien ohne Anker.\n    matches = list(_RESOURCE_PATH.finditer(data))\n    if b"\\\\SYS\\\\" in data.upper():\n        matches.extend(_LEGACY_SERVER_PATH.finditer(data))
     if not matches:
         return data
     masked = bytearray(data)
