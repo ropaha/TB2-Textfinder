@@ -504,6 +504,7 @@ class App(tk.Tk):
         self.minsize(720, 420)
         self.events: queue.Queue = queue.Queue()
         self.scanning = False
+        self.cancel_scan_event = threading.Event()
         self.result_paths: list[str] = []
         self._build_ui()
         self.after(100, self._poll_events)
@@ -546,7 +547,7 @@ class App(tk.Tk):
 
         actions = ttk.Frame(frame)
         actions.grid(row=4, column=0, columnspan=3, sticky="w", pady=(12, 10))
-        self.search_button = ttk.Button(actions, text="Suchen", command=self.start_scan)
+        self.search_button = ttk.Button(actions, text="Suchen", command=self.search_or_cancel)
         self.search_button.pack(side="left")
         self.open_button = ttk.Button(
             actions, text="Datei öffnen", command=self.open_selected_file, state="disabled"
@@ -556,7 +557,8 @@ class App(tk.Tk):
         self.copy_button.pack(side="left", padx=(8, 0))
         self.save_button = ttk.Button(actions, text="Pfade als TXT speichern …", command=self.save_paths, state="disabled")
         self.save_button.pack(side="left", padx=(8, 0))
-        ttk.Button(actions, text="Leeren", command=self.clear_results).pack(side="left", padx=(8, 0))
+        self.clear_button = ttk.Button(actions, text="Leeren", command=self.clear_results)
+        self.clear_button.pack(side="left", padx=(8, 0))
         ttk.Button(actions, text="Info", command=self.show_info).pack(side="left", padx=(8, 0))
 
         self.progress = ttk.Progressbar(frame, mode="determinate")
@@ -635,6 +637,16 @@ class App(tk.Tk):
         if folder:
             self.folder_var.set(folder)
 
+    def search_or_cancel(self):
+        """Start a scan, or request cooperative cancellation."""
+        if self.scanning:
+            if not self.cancel_scan_event.is_set():
+                self.cancel_scan_event.set()
+                self.search_button.configure(state="disabled", text="Abbruch läuft …")
+                self.status_var.set("Abbruch angefordert – aktuelle Datei wird noch abgeschlossen …")
+            return
+        self.start_scan()
+
     def start_scan(self):
         folder_text = self.folder_var.get().strip()
         term = self.term_var.get().strip()
@@ -654,9 +666,11 @@ class App(tk.Tk):
             messagebox.showinfo("Keine TB2-/TBL-Dateien", "Im ausgewählten Ordner wurden keine .TB2- oder .TBL-Dateien gefunden.")
             return
 
+        self.cancel_scan_event.clear()
         self.scanning = True
         self.result_paths = []
-        self.search_button.configure(state="disabled")
+        self.search_button.configure(state="normal", text="Suche abbrechen")
+        self.clear_button.configure(state="disabled")
         self.copy_button.configure(state="disabled")
         self.open_button.configure(state="disabled")
         self.save_button.configure(state="disabled")
@@ -674,7 +688,10 @@ class App(tk.Tk):
         found: list[str] = []
         errors = 0
         started = perf_counter()
+        processed = 0
         for index, path in enumerate(files, start=1):
+            if self.cancel_scan_event.is_set():
+                break
             if mode == "fast":
                 try:
                     from tb2_jpeg_fast import contains_term_fast
@@ -702,8 +719,10 @@ class App(tk.Tk):
                 found.append(str(path.resolve()))
             if error:
                 errors += 1
+            processed = index
             self.events.put(("progress", index, len(files), path.name))
-        self.events.put(("finished", found, len(files), errors, mode, perf_counter() - started))
+        self.events.put(("finished", found, len(files), errors, mode, perf_counter() - started,
+                         processed, self.cancel_scan_event.is_set()))
 
     def _poll_events(self):
         try:
@@ -712,20 +731,26 @@ class App(tk.Tk):
                 if event[0] == "progress":
                     _, current, total, filename = event
                     self.progress.configure(value=current)
-                    self.status_var.set(f"Datei {current}/{total}: {filename}")
+                    if not self.cancel_scan_event.is_set():
+                        self.status_var.set(f"Datei {current}/{total}: {filename}")
                 elif event[0] == "finished":
-                    _, found, total, errors, mode, seconds = event
+                    _, found, total, errors, mode, seconds, processed, cancelled = event
                     self.result_paths = found
                     for path in found:
                         self.tree.insert("", "end", values=(path,))
                     self.scanning = False
-                    self.search_button.configure(state="normal")
+                    self.search_button.configure(state="normal", text="Suchen")
+                    self.clear_button.configure(state="normal")
                     state = "normal" if found else "disabled"
                     self.copy_button.configure(state=state)
                     self.save_button.configure(state=state)
                     # Die Datei-Öffnen-Schaltfläche wird erst nach Auswahl eines Treffers aktiviert.
                     self.open_button.configure(state="disabled")
-                    msg = f"Fertig ({'Schnell' if mode == 'fast' else 'Vollständig'}): {len(found)} Treffer in {total} Datei(en) – {seconds:.2f} s."
+                    if cancelled:
+                        msg = (f"Abgebrochen ({'Schnell' if mode == 'fast' else 'Vollständig'}): "
+                               f"{processed}/{total} Dateien geprüft, {len(found)} Treffer – {seconds:.2f} s.")
+                    else:
+                        msg = f"Fertig ({'Schnell' if mode == 'fast' else 'Vollständig'}): {len(found)} Treffer in {total} Datei(en) – {seconds:.2f} s."
                     if errors:
                         msg += f" {errors} Datei(en) konnten nicht gelesen werden."
                     self.status_var.set(msg)
@@ -817,6 +842,8 @@ class App(tk.Tk):
         self.status_var.set(f"Pfadliste gespeichert: {destination}")
 
     def clear_results(self):
+        if self.scanning:
+            return
         self.result_paths = []
         for item in self.tree.get_children():
             self.tree.delete(item)
