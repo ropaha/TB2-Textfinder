@@ -533,11 +533,11 @@ class App(tk.Tk):
         options.grid(row=2, column=1, columnspan=2, sticky="w", pady=(10, 2))
         self.recursive_var = tk.BooleanVar(value=True)
         self.case_var = tk.BooleanVar(value=False)
-        self.whole_word_var = tk.BooleanVar(value=False)
+        self.whole_word_var = tk.BooleanVar(value=True)
         self.search_mode_var = tk.StringVar(value="fast")
         ttk.Checkbutton(options, text="Unterordner einbeziehen", variable=self.recursive_var).pack(side="left", padx=(0, 20))
+        ttk.Checkbutton(options, text="Nur ganze Wörter", variable=self.whole_word_var).pack(side="left", padx=(0, 20))
         ttk.Checkbutton(options, text="Groß-/Kleinschreibung beachten", variable=self.case_var).pack(side="left")
-        ttk.Checkbutton(options, text="Nur ganze Wörter", variable=self.whole_word_var).pack(side="left", padx=(15, 0))
 
         mode_options = ttk.Frame(frame)
         mode_options.grid(row=3, column=1, columnspan=2, sticky="w", pady=(4, 2))
