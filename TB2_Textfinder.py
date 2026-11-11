@@ -492,8 +492,10 @@ def scan_file(path: Path, term: str, case_sensitive: bool, whole_word: bool = Fa
         data = path.read_bytes()
     except OSError as exc:
         return False, str(exc)
-    return (contains_whole_word(mask_resource_paths(data), term, case_sensitive) if whole_word
-            else contains_term(mask_resource_paths(data), term, case_sensitive)), None
+    data = mask_resource_paths(data)
+    candidate = contains_term(data, term, case_sensitive)
+    return (contains_whole_word(data, term, case_sensitive) if whole_word and candidate
+            else candidate if not whole_word else False), None
 
 
 class App(tk.Tk):
@@ -699,7 +701,11 @@ class App(tk.Tk):
                 try:
                     from tb2_jpeg_fast import contains_term_fast
                     data = mask_resource_paths(path.read_bytes())
-                    if whole_word:
+                    # Zweistufige Ganzwortsuche: Nur Kandidaten mit einem
+                    # Teilworttreffer benötigen die teure Wortgrenzenprüfung.
+                    # JPEG-Bereiche werden in beiden Stufen identisch behandelt.
+                    candidate = contains_term_fast(data, term, case_sensitive)
+                    if whole_word and candidate:
                         from tb2_jpeg_fast import jpeg_ranges
                         spans = jpeg_ranges(data)
                         previous = 0
@@ -712,7 +718,7 @@ class App(tk.Tk):
                         if not hit and previous < len(data):
                             hit = contains_whole_word(data[previous:], term, case_sensitive)
                     else:
-                        hit = contains_term_fast(data, term, case_sensitive)
+                        hit = candidate
                     error = None
                 except (OSError, ValueError, MemoryError) as exc:
                     hit, error = False, str(exc)
