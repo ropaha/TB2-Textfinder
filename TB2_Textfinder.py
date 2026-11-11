@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""TB2-Textfinder 1.8.5
+"""TB2-Textfinder 1.8.6
 
 Durchsucht .TB2-Dateien nach lesbarem Text und bislang beobachteten
 SignumNext-Glyphenprofilen mehrerer Formatgenerationen. Treffer werden
@@ -13,12 +13,13 @@ import queue
 import threading
 from time import perf_counter
 from tb2_resource_paths import mask_resource_paths
+from tb2_whole_words import contains_whole_word
 from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
 APP_TITLE = "TB2-Textfinder"
-APP_VERSION = "1.8.5"
+APP_VERSION = "1.8.6"
 MIT_LICENSE = "MIT License\n\nCopyright (c) 2026 Roga Hagen (roga@hagen.me)\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE.\n"
 
 INFO_TEXT = (
@@ -29,7 +30,9 @@ INFO_TEXT = (
     "(Datensatzabstände 80, 98, 106 und 587 Byte, mit unterschiedlichen Markern). Umlaute und weitere Ein-Byte-Zeichen werden "
     "berücksichtigt. Die Groß-/Kleinschreibung wird standardmäßig ignoriert – auch bei "
     "Umlauten. Die Dateiformate werden weiter untersucht; ein Nichttreffer ist daher "
-    "noch kein Beweis, dass der Text fehlt."
+    "noch kein Beweis, dass der Text fehlt. Die experimentelle Ganzwortsuche "
+    "prüft Wortgrenzen in bekannten Datenmustern; bei unbekannten Formaten "
+    "kann sie Treffer übersehen. Bindestriche gelten als Wortgrenzen."
 )
 
 PROFILES = (
@@ -484,12 +487,15 @@ def contains_term(data: bytes, term: str, case_sensitive: bool = False) -> bool:
             or _matches_legacy_mixed_records(data, term, case_sensitive))
 
 
-def scan_file(path: Path, term: str, case_sensitive: bool) -> tuple[bool, str | None]:
+def scan_file(path: Path, term: str, case_sensitive: bool, whole_word: bool = False) -> tuple[bool, str | None]:
     try:
         data = path.read_bytes()
     except OSError as exc:
         return False, str(exc)
-    return contains_term(mask_resource_paths(data), term, case_sensitive), None
+    data = mask_resource_paths(data)
+    candidate = contains_term(data, term, case_sensitive)
+    return (contains_whole_word(data, term, case_sensitive) if whole_word and candidate
+            else candidate if not whole_word else False), None
 
 
 class App(tk.Tk):
@@ -500,6 +506,7 @@ class App(tk.Tk):
         self.minsize(720, 420)
         self.events: queue.Queue = queue.Queue()
         self.scanning = False
+        self.cancel_scan_event = threading.Event()
         self.result_paths: list[str] = []
         self._build_ui()
         self.after(100, self._poll_events)
@@ -526,8 +533,10 @@ class App(tk.Tk):
         options.grid(row=2, column=1, columnspan=2, sticky="w", pady=(10, 2))
         self.recursive_var = tk.BooleanVar(value=True)
         self.case_var = tk.BooleanVar(value=False)
+        self.whole_word_var = tk.BooleanVar(value=True)
         self.search_mode_var = tk.StringVar(value="fast")
         ttk.Checkbutton(options, text="Unterordner einbeziehen", variable=self.recursive_var).pack(side="left", padx=(0, 20))
+        ttk.Checkbutton(options, text="Nur ganze Wörter", variable=self.whole_word_var).pack(side="left", padx=(0, 20))
         ttk.Checkbutton(options, text="Groß-/Kleinschreibung beachten", variable=self.case_var).pack(side="left")
 
         mode_options = ttk.Frame(frame)
@@ -540,7 +549,7 @@ class App(tk.Tk):
 
         actions = ttk.Frame(frame)
         actions.grid(row=4, column=0, columnspan=3, sticky="w", pady=(12, 10))
-        self.search_button = ttk.Button(actions, text="Suchen", command=self.start_scan)
+        self.search_button = ttk.Button(actions, text="Suchen", command=self.search_or_cancel)
         self.search_button.pack(side="left")
         self.open_button = ttk.Button(
             actions, text="Datei öffnen", command=self.open_selected_file, state="disabled"
@@ -550,31 +559,34 @@ class App(tk.Tk):
         self.copy_button.pack(side="left", padx=(8, 0))
         self.save_button = ttk.Button(actions, text="Pfade als TXT speichern …", command=self.save_paths, state="disabled")
         self.save_button.pack(side="left", padx=(8, 0))
-        ttk.Button(actions, text="Leeren", command=self.clear_results).pack(side="left", padx=(8, 0))
+        self.clear_button = ttk.Button(actions, text="Leeren", command=self.clear_results)
+        self.clear_button.pack(side="left", padx=(8, 0))
         ttk.Button(actions, text="Info", command=self.show_info).pack(side="left", padx=(8, 0))
 
         self.progress = ttk.Progressbar(frame, mode="determinate")
         self.progress.grid(row=5, column=0, columnspan=3, sticky="ew", pady=(0, 6))
         self.status_var = tk.StringVar(value="Bereit. Suchtext und Ordner auswählen.")
-        ttk.Label(frame, textvariable=self.status_var).grid(row=6, column=0, columnspan=3, sticky="w", pady=(0, 8))
+        ttk.Label(frame, textvariable=self.status_var).grid(row=6, column=0, columnspan=3, sticky="w", pady=(0, 4))
+        self.summary_var = tk.StringVar(value="Noch keine Suche abgeschlossen.")
+        ttk.Label(frame, textvariable=self.summary_var).grid(row=7, column=0, columnspan=3, sticky="w", pady=(0, 8))
 
-        ttk.Label(frame, text="Gefundene Dateien (vollständiger Pfad):").grid(row=7, column=0, columnspan=3, sticky="w", pady=(4, 4))
+        ttk.Label(frame, text="Gefundene Dateien (vollständiger Pfad):").grid(row=8, column=0, columnspan=3, sticky="w", pady=(4, 4))
         self.tree = ttk.Treeview(frame, columns=("path",), show="headings")
         self.tree.heading("path", text="Dateipfad")
         self.tree.column("path", width=880, anchor="w")
-        self.tree.grid(row=8, column=0, columnspan=2, sticky="nsew")
+        self.tree.grid(row=9, column=0, columnspan=2, sticky="nsew")
         yscroll = ttk.Scrollbar(frame, orient="vertical", command=self.tree.yview)
-        yscroll.grid(row=8, column=2, sticky="ns")
+        yscroll.grid(row=9, column=2, sticky="ns")
         self.tree.configure(yscrollcommand=yscroll.set)
         xscroll = ttk.Scrollbar(frame, orient="horizontal", command=self.tree.xview)
-        xscroll.grid(row=9, column=0, columnspan=2, sticky="ew")
+        xscroll.grid(row=10, column=0, columnspan=2, sticky="ew")
         self.tree.configure(xscrollcommand=xscroll.set)
         # Doppelklick oder die Schaltfläche öffnen die TB2-Datei mit dem in Windows verknüpften Programm.
         self.tree.bind("<Double-1>", self.open_result_file)
         self.tree.bind("<<TreeviewSelect>>", self._update_open_button_state)
 
         frame.columnconfigure(1, weight=1)
-        frame.rowconfigure(8, weight=1)
+        frame.rowconfigure(9, weight=1)
         self.term_entry.focus_set()
 
     def show_info(self):
@@ -629,6 +641,16 @@ class App(tk.Tk):
         if folder:
             self.folder_var.set(folder)
 
+    def search_or_cancel(self):
+        """Start a scan, or request cooperative cancellation."""
+        if self.scanning:
+            if not self.cancel_scan_event.is_set():
+                self.cancel_scan_event.set()
+                self.search_button.configure(state="disabled", text="Abbruch läuft …")
+                self.status_var.set("Abbruch angefordert – aktuelle Datei wird noch abgeschlossen …")
+            return
+        self.start_scan()
+
     def start_scan(self):
         folder_text = self.folder_var.get().strip()
         term = self.term_var.get().strip()
@@ -648,42 +670,68 @@ class App(tk.Tk):
             messagebox.showinfo("Keine TB2-/TBL-Dateien", "Im ausgewählten Ordner wurden keine .TB2- oder .TBL-Dateien gefunden.")
             return
 
+        self.cancel_scan_event.clear()
         self.scanning = True
         self.result_paths = []
-        self.search_button.configure(state="disabled")
+        self.search_button.configure(state="normal", text="Suche abbrechen")
+        self.clear_button.configure(state="disabled")
         self.copy_button.configure(state="disabled")
         self.open_button.configure(state="disabled")
         self.save_button.configure(state="disabled")
         for item in self.tree.get_children():
             self.tree.delete(item)
         self.progress.configure(maximum=len(files), value=0)
+        self.summary_var.set("Suche läuft – Ergebnis folgt nach Abschluss oder Abbruch.")
         self.status_var.set(f"Untersuche {len(files)} TB2-/TBL-Datei(en) …")
         threading.Thread(
             target=self._scan_worker,
-            args=(files, term, self.case_var.get(), self.search_mode_var.get()),
+            args=(files, term, self.case_var.get(), self.search_mode_var.get(), self.whole_word_var.get()),
             daemon=True,
         ).start()
 
-    def _scan_worker(self, files: list[Path], term: str, case_sensitive: bool, mode: str):
+    def _scan_worker(self, files: list[Path], term: str, case_sensitive: bool, mode: str, whole_word: bool):
         found: list[str] = []
         errors = 0
         started = perf_counter()
+        processed = 0
         for index, path in enumerate(files, start=1):
+            if self.cancel_scan_event.is_set():
+                break
             if mode == "fast":
                 try:
                     from tb2_jpeg_fast import contains_term_fast
-                    hit = contains_term_fast(mask_resource_paths(path.read_bytes()), term, case_sensitive)
+                    data = mask_resource_paths(path.read_bytes())
+                    # Zweistufige Ganzwortsuche: Nur Kandidaten mit einem
+                    # Teilworttreffer benötigen die teure Wortgrenzenprüfung.
+                    # JPEG-Bereiche werden in beiden Stufen identisch behandelt.
+                    candidate = contains_term_fast(data, term, case_sensitive)
+                    if whole_word and candidate:
+                        from tb2_jpeg_fast import jpeg_ranges
+                        spans = jpeg_ranges(data)
+                        previous = 0
+                        hit = False
+                        for begin, end in spans:
+                            if begin > previous and contains_whole_word(data[previous:begin], term, case_sensitive):
+                                hit = True
+                                break
+                            previous = max(previous, end)
+                        if not hit and previous < len(data):
+                            hit = contains_whole_word(data[previous:], term, case_sensitive)
+                    else:
+                        hit = candidate
                     error = None
                 except (OSError, ValueError, MemoryError) as exc:
                     hit, error = False, str(exc)
             else:
-                hit, error = scan_file(path, term, case_sensitive)
+                hit, error = scan_file(path, term, case_sensitive, whole_word)
             if hit:
                 found.append(str(path.resolve()))
             if error:
                 errors += 1
+            processed = index
             self.events.put(("progress", index, len(files), path.name))
-        self.events.put(("finished", found, len(files), errors, mode, perf_counter() - started))
+        self.events.put(("finished", found, len(files), errors, mode, perf_counter() - started,
+                         processed, self.cancel_scan_event.is_set()))
 
     def _poll_events(self):
         try:
@@ -692,23 +740,30 @@ class App(tk.Tk):
                 if event[0] == "progress":
                     _, current, total, filename = event
                     self.progress.configure(value=current)
-                    self.status_var.set(f"Datei {current}/{total}: {filename}")
+                    if not self.cancel_scan_event.is_set():
+                        self.status_var.set(f"Datei {current}/{total}: {filename}")
                 elif event[0] == "finished":
-                    _, found, total, errors, mode, seconds = event
+                    _, found, total, errors, mode, seconds, processed, cancelled = event
                     self.result_paths = found
                     for path in found:
                         self.tree.insert("", "end", values=(path,))
                     self.scanning = False
-                    self.search_button.configure(state="normal")
+                    self.search_button.configure(state="normal", text="Suchen")
+                    self.clear_button.configure(state="normal")
                     state = "normal" if found else "disabled"
                     self.copy_button.configure(state=state)
                     self.save_button.configure(state=state)
                     # Die Datei-Öffnen-Schaltfläche wird erst nach Auswahl eines Treffers aktiviert.
                     self.open_button.configure(state="disabled")
-                    msg = f"Fertig ({'Schnell' if mode == 'fast' else 'Vollständig'}): {len(found)} Treffer in {total} Datei(en) – {seconds:.2f} s."
+                    if cancelled:
+                        msg = (f"Abgebrochen ({'Schnell' if mode == 'fast' else 'Vollständig'}): "
+                               f"{processed}/{total} Dateien geprüft, {len(found)} Treffer – {seconds:.2f} s.")
+                    else:
+                        msg = f"Fertig ({'Schnell' if mode == 'fast' else 'Vollständig'}): {len(found)} Treffer in {total} Datei(en) – {seconds:.2f} s."
                     if errors:
                         msg += f" {errors} Datei(en) konnten nicht gelesen werden."
-                    self.status_var.set(msg)
+                    self.summary_var.set(msg)
+                    self.status_var.set("Suche abgebrochen." if cancelled else "Suche abgeschlossen.")
         except queue.Empty:
             pass
         self.after(100, self._poll_events)
@@ -797,6 +852,8 @@ class App(tk.Tk):
         self.status_var.set(f"Pfadliste gespeichert: {destination}")
 
     def clear_results(self):
+        if self.scanning:
+            return
         self.result_paths = []
         for item in self.tree.get_children():
             self.tree.delete(item)
@@ -804,6 +861,7 @@ class App(tk.Tk):
         self.open_button.configure(state="disabled")
         self.save_button.configure(state="disabled")
         self.status_var.set("Ergebnisliste geleert.")
+        self.summary_var.set("Noch keine Suche abgeschlossen.")
 
 
 if __name__ == "__main__":
