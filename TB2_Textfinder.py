@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""TB2-Textfinder 1.8.4
+"""TB2-Textfinder 1.8.5
 
 Durchsucht .TB2-Dateien nach lesbarem Text und bislang beobachteten
 SignumNext-Glyphenprofilen mehrerer Formatgenerationen. Treffer werden
@@ -13,12 +13,13 @@ import queue
 import threading
 from time import perf_counter
 from tb2_resource_paths import mask_resource_paths
+from tb2_whole_words import contains_whole_word
 from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
 APP_TITLE = "TB2-Textfinder"
-APP_VERSION = "1.8.4"
+APP_VERSION = "1.8.5"
 MIT_LICENSE = "MIT License\n\nCopyright (c) 2026 Roga Hagen (roga@hagen.me)\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE.\n"
 
 INFO_TEXT = (
@@ -29,7 +30,9 @@ INFO_TEXT = (
     "(Datensatzabstände 80, 98, 106 und 587 Byte, mit unterschiedlichen Markern). Umlaute und weitere Ein-Byte-Zeichen werden "
     "berücksichtigt. Die Groß-/Kleinschreibung wird standardmäßig ignoriert – auch bei "
     "Umlauten. Die Dateiformate werden weiter untersucht; ein Nichttreffer ist daher "
-    "noch kein Beweis, dass der Text fehlt."
+    "noch kein Beweis, dass der Text fehlt. Die experimentelle Ganzwortsuche "
+    "prüft Wortgrenzen in bekannten Datenmustern; bei unbekannten Formaten "
+    "kann sie Treffer übersehen. Bindestriche gelten als Wortgrenzen."
 )
 
 PROFILES = (
@@ -484,12 +487,13 @@ def contains_term(data: bytes, term: str, case_sensitive: bool = False) -> bool:
             or _matches_legacy_mixed_records(data, term, case_sensitive))
 
 
-def scan_file(path: Path, term: str, case_sensitive: bool) -> tuple[bool, str | None]:
+def scan_file(path: Path, term: str, case_sensitive: bool, whole_word: bool = False) -> tuple[bool, str | None]:
     try:
         data = path.read_bytes()
     except OSError as exc:
         return False, str(exc)
-    return contains_term(mask_resource_paths(data), term, case_sensitive), None
+    return (contains_whole_word(mask_resource_paths(data), term, case_sensitive) if whole_word
+            else contains_term(mask_resource_paths(data), term, case_sensitive)), None
 
 
 class App(tk.Tk):
@@ -526,9 +530,11 @@ class App(tk.Tk):
         options.grid(row=2, column=1, columnspan=2, sticky="w", pady=(10, 2))
         self.recursive_var = tk.BooleanVar(value=True)
         self.case_var = tk.BooleanVar(value=False)
+        self.whole_word_var = tk.BooleanVar(value=False)
         self.search_mode_var = tk.StringVar(value="fast")
         ttk.Checkbutton(options, text="Unterordner einbeziehen", variable=self.recursive_var).pack(side="left", padx=(0, 20))
         ttk.Checkbutton(options, text="Groß-/Kleinschreibung beachten", variable=self.case_var).pack(side="left")
+        ttk.Checkbutton(options, text="Nur ganze Wörter (experimentell)", variable=self.whole_word_var).pack(side="left", padx=(15, 0))
 
         mode_options = ttk.Frame(frame)
         mode_options.grid(row=3, column=1, columnspan=2, sticky="w", pady=(4, 2))
@@ -660,11 +666,11 @@ class App(tk.Tk):
         self.status_var.set(f"Untersuche {len(files)} TB2-/TBL-Datei(en) …")
         threading.Thread(
             target=self._scan_worker,
-            args=(files, term, self.case_var.get(), self.search_mode_var.get()),
+            args=(files, term, self.case_var.get(), self.search_mode_var.get(), self.whole_word_var.get()),
             daemon=True,
         ).start()
 
-    def _scan_worker(self, files: list[Path], term: str, case_sensitive: bool, mode: str):
+    def _scan_worker(self, files: list[Path], term: str, case_sensitive: bool, mode: str, whole_word: bool):
         found: list[str] = []
         errors = 0
         started = perf_counter()
@@ -672,12 +678,26 @@ class App(tk.Tk):
             if mode == "fast":
                 try:
                     from tb2_jpeg_fast import contains_term_fast
-                    hit = contains_term_fast(mask_resource_paths(path.read_bytes()), term, case_sensitive)
+                    data = mask_resource_paths(path.read_bytes())
+                    if whole_word:
+                        from tb2_jpeg_fast import jpeg_ranges
+                        spans = jpeg_ranges(data)
+                        previous = 0
+                        hit = False
+                        for begin, end in spans:
+                            if begin > previous and contains_whole_word(data[previous:begin], term, case_sensitive):
+                                hit = True
+                                break
+                            previous = max(previous, end)
+                        if not hit and previous < len(data):
+                            hit = contains_whole_word(data[previous:], term, case_sensitive)
+                    else:
+                        hit = contains_term_fast(data, term, case_sensitive)
                     error = None
                 except (OSError, ValueError, MemoryError) as exc:
                     hit, error = False, str(exc)
             else:
-                hit, error = scan_file(path, term, case_sensitive)
+                hit, error = scan_file(path, term, case_sensitive, whole_word)
             if hit:
                 found.append(str(path.resolve()))
             if error:
