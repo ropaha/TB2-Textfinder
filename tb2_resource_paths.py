@@ -25,7 +25,7 @@ def mask_resource_paths(data: bytes) -> bytes:
     # Historische Netzwerkpfade enthalten zwingend den Anker \\SYS\\.
     # Nur bei diesem Anker ist der zweite Regex-Durchlauf erforderlich.
     matches = list(_RESOURCE_PATH.finditer(data))
-    if b"\SYS\" in data.upper():
+    if b"\\SYS\\" in data.upper():
         matches.extend(_LEGACY_SERVER_PATH.finditer(data))
     if not matches:
         return data
