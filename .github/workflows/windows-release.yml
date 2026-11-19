@@ -9,7 +9,6 @@ permissions:
 
 jobs:
   build-and-upload:
-    if: github.event.release.target_commitish == 'main' || github.event.release.target_commitish == 'refs/heads/main'
     runs-on: windows-latest
     steps:
       - name: Release-Tag auschecken
