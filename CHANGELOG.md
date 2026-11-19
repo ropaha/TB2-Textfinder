@@ -4,6 +4,17 @@ Alle wesentlichen Änderungen am TB2-Textfinder und Negativtester werden hier do
 
 Die Versionsnummer des Gesamtpakets ist unabhängig von den Programmversionen. Die Erkennung beruht auf empirisch untersuchten TB2-Dateien, nicht auf einer vollständigen offiziellen Formatspezifikation.
 
+## [1.8.7] – 2026-11-19
+
+### Transparenz und Dokumentation
+- Im Info-Fenster des TB2-Textfinders die Schaltfläche **„GitHub-Projekt öffnen“** ergänzt. Sie öffnet das öffentliche Projekt-Repository im Standardbrowser.
+- Neue Schaltfläche unter Windows erfolgreich getestet.
+- Änderung über Pull Request #8 von `dev` nach `main` übernommen.
+
+### Versionierung
+- Versionsangaben des TB2-Textfinders und TB2-Negativtesters auf **1.8.7** gesetzt.
+- Keine Änderung an der Such- oder Erkennungslogik.
+
 ## [1.8.6] – 2026-11-11
 
 ### Neu
