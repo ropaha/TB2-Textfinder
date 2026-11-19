@@ -8,10 +8,11 @@ Die Versionsnummer des Gesamtpakets ist unabhängig von den Programmversionen. D
 
 ### Oberfläche und Bedienung
 - Info-Fenster des TB2-Textfinders: **„Was ist neu? / Versionsverlauf“** öffnet ein natives, scrollbareres Fenster mit dem lokal eingebundenen Changelog (offline).
-- Die drei Aktionen **Versionsverlauf**, **GitHub-Projekt öffnen** und **MIT-Lizenz anzeigen** sind untereinander angeordnet; **Schließen** bleibt separat.
+- Die Schaltflächen **Was ist neu?**, **GitHub**, **MIT-Lizenz** und **Schließen** sind platzsparend in einer Zeile angeordnet.
+- Info-, Versionsverlauf- und Lizenztext verwenden einheitlich die Tk-Standardschrift statt unterschiedlicher Text-Schriften.
 - Das Changelog zeigt nur veröffentlichte Einträge bis einschließlich der installierten Version; unveröffentlichte und neuere Einträge werden ausgeblendet.
 - Lokale BAT-Builds und beide GitHub-Actions-Builds binden `CHANGELOG.md` in die EXE-Dateien ein.
-- Info-Fenster für die zusätzliche Schaltfläche vergrößert.
+- Info-Fenster wieder kompakter gestaltet.
 - **Windows-Praxistest steht noch aus.** Such- und Erkennungslogik unverändert.
 
 ## [1.8.8] – 2026-11-19
