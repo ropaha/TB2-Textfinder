@@ -17,6 +17,7 @@ from tb2_resource_paths import mask_resource_paths
 from tb2_whole_words import contains_whole_word
 from pathlib import Path
 from tb2_window_position import center_window
+from tb2_changelog import changelog_for_version
 from tb2_app_identity import configure_app_identity, apply_window_icon
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk, font as tkfont
@@ -24,7 +25,6 @@ from tkinter import filedialog, messagebox, ttk, font as tkfont
 APP_TITLE = "TB2-Textfinder"
 APP_VERSION = "1.8.8"
 PROJECT_URL = "https://github.com/ropaha/TB2-Textfinder"
-RELEASES_URL = f"{PROJECT_URL}/releases"
 MIT_LICENSE = "MIT License\n\nCopyright (c) 2026 Roga Hagen (roga@hagen.me)\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE.\n"
 
 INFO_TEXT = (
@@ -626,11 +626,33 @@ class App(tk.Tk):
         buttons = ttk.Frame(body)
         buttons.pack(fill="x", pady=(14, 0))
         ttk.Button(buttons, text="Was ist neu? / Versionsverlauf",
-                   command=lambda: webbrowser.open(RELEASES_URL)).pack(fill="x", pady=(0, 6))
+                   command=lambda: self.show_changelog(dialog)).pack(fill="x", pady=(0, 6))
         ttk.Button(buttons, text="GitHub-Projekt öffnen",
                    command=lambda: webbrowser.open(PROJECT_URL)).pack(fill="x", pady=(0, 6))
         ttk.Button(buttons, text="MIT-Lizenz anzeigen",
                    command=lambda: self.show_license(dialog)).pack(fill="x")
+        ttk.Button(body, text="Schließen", command=dialog.destroy).pack(anchor="e", pady=(10, 0))
+
+    def show_changelog(self, parent):
+        """Display the bundled version history, including this installed version."""
+        dialog = tk.Toplevel(parent)
+        dialog.title(f"Was ist neu? – TB2-Textfinder {APP_VERSION}")
+        center_window(dialog, 720, 500, parent=parent)
+        dialog.minsize(450, 320)
+        dialog.transient(parent)
+        body = ttk.Frame(dialog, padding=14)
+        body.pack(fill="both", expand=True)
+        ttk.Label(body, text=f"Versionsverlauf bis {APP_VERSION}",
+                  font=("TkDefaultFont", 12, "bold")).pack(anchor="w", pady=(0, 10))
+        text_frame = ttk.Frame(body)
+        text_frame.pack(fill="both", expand=True)
+        history = tk.Text(text_frame, wrap="word", padx=8, pady=8)
+        history.insert("1.0", changelog_for_version(APP_VERSION))
+        history.configure(state="disabled")
+        history.pack(side="left", fill="both", expand=True)
+        scrollbar = ttk.Scrollbar(text_frame, orient="vertical", command=history.yview)
+        scrollbar.pack(side="right", fill="y")
+        history.configure(yscrollcommand=scrollbar.set)
         ttk.Button(body, text="Schließen", command=dialog.destroy).pack(anchor="e", pady=(10, 0))
 
     def show_license(self, parent):
