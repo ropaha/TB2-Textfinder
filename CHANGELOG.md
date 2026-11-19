@@ -7,6 +7,8 @@ Die Versionsnummer des Gesamtpakets ist unabhängig von den Programmversionen. D
 ## [Unveröffentlicht] – Entwicklungsbranch dev
 
 ### Build-Automatisierung
+- Separaten GitHub-Actions-Workflow `.github/workflows/windows-release.yml` vorbereitet: Bei Veröffentlichung eines GitHub-Releases werden beide Windows-EXE-Dateien aus dem Release-Tag gebaut und mit `gh release upload` als Assets hochgeladen.
+- Der Release-Workflow muss vor der ersten Verwendung nach `main` übernommen werden; der automatische Release-Upload ist noch nicht getestet.
 - GitHub-Actions-Workflow `.github/workflows/windows-build.yml` für einen manuell startbaren Windows-Test-Build ergänzt.
 - Erstellt `TB2_Textfinder.exe` und `TB2_Negativtester.exe` mit Python 3.12 und PyInstaller anhand der bestehenden Build-Einstellungen.
 - Beide EXE-Dateien werden als gemeinsames, 14 Tage verfügbares Workflow-Artefakt bereitgestellt; kein automatischer GitHub-Release und kein Release-Asset-Upload.
