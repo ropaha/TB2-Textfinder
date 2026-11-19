@@ -7,8 +7,10 @@ Die Versionsnummer des Gesamtpakets ist unabhängig von den Programmversionen. D
 ## [Unveröffentlicht] – Entwicklungsbranch dev
 
 ### Oberfläche und Bedienung
-- Info-Fenster des TB2-Textfinders: Neue Schaltfläche **„Was ist neu? / Versionsverlauf“** öffnet die GitHub-Releases im Standardbrowser.
+- Info-Fenster des TB2-Textfinders: **„Was ist neu? / Versionsverlauf“** öffnet ein natives, scrollbareres Fenster mit dem lokal eingebundenen Changelog (offline).
 - Die drei Aktionen **Versionsverlauf**, **GitHub-Projekt öffnen** und **MIT-Lizenz anzeigen** sind untereinander angeordnet; **Schließen** bleibt separat.
+- Das Changelog zeigt nur veröffentlichte Einträge bis einschließlich der installierten Version; unveröffentlichte und neuere Einträge werden ausgeblendet.
+- Lokale BAT-Builds und beide GitHub-Actions-Builds binden `CHANGELOG.md` in die EXE-Dateien ein.
 - Info-Fenster für die zusätzliche Schaltfläche vergrößert.
 - **Windows-Praxistest steht noch aus.** Such- und Erkennungslogik unverändert.
 
