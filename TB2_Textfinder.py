@@ -17,6 +17,7 @@ from tb2_resource_paths import mask_resource_paths
 from tb2_whole_words import contains_whole_word
 from pathlib import Path
 from tb2_window_position import center_window
+from tb2_app_identity import configure_app_identity, apply_window_icon
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk, font as tkfont
 
@@ -503,7 +504,9 @@ def scan_file(path: Path, term: str, case_sensitive: bool, whole_word: bool = Fa
 
 class App(tk.Tk):
     def __init__(self):
+        configure_app_identity("ropaha.TB2Textfinder")
         super().__init__()
+        apply_window_icon(self)
         self.title(f"{APP_TITLE} – {APP_VERSION}")
         center_window(self, 800, 520)
         self.minsize(720, 420)
