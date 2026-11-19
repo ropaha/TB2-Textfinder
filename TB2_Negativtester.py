@@ -8,6 +8,7 @@ import queue
 import threading
 from pathlib import Path
 from tb2_window_position import center_window
+from tb2_app_identity import configure_app_identity, apply_window_icon
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 from TB2_Textfinder import has_variable_80_pattern, has_wide_587_pattern, has_early_80_pattern, has_early_82_pattern, has_variable_98_pattern, has_variable_106_pattern
@@ -99,7 +100,9 @@ def inspect_file(path: Path) -> tuple[str, str]:
 
 class App(tk.Tk):
     def __init__(self):
+        configure_app_identity("ropaha.TB2Negativtester")
         super().__init__()
+        apply_window_icon(self)
         self.title(f"TB2-Negativtester – {APP_VERSION}")
         center_window(self, 1000, 650)
         self.minsize(760, 460)
