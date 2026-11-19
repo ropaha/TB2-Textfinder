@@ -16,8 +16,10 @@ from time import perf_counter
 from tb2_resource_paths import mask_resource_paths
 from tb2_whole_words import contains_whole_word
 from pathlib import Path
+from tb2_window_position import center_window
+from tb2_app_identity import configure_app_identity, apply_window_icon
 import tkinter as tk
-from tkinter import filedialog, messagebox, ttk
+from tkinter import filedialog, messagebox, ttk, font as tkfont
 
 APP_TITLE = "TB2-Textfinder"
 APP_VERSION = "1.8.7"
@@ -502,9 +504,11 @@ def scan_file(path: Path, term: str, case_sensitive: bool, whole_word: bool = Fa
 
 class App(tk.Tk):
     def __init__(self):
+        configure_app_identity("ropaha.TB2Textfinder")
         super().__init__()
+        apply_window_icon(self)
         self.title(f"{APP_TITLE} – {APP_VERSION}")
-        self.geometry("940x600")
+        center_window(self, 800, 520)
         self.minsize(720, 420)
         self.events: queue.Queue = queue.Queue()
         self.scanning = False
@@ -573,16 +577,22 @@ class App(tk.Tk):
         ttk.Label(frame, textvariable=self.summary_var).grid(row=7, column=0, columnspan=3, sticky="w", pady=(0, 8))
 
         ttk.Label(frame, text="Gefundene Dateien (vollständiger Pfad):").grid(row=8, column=0, columnspan=3, sticky="w", pady=(4, 4))
-        self.tree = ttk.Treeview(frame, columns=("path",), show="headings")
+        results_frame = ttk.Frame(frame)
+        results_frame.grid(row=9, column=0, columnspan=3, sticky="nsew")
+        results_frame.columnconfigure(0, weight=1)
+        results_frame.rowconfigure(0, weight=1)
+
+        self.tree = ttk.Treeview(results_frame, columns=("path",), show="headings")
         self.tree.heading("path", text="Dateipfad")
-        self.tree.column("path", width=880, anchor="w")
-        self.tree.grid(row=9, column=0, columnspan=2, sticky="nsew")
-        yscroll = ttk.Scrollbar(frame, orient="vertical", command=self.tree.yview)
-        yscroll.grid(row=9, column=2, sticky="ns")
+        self.tree.column("path", width=80, minwidth=80, anchor="w", stretch=True)
+        self.tree.grid(row=0, column=0, sticky="nsew")
+        yscroll = ttk.Scrollbar(results_frame, orient="vertical", command=self.tree.yview)
+        yscroll.grid(row=0, column=1, sticky="ns")
         self.tree.configure(yscrollcommand=yscroll.set)
-        xscroll = ttk.Scrollbar(frame, orient="horizontal", command=self.tree.xview)
-        xscroll.grid(row=10, column=0, columnspan=2, sticky="ew")
+        xscroll = ttk.Scrollbar(results_frame, orient="horizontal", command=self.tree.xview)
+        xscroll.grid(row=1, column=0, sticky="ew")
         self.tree.configure(xscrollcommand=xscroll.set)
+        self.tree.after_idle(self._fit_path_column)
         # Doppelklick oder die Schaltfläche öffnen die TB2-Datei mit dem in Windows verknüpften Programm.
         self.tree.bind("<Double-1>", self.open_result_file)
         self.tree.bind("<<TreeviewSelect>>", self._update_open_button_state)
@@ -595,7 +605,7 @@ class App(tk.Tk):
         """Show application details and the former footer help text."""
         dialog = tk.Toplevel(self)
         dialog.title("Info – TB2-Textfinder")
-        dialog.geometry("650x380")
+        center_window(dialog, 650, 380, parent=self)
         dialog.minsize(420, 280)
         dialog.transient(self)
         body = ttk.Frame(dialog, padding=18)
@@ -624,7 +634,7 @@ class App(tk.Tk):
         """Display the complete license bundled with this program."""
         dialog = tk.Toplevel(parent)
         dialog.title("MIT-Lizenz – TB2-Textfinder")
-        dialog.geometry("720x450")
+        center_window(dialog, 720, 450, parent=parent)
         dialog.minsize(450, 300)
         dialog.transient(parent)
         body = ttk.Frame(dialog, padding=14)
@@ -684,6 +694,7 @@ class App(tk.Tk):
         self.save_button.configure(state="disabled")
         for item in self.tree.get_children():
             self.tree.delete(item)
+        self._fit_path_column([])
         self.progress.configure(maximum=len(files), value=0)
         self.summary_var.set("Suche läuft – Ergebnis folgt nach Abschluss oder Abbruch.")
         self.status_var.set(f"Untersuche {len(files)} TB2-/TBL-Datei(en) …")
@@ -751,6 +762,7 @@ class App(tk.Tk):
                     self.result_paths = found
                     for path in found:
                         self.tree.insert("", "end", values=(path,))
+                    self._fit_path_column(found)
                     self.scanning = False
                     self.search_button.configure(state="normal", text="Suchen")
                     self.clear_button.configure(state="normal")
@@ -771,6 +783,20 @@ class App(tk.Tk):
         except queue.Empty:
             pass
         self.after(100, self._poll_events)
+
+    def _fit_path_column(self, paths=None):
+        """Spaltenbreite an den längsten sichtbaren Dateipfad anpassen."""
+        if paths is None:
+            paths = self.result_paths
+        style = ttk.Style(self)
+        font_name = style.lookup("Treeview", "font") or "TkDefaultFont"
+        font = tkfont.nametofont(font_name) if font_name in tkfont.names(self) else tkfont.nametofont("TkDefaultFont")
+        heading_width = font.measure("Dateipfad") + 32
+        content_width = max((font.measure(path) for path in paths), default=0) + 24
+        # Treeview dehnt die Spalte selbst auf den verfügbaren Platz aus.
+        # Die Widgetbreite darf nicht als Spaltenbreite verwendet werden:
+        # Rahmen und Innenabstände würden sonst unnötiges Scrollen auslösen.
+        self.tree.column("path", width=max(heading_width, content_width, 80))
 
     def _update_open_button_state(self, _event=None):
         """Enable 'Datei öffnen' only when one result is selected."""
@@ -864,6 +890,7 @@ class App(tk.Tk):
         self.copy_button.configure(state="disabled")
         self.open_button.configure(state="disabled")
         self.save_button.configure(state="disabled")
+        self._fit_path_column([])
         self.status_var.set("Ergebnisliste geleert.")
         self.summary_var.set("Noch keine Suche abgeschlossen.")
 
