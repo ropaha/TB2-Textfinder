@@ -24,6 +24,7 @@ from tkinter import filedialog, messagebox, ttk, font as tkfont
 APP_TITLE = "TB2-Textfinder"
 APP_VERSION = "1.8.8"
 PROJECT_URL = "https://github.com/ropaha/TB2-Textfinder"
+RELEASES_URL = f"{PROJECT_URL}/releases"
 MIT_LICENSE = "MIT License\n\nCopyright (c) 2026 Roga Hagen (roga@hagen.me)\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE.\n"
 
 INFO_TEXT = (
@@ -605,8 +606,8 @@ class App(tk.Tk):
         """Show application details and the former footer help text."""
         dialog = tk.Toplevel(self)
         dialog.title("Info – TB2-Textfinder")
-        center_window(dialog, 650, 380, parent=self)
-        dialog.minsize(420, 280)
+        center_window(dialog, 650, 440, parent=self)
+        dialog.minsize(420, 380)
         dialog.transient(self)
         body = ttk.Frame(dialog, padding=18)
         body.pack(fill="both", expand=True)
@@ -624,11 +625,13 @@ class App(tk.Tk):
         help_text.configure(yscrollcommand=scrollbar.set)
         buttons = ttk.Frame(body)
         buttons.pack(fill="x", pady=(14, 0))
-        ttk.Button(buttons, text="MIT-Lizenz anzeigen",
-                   command=lambda: self.show_license(dialog)).pack(side="left")
+        ttk.Button(buttons, text="Was ist neu? / Versionsverlauf",
+                   command=lambda: webbrowser.open(RELEASES_URL)).pack(fill="x", pady=(0, 6))
         ttk.Button(buttons, text="GitHub-Projekt öffnen",
-                   command=lambda: webbrowser.open(PROJECT_URL)).pack(side="left", padx=(10, 0))
-        ttk.Button(buttons, text="Schließen", command=dialog.destroy).pack(side="right")
+                   command=lambda: webbrowser.open(PROJECT_URL)).pack(fill="x", pady=(0, 6))
+        ttk.Button(buttons, text="MIT-Lizenz anzeigen",
+                   command=lambda: self.show_license(dialog)).pack(fill="x")
+        ttk.Button(body, text="Schließen", command=dialog.destroy).pack(anchor="e", pady=(10, 0))
 
     def show_license(self, parent):
         """Display the complete license bundled with this program."""
