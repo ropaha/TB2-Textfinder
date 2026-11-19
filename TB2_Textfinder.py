@@ -16,6 +16,7 @@ from time import perf_counter
 from tb2_resource_paths import mask_resource_paths
 from tb2_whole_words import contains_whole_word
 from pathlib import Path
+from tb2_window_position import center_window
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
@@ -504,7 +505,7 @@ class App(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title(f"{APP_TITLE} – {APP_VERSION}")
-        self.geometry("940x600")
+        center_window(self, 940, 600)
         self.minsize(720, 420)
         self.events: queue.Queue = queue.Queue()
         self.scanning = False
@@ -595,7 +596,7 @@ class App(tk.Tk):
         """Show application details and the former footer help text."""
         dialog = tk.Toplevel(self)
         dialog.title("Info – TB2-Textfinder")
-        dialog.geometry("650x380")
+        center_window(dialog, 650, 380, parent=self)
         dialog.minsize(420, 280)
         dialog.transient(self)
         body = ttk.Frame(dialog, padding=18)
@@ -624,7 +625,7 @@ class App(tk.Tk):
         """Display the complete license bundled with this program."""
         dialog = tk.Toplevel(parent)
         dialog.title("MIT-Lizenz – TB2-Textfinder")
-        dialog.geometry("720x450")
+        center_window(dialog, 720, 450, parent=parent)
         dialog.minsize(450, 300)
         dialog.transient(parent)
         body = ttk.Frame(dialog, padding=14)
