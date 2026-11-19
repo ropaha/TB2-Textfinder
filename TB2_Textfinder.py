@@ -505,7 +505,7 @@ class App(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title(f"{APP_TITLE} – {APP_VERSION}")
-        center_window(self, 940, 600)
+        center_window(self, 800, 520)
         self.minsize(720, 420)
         self.events: queue.Queue = queue.Queue()
         self.scanning = False
