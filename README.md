@@ -4,7 +4,7 @@
 
 Ein kleines Windows-Programm zum Durchsuchen von `.TB2`-Dateien nach Texten, die in unterschiedlichen Signum-/SignumNext-Dateigenerationen gespeichert sein können.
 
-**Aktuelle Version:** 1.8.5. · [Änderungsverlauf](CHANGELOG.md) · [English version](README_EN.md)
+**Aktuelle Version:** 1.8.8. · [Änderungsverlauf](CHANGELOG.md) · [English version](README_EN.md)
 
 ![TB2-Textfinder Projektbanner](banner.svg)
 
@@ -48,14 +48,27 @@ Voraussetzung: Windows und Python 3.10 oder neuer mit Tkinter.
 
 Für den direkten Start des Python-Skripts werden keine zusätzlichen Pakete benötigt. Die Dateien `TB2_Textfinder.py`, `tb2_jpeg_fast.py` und `tb2_resource_paths.py` müssen im selben Verzeichnis liegen.
 
-## Windows-EXE erstellen
+## Windows-EXE herunterladen oder selbst erstellen
 
-1. Python 3.10 oder neuer installieren.
-2. `Build_EXE.bat` doppelt anklicken.
-3. Beim ersten Lauf wird eine Internetverbindung benötigt, um PyInstaller zu installieren.
-4. Die fertige Datei liegt anschließend unter `dist\TB2_Textfinder.exe`.
+### Fertige EXE aus einem GitHub-Release
 
-Das Build-Skript erstellt eine lokale virtuelle Umgebung unter `.venv`, installiert PyInstaller und baut eine einzelne EXE ohne zusätzliches Konsolenfenster. Der Python-Interpreter wird mitgeliefert.
+1. Unter [Releases](https://github.com/ropaha/TB2-Textfinder/releases) die gewünschte Version öffnen.
+2. Unter **Assets** `TB2_Textfinder.exe` oder `TB2_Negativtester.exe` herunterladen.
+3. Die heruntergeladene EXE unter Windows starten. Eine Python-Installation ist dafür nicht erforderlich.
+
+**Hinweis zu Microsoft Defender SmartScreen:** Windows kann beim Start einer heruntergeladenen EXE die Meldung **„Der Computer wurde durch Windows geschützt“** mit **„Unbekannter Herausgeber“** anzeigen. Die Programme sind derzeit nicht digital signiert. Außerdem können Browser Downloads als Dateien aus dem Internet kennzeichnen (Mark of the Web), wodurch Windows eine Reputationsprüfung auslöst. Eine solche Warnung bedeutet nicht automatisch, dass die Datei schädlich ist. Prüfe die Downloadquelle und führe nur Dateien aus, denen du vertraust.
+
+### EXE lokal aus dem Quellcode erstellen
+
+1. Auf der [Repository-Startseite](https://github.com/ropaha/TB2-Textfinder) **Code → Download ZIP** wählen und das ZIP entpacken (alternativ das Repository klonen).
+2. Python 3.10 oder neuer installieren.
+3. `Build_TB2_Textfinder_EXE.bat` beziehungsweise `Build_TB2_Negativtester_EXE.bat` im entpackten Projektordner doppelt anklicken.
+4. Beim ersten Lauf wird eine Internetverbindung benötigt, um die Build-Abhängigkeiten zu installieren.
+5. Die fertigen Dateien liegen unter `dist\\TB2_Textfinder.exe` beziehungsweise `dist\\TB2_Negativtester.exe`.
+
+Die Build-Skripte verwenden eine lokale virtuelle Umgebung unter `.venv`, installieren PyInstaller und erstellen eigenständige EXE-Dateien ohne zusätzliches Konsolenfenster.
+
+**Warum lokal oft keine SmartScreen-Warnung erscheint:** Eine selbst erstellte EXE trägt normalerweise keine Internet-Downloadkennzeichnung. Das bedeutet jedoch **nicht**, dass sie automatisch sicherer ist. Je nach Windows-Konfiguration und Dateibehandlung kann auch bei lokal erstellten Dateien eine Sicherheitswarnung auftreten. Die Build-Skripte führen Python-Code aus und installieren Abhängigkeiten; verwende daher nur eine vertrauenswürdige Quelle.
 
 ## Bisher untersuchte TB2-Muster
 
