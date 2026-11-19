@@ -782,7 +782,7 @@ class App(tk.Tk):
             paths = self.result_paths
         style = ttk.Style(self)
         font_name = style.lookup("Treeview", "font") or "TkDefaultFont"
-        font = tkfont.nametofont(font_name) if font_name in tkfont.names(self) else tkfont.Font(root=self, font=font_name)
+        font = tkfont.nametofont(font_name) if font_name in tkfont.names(self) else tkfont.nametofont("TkDefaultFont")
         heading_width = font.measure("Dateipfad") + 32
         content_width = max((font.measure(path) for path in paths), default=0) + 24
         viewport_width = max(self.tree.winfo_width(), 80)
