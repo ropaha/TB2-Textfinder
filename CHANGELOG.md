@@ -4,6 +4,14 @@ Alle wesentlichen Änderungen am TB2-Textfinder und Negativtester werden hier do
 
 Die Versionsnummer des Gesamtpakets ist unabhängig von den Programmversionen. Die Erkennung beruht auf empirisch untersuchten TB2-Dateien, nicht auf einer vollständigen offiziellen Formatspezifikation.
 
+## [Unveröffentlicht] – Entwicklungsbranch dev
+
+### Build-Automatisierung
+- GitHub-Actions-Workflow `.github/workflows/windows-build.yml` für einen manuell startbaren Windows-Test-Build ergänzt.
+- Erstellt `TB2_Textfinder.exe` und `TB2_Negativtester.exe` mit Python 3.12 und PyInstaller anhand der bestehenden Build-Einstellungen.
+- Beide EXE-Dateien werden als gemeinsames, 14 Tage verfügbares Workflow-Artefakt bereitgestellt; kein automatischer GitHub-Release und kein Release-Asset-Upload.
+- **Noch nicht unter GitHub Actions ausgeführt oder unter Windows getestet.** Nach erfolgreichem Test kann der automatische Upload zu zukünftigen Releases ergänzt werden.
+
 ## [1.8.7] – 2026-11-19
 
 ### Oberfläche und Bedienung
