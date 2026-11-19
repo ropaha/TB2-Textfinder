@@ -4,6 +4,15 @@ Alle wesentlichen Änderungen am TB2-Textfinder und Negativtester werden hier do
 
 Die Versionsnummer des Gesamtpakets ist unabhängig von den Programmversionen. Die Erkennung beruht auf empirisch untersuchten TB2-Dateien, nicht auf einer vollständigen offiziellen Formatspezifikation.
 
+## [Unveröffentlicht] – Entwicklungsbranch `dev`
+
+### Fensterpositionierung
+- Gemeinsames Modul `tb2_window_position.py` für die Fensterzentrierung ergänzt; keine zusätzliche Python-Bibliothek erforderlich.
+- Hauptfenster von TB2-Textfinder und TB2-Negativtester werden beim Start auf dem Monitor unter dem Mauszeiger zentriert.
+- Info-Fenster wird über dem Textfinder-Hauptfenster, das MIT-Lizenzfenster über seinem Elternfenster zentriert. Die Position wird auf den nutzbaren Monitorbereich begrenzt.
+- Windows-Einzelmonitorbetrieb manuell erfolgreich getestet; Mehrmonitorbetrieb noch nicht praktisch geprüft.
+- Windows-Systemdialoge werden weiterhin teilweise vom Betriebssystem positioniert; exakte Zentrierung ist dort nicht garantiert.
+
 ## [1.8.7] – 2026-11-19
 
 ### Transparenz und Dokumentation
