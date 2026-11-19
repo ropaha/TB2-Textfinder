@@ -13,11 +13,14 @@ Die Versionsnummer des Gesamtpakets ist unabhängig von den Programmversionen. D
 - Startgröße des TB2-Textfinders von **940 × 600** auf **800 × 520 Pixel** reduziert; Mindestgröße **720 × 420 Pixel** unverändert.
 - Spalte **„Dateipfad“** in der Trefferliste passt ihre Breite an die gefundenen Pfade an; bei kurzen Inhalten wird unnötiges horizontales Scrollen vermieden. Die Anpassung erfolgt auch bei Teilergebnissen nach einem Suchabbruch.
 - Trefferliste und Scrollleisten in einen eigenen Layout-Rahmen verschoben. Die vertikale Scrollleiste liegt direkt an der Liste; die horizontale befindet sich unmittelbar darunter.
+- Gemeinsames Modul `tb2_app_identity.py` ergänzt: eigene Windows-Anwendungskennungen für Textfinder und Negativtester sowie ausdrückliche Zuweisung von `logo.ico` als Tkinter-Fenstersymbol.
+- Windows-Taskleistenicon korrigiert: Zusätzlich werden `ICON_SMALL` und `ICON_BIG` über `WM_SETICON` am Tkinter-Fenster und dessen Windows-Wrapper gesetzt. Das behebt das zuvor angezeigte blaue Tkinter-Standardsymbol.
 
 ### Praxistests und Hinweise
 - GitHub-Schaltfläche unter Windows erfolgreich getestet.
 - Fensterzentrierung auf einem Monitor erfolgreich getestet; Mehrmonitorbetrieb noch nicht praktisch geprüft.
 - Dynamische Spaltenbreite, kompaktere Startgröße und bündige Scrollleisten unter Windows erfolgreich getestet.
+- Taskleistenicon unter Windows erfolgreich getestet: Sowohl beim Start über die BAT-Datei als auch bei der neu erstellten EXE wird nun das festgelegte Programmsymbol angezeigt. Die vorherige Lösung mit Tkinter-Icon und Anwendungskennung allein hatte das Problem noch nicht behoben.
 - Die Position von Windows-Systemdialogen wird teilweise vom Betriebssystem bestimmt und kann nicht in jedem Fall exakt zentriert werden.
 - Änderungen betreffen die Oberfläche; die Such- und Erkennungslogik bleibt unverändert.
 
