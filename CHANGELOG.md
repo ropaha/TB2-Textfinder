@@ -4,15 +4,14 @@ Alle wesentlichen Änderungen am TB2-Textfinder und Negativtester werden hier do
 
 Die Versionsnummer des Gesamtpakets ist unabhängig von den Programmversionen. Die Erkennung beruht auf empirisch untersuchten TB2-Dateien, nicht auf einer vollständigen offiziellen Formatspezifikation.
 
-## [Unveröffentlicht] – Entwicklungsbranch dev
+## [1.8.8] – 2026-11-19
 
 ### Build-Automatisierung
-- Separaten GitHub-Actions-Workflow `.github/workflows/windows-release.yml` vorbereitet: Bei Veröffentlichung eines GitHub-Releases werden beide Windows-EXE-Dateien aus dem Release-Tag gebaut und mit `gh release upload` als Assets hochgeladen.
-- Der Release-Workflow muss vor der ersten Verwendung nach `main` übernommen werden; der automatische Release-Upload ist noch nicht getestet.
-- GitHub-Actions-Workflow `.github/workflows/windows-build.yml` für einen manuell startbaren Windows-Test-Build ergänzt.
-- Erstellt `TB2_Textfinder.exe` und `TB2_Negativtester.exe` mit Python 3.12 und PyInstaller anhand der bestehenden Build-Einstellungen.
-- Beide EXE-Dateien werden als gemeinsames, 14 Tage verfügbares Workflow-Artefakt bereitgestellt; kein automatischer GitHub-Release und kein Release-Asset-Upload.
-- **Noch nicht unter GitHub Actions ausgeführt oder unter Windows getestet.** Nach erfolgreichem Test kann der automatische Upload zu zukünftigen Releases ergänzt werden.
+- GitHub Actions: Manuell startbarer Windows-Test-Build für beide EXE-Dateien ergänzt und erfolgreich unter Windows getestet.
+- Die EXE-Dateien stehen als gemeinsames Workflow-Artefakt 14 Tage zum Download bereit.
+- Separater Release-Workflow ergänzt, der bei Veröffentlichung eines GitHub-Releases beide EXE-Dateien aus dem Release-Tag baut und als Release-Assets hochlädt.
+- Der automatische Release-Upload ist noch nicht praktisch getestet; erster Test mit Release 1.8.8 vorgesehen.
+- Programmversionen von TB2-Textfinder und TB2-Negativtester auf 1.8.8 angehoben. Keine Änderungen an der Suchlogik.
 
 ## [1.8.7] – 2026-11-19
 
