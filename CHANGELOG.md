@@ -4,6 +4,14 @@ Alle wesentlichen Änderungen am TB2-Textfinder und Negativtester werden hier do
 
 Die Versionsnummer des Gesamtpakets ist unabhängig von den Programmversionen. Die Erkennung beruht auf empirisch untersuchten TB2-Dateien, nicht auf einer vollständigen offiziellen Formatspezifikation.
 
+## [Unveröffentlicht] – Entwicklungsbranch dev
+
+### Oberfläche und Bedienung
+- Info-Fenster des TB2-Textfinders: Neue Schaltfläche **„Was ist neu? / Versionsverlauf“** öffnet die GitHub-Releases im Standardbrowser.
+- Die drei Aktionen **Versionsverlauf**, **GitHub-Projekt öffnen** und **MIT-Lizenz anzeigen** sind untereinander angeordnet; **Schließen** bleibt separat.
+- Info-Fenster für die zusätzliche Schaltfläche vergrößert.
+- **Windows-Praxistest steht noch aus.** Such- und Erkennungslogik unverändert.
+
 ## [1.8.8] – 2026-11-19
 
 ### Build-Automatisierung
