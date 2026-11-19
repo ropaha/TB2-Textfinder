@@ -1,0 +1,57 @@
+name: Windows EXE Test-Build
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Repository auschecken
+        uses: actions/checkout@v4
+
+      - name: Python einrichten
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements-build.txt
+
+      - name: PyInstaller installieren
+        run: python -m pip install -r requirements-build.txt
+
+      - name: Textfinder bauen
+        run: >-
+          python -m PyInstaller --noconfirm --clean --onefile --windowed
+          --icon logo.ico --add-data "logo.ico;."
+          --name TB2_Textfinder --distpath dist --workpath build
+          --specpath . TB2_Textfinder.py
+
+      - name: Negativtester bauen
+        run: >-
+          python -m PyInstaller --noconfirm --clean --onefile --windowed
+          --icon logo.ico --add-data "logo.ico;."
+          --hidden-import TB2_Textfinder
+          --name TB2_Negativtester --distpath dist --workpath build
+          --specpath . TB2_Negativtester.py
+
+      - name: EXE-Dateien prüfen
+        shell: pwsh
+        run: |
+          foreach ($file in @("dist/TB2_Textfinder.exe", "dist/TB2_Negativtester.exe")) {
+            if (!(Test-Path $file)) { throw "Build-Datei fehlt: $file" }
+            Write-Host "$file ($((Get-Item $file).Length) Bytes)"
+          }
+
+      - name: Test-Build herunterladen ermöglichen
+        uses: actions/upload-artifact@v4
+        with:
+          name: TB2-Windows-Test-Build
+          path: |
+            dist/TB2_Textfinder.exe
+            dist/TB2_Negativtester.exe
+          if-no-files-found: error
+          retention-days: 14
