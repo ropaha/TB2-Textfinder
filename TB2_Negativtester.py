@@ -7,6 +7,7 @@ import os
 import queue
 import threading
 from pathlib import Path
+from tb2_window_position import center_window
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 from TB2_Textfinder import has_variable_80_pattern, has_wide_587_pattern, has_early_80_pattern, has_early_82_pattern, has_variable_98_pattern, has_variable_106_pattern
@@ -100,7 +101,7 @@ class App(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title(f"TB2-Negativtester – {APP_VERSION}")
-        self.geometry("1000x650")
+        center_window(self, 1000, 650)
         self.minsize(760, 460)
         self.events: queue.Queue = queue.Queue()
         self.scanning = False
