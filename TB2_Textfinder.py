@@ -606,8 +606,8 @@ class App(tk.Tk):
         """Show application details and the former footer help text."""
         dialog = tk.Toplevel(self)
         dialog.title("Info – TB2-Textfinder")
-        center_window(dialog, 650, 440, parent=self)
-        dialog.minsize(420, 380)
+        center_window(dialog, 650, 380, parent=self)
+        dialog.minsize(480, 300)
         dialog.transient(self)
         body = ttk.Frame(dialog, padding=18)
         body.pack(fill="both", expand=True)
@@ -616,6 +616,7 @@ class App(tk.Tk):
         help_frame = ttk.Frame(body)
         help_frame.pack(fill="both", expand=True)
         help_text = tk.Text(help_frame, wrap="word", height=9, relief="flat",
+                            font=("TkDefaultFont", 10),
                             background=dialog.cget("background"), padx=2, pady=2)
         help_text.insert("1.0", INFO_TEXT)
         help_text.configure(state="disabled")
@@ -625,13 +626,13 @@ class App(tk.Tk):
         help_text.configure(yscrollcommand=scrollbar.set)
         buttons = ttk.Frame(body)
         buttons.pack(fill="x", pady=(14, 0))
-        ttk.Button(buttons, text="Was ist neu? / Versionsverlauf",
-                   command=lambda: self.show_changelog(dialog)).pack(fill="x", pady=(0, 6))
-        ttk.Button(buttons, text="GitHub-Projekt öffnen",
-                   command=lambda: webbrowser.open(PROJECT_URL)).pack(fill="x", pady=(0, 6))
-        ttk.Button(buttons, text="MIT-Lizenz anzeigen",
-                   command=lambda: self.show_license(dialog)).pack(fill="x")
-        ttk.Button(body, text="Schließen", command=dialog.destroy).pack(anchor="e", pady=(10, 0))
+        ttk.Button(buttons, text="Was ist neu?",
+                   command=lambda: self.show_changelog(dialog)).pack(side="left")
+        ttk.Button(buttons, text="GitHub",
+                   command=lambda: webbrowser.open(PROJECT_URL)).pack(side="left", padx=(8, 0))
+        ttk.Button(buttons, text="MIT-Lizenz",
+                   command=lambda: self.show_license(dialog)).pack(side="left", padx=(8, 0))
+        ttk.Button(buttons, text="Schließen", command=dialog.destroy).pack(side="right")
 
     def show_changelog(self, parent):
         """Display the bundled version history, including this installed version."""
@@ -646,7 +647,7 @@ class App(tk.Tk):
                   font=("TkDefaultFont", 12, "bold")).pack(anchor="w", pady=(0, 10))
         text_frame = ttk.Frame(body)
         text_frame.pack(fill="both", expand=True)
-        history = tk.Text(text_frame, wrap="word", padx=8, pady=8)
+        history = tk.Text(text_frame, wrap="word", font=("TkDefaultFont", 10), padx=8, pady=8)
         history.insert("1.0", changelog_for_version(APP_VERSION))
         history.configure(state="disabled")
         history.pack(side="left", fill="both", expand=True)
@@ -666,7 +667,7 @@ class App(tk.Tk):
         body.pack(fill="both", expand=True)
         text_frame = ttk.Frame(body)
         text_frame.pack(fill="both", expand=True)
-        license_text = tk.Text(text_frame, wrap="word", font=("TkFixedFont", 10))
+        license_text = tk.Text(text_frame, wrap="word", font=("TkDefaultFont", 10))
         license_text.insert("1.0", MIT_LICENSE)
         license_text.configure(state="disabled")
         license_text.pack(side="left", fill="both", expand=True)
