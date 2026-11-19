@@ -576,7 +576,7 @@ class App(tk.Tk):
         ttk.Label(frame, text="Gefundene Dateien (vollständiger Pfad):").grid(row=8, column=0, columnspan=3, sticky="w", pady=(4, 4))
         self.tree = ttk.Treeview(frame, columns=("path",), show="headings")
         self.tree.heading("path", text="Dateipfad")
-        self.tree.column("path", width=880, minwidth=80, anchor="w", stretch=False)
+        self.tree.column("path", width=80, minwidth=80, anchor="w", stretch=True)
         self.tree.grid(row=9, column=0, columnspan=2, sticky="nsew")
         yscroll = ttk.Scrollbar(frame, orient="vertical", command=self.tree.yview)
         yscroll.grid(row=9, column=2, sticky="ns")
@@ -785,8 +785,10 @@ class App(tk.Tk):
         font = tkfont.nametofont(font_name) if font_name in tkfont.names(self) else tkfont.nametofont("TkDefaultFont")
         heading_width = font.measure("Dateipfad") + 32
         content_width = max((font.measure(path) for path in paths), default=0) + 24
-        viewport_width = max(self.tree.winfo_width(), 80)
-        self.tree.column("path", width=max(heading_width, content_width, viewport_width))
+        # Treeview dehnt die Spalte selbst auf den verfügbaren Platz aus.
+        # Die Widgetbreite darf nicht als Spaltenbreite verwendet werden:
+        # Rahmen und Innenabstände würden sonst unnötiges Scrollen auslösen.
+        self.tree.column("path", width=max(heading_width, content_width, 80))
 
     def _update_open_button_state(self, _event=None):
         """Enable 'Datei öffnen' only when one result is selected."""
