@@ -18,7 +18,7 @@ from tb2_whole_words import contains_whole_word
 from pathlib import Path
 from tb2_window_position import center_window
 import tkinter as tk
-from tkinter import filedialog, messagebox, ttk
+from tkinter import filedialog, messagebox, ttk, font as tkfont
 
 APP_TITLE = "TB2-Textfinder"
 APP_VERSION = "1.8.7"
@@ -576,7 +576,7 @@ class App(tk.Tk):
         ttk.Label(frame, text="Gefundene Dateien (vollständiger Pfad):").grid(row=8, column=0, columnspan=3, sticky="w", pady=(4, 4))
         self.tree = ttk.Treeview(frame, columns=("path",), show="headings")
         self.tree.heading("path", text="Dateipfad")
-        self.tree.column("path", width=880, anchor="w")
+        self.tree.column("path", width=880, minwidth=80, anchor="w", stretch=False)
         self.tree.grid(row=9, column=0, columnspan=2, sticky="nsew")
         yscroll = ttk.Scrollbar(frame, orient="vertical", command=self.tree.yview)
         yscroll.grid(row=9, column=2, sticky="ns")
@@ -584,6 +584,7 @@ class App(tk.Tk):
         xscroll = ttk.Scrollbar(frame, orient="horizontal", command=self.tree.xview)
         xscroll.grid(row=10, column=0, columnspan=2, sticky="ew")
         self.tree.configure(xscrollcommand=xscroll.set)
+        self.tree.after_idle(self._fit_path_column)
         # Doppelklick oder die Schaltfläche öffnen die TB2-Datei mit dem in Windows verknüpften Programm.
         self.tree.bind("<Double-1>", self.open_result_file)
         self.tree.bind("<<TreeviewSelect>>", self._update_open_button_state)
@@ -685,6 +686,7 @@ class App(tk.Tk):
         self.save_button.configure(state="disabled")
         for item in self.tree.get_children():
             self.tree.delete(item)
+        self._fit_path_column([])
         self.progress.configure(maximum=len(files), value=0)
         self.summary_var.set("Suche läuft – Ergebnis folgt nach Abschluss oder Abbruch.")
         self.status_var.set(f"Untersuche {len(files)} TB2-/TBL-Datei(en) …")
@@ -752,6 +754,7 @@ class App(tk.Tk):
                     self.result_paths = found
                     for path in found:
                         self.tree.insert("", "end", values=(path,))
+                    self._fit_path_column(found)
                     self.scanning = False
                     self.search_button.configure(state="normal", text="Suchen")
                     self.clear_button.configure(state="normal")
@@ -772,6 +775,18 @@ class App(tk.Tk):
         except queue.Empty:
             pass
         self.after(100, self._poll_events)
+
+    def _fit_path_column(self, paths=None):
+        """Spaltenbreite an den längsten sichtbaren Dateipfad anpassen."""
+        if paths is None:
+            paths = self.result_paths
+        style = ttk.Style(self)
+        font_name = style.lookup("Treeview", "font") or "TkDefaultFont"
+        font = tkfont.nametofont(font_name) if font_name in tkfont.names(self) else tkfont.Font(root=self, font=font_name)
+        heading_width = font.measure("Dateipfad") + 32
+        content_width = max((font.measure(path) for path in paths), default=0) + 24
+        viewport_width = max(self.tree.winfo_width(), 80)
+        self.tree.column("path", width=max(heading_width, content_width, viewport_width))
 
     def _update_open_button_state(self, _event=None):
         """Enable 'Datei öffnen' only when one result is selected."""
@@ -865,6 +880,7 @@ class App(tk.Tk):
         self.copy_button.configure(state="disabled")
         self.open_button.configure(state="disabled")
         self.save_button.configure(state="disabled")
+        self._fit_path_column([])
         self.status_var.set("Ergebnisliste geleert.")
         self.summary_var.set("Noch keine Suche abgeschlossen.")
 
