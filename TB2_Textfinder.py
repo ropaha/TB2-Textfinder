@@ -578,8 +578,6 @@ class App(tk.Tk):
         self.save_button.pack(side="left", padx=(8, 0))
         self.clear_button = ttk.Button(secondary_actions, text="Leeren", command=self.clear_results, state="disabled")
         self.clear_button.pack(side="left", padx=(8, 0))
-        ttk.Button(secondary_actions, text="Info", command=self.show_info).pack(side="left", padx=(8, 0))
-        ttk.Button(secondary_actions, text="Programm beenden", command=self.request_exit).pack(side="left", padx=(8, 0))
 
         self.progress = ttk.Progressbar(frame, mode="determinate")
         self.progress.grid(row=5, column=0, columnspan=3, sticky="ew", pady=(0, 6))
@@ -608,6 +606,11 @@ class App(tk.Tk):
         # Doppelklick oder die Schaltfläche öffnen die TB2-Datei mit dem in Windows verknüpften Programm.
         self.tree.bind("<Double-1>", self.open_result_file)
         self.tree.bind("<<TreeviewSelect>>", self._update_open_button_state)
+
+        footer = ttk.Frame(frame)
+        footer.grid(row=10, column=0, columnspan=3, sticky="ew", pady=(10, 0))
+        ttk.Button(footer, text="Programm beenden", command=self.request_exit).pack(side="right")
+        ttk.Button(footer, text="Info", command=self.show_info).pack(side="right", padx=(0, 8))
 
         frame.columnconfigure(1, weight=1)
         frame.rowconfigure(9, weight=1)
