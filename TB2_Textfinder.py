@@ -515,6 +515,7 @@ class App(tk.Tk):
         self.scanning = False
         self.cancel_scan_event = threading.Event()
         self.result_paths: list[str] = []
+        self.access_issues: list[str] = []
         self._build_ui()
         self.folder_var.trace_add("write", self._update_search_button)
         self.after(100, self._poll_events)
@@ -559,6 +560,7 @@ class App(tk.Tk):
         actions.grid(row=4, column=0, columnspan=3, sticky="w", pady=(12, 10))
         self.search_button = ttk.Button(actions, text="Suchen", command=self.search_or_cancel, state="disabled")
         self.search_button.pack(side="left")
+        self.issues_button = ttk.Button(actions, text="Zugriffsprobleme", command=self.show_access_issues)
         self.open_button = ttk.Button(
             actions, text="Datei öffnen", command=self.open_selected_file, state="disabled"
         )
@@ -677,6 +679,29 @@ class App(tk.Tk):
         license_text.configure(yscrollcommand=scrollbar.set)
         ttk.Button(body, text="Schließen", command=dialog.destroy).pack(anchor="e", pady=(10, 0))
 
+    def show_access_issues(self):
+        if not self.access_issues:
+            return
+        dialog = tk.Toplevel(self)
+        dialog.title("Zugriffsprobleme – TB2-Textfinder")
+        center_window(dialog, 780, 500, parent=self)
+        dialog.minsize(480, 300)
+        dialog.transient(self)
+        body = ttk.Frame(dialog, padding=14)
+        body.pack(fill="both", expand=True)
+        ttk.Label(body, text=f"{len(self.access_issues)} übersprungene Verzeichnisse",
+                  font=("TkDefaultFont", 12, "bold")).pack(anchor="w", pady=(0, 10))
+        text_frame = ttk.Frame(body)
+        text_frame.pack(fill="both", expand=True)
+        details = tk.Text(text_frame, wrap="word", font=("TkDefaultFont", 10), padx=8, pady=8)
+        details.insert("1.0", "\n\n".join(self.access_issues))
+        details.configure(state="disabled")
+        details.pack(side="left", fill="both", expand=True)
+        scrollbar = ttk.Scrollbar(text_frame, orient="vertical", command=details.yview)
+        scrollbar.pack(side="right", fill="y")
+        details.configure(yscrollcommand=scrollbar.set)
+        ttk.Button(body, text="Schließen", command=dialog.destroy).pack(anchor="e", pady=(10, 0))
+
     def choose_folder(self):
         folder = filedialog.askdirectory(title="Ordner mit TB2-/TBL-Dateien auswählen")
         if folder:
@@ -695,7 +720,7 @@ class App(tk.Tk):
             if not self.cancel_scan_event.is_set():
                 self.cancel_scan_event.set()
                 self.search_button.configure(state="disabled", text="Abbruch läuft …")
-                self.status_var.set("Abbruch angefordert – aktuelle Datei wird noch abgeschlossen …")
+                self.status_var.set("Abbruch angefordert – laufender Verzeichniszugriff bzw. aktuelle Datei wird abgeschlossen …")
             return
         self.start_scan()
 
@@ -710,17 +735,11 @@ class App(tk.Tk):
             return
         if self.scanning:
             return
-
-        root = Path(folder_text)
-        candidates = root.rglob("*") if self.recursive_var.get() else root.glob("*")
-        files = [p for p in candidates if p.is_file() and p.suffix.lower() in {".tb2", ".tbl"}]
-        if not files:
-            messagebox.showinfo("Keine TB2-/TBL-Dateien", "Im ausgewählten Ordner wurden keine .TB2- oder .TBL-Dateien gefunden.")
-            return
-
         self.cancel_scan_event.clear()
         self.scanning = True
         self.result_paths = []
+        self.access_issues = []
+        self.issues_button.pack_forget()
         self.search_button.configure(state="normal", text="Suche abbrechen")
         self.clear_button.configure(state="disabled")
         self.copy_button.configure(state="disabled")
@@ -729,14 +748,60 @@ class App(tk.Tk):
         for item in self.tree.get_children():
             self.tree.delete(item)
         self._fit_path_column([])
-        self.progress.configure(maximum=len(files), value=0)
+        self.progress.configure(mode="indeterminate", value=0)
+        self.progress.start(12)
         self.summary_var.set("Suche läuft – Ergebnis folgt nach Abschluss oder Abbruch.")
-        self.status_var.set(f"Untersuche {len(files)} TB2-/TBL-Datei(en) …")
+        self.status_var.set("Durchsuche Verzeichnisstruktur nach TB2-/TBL-Dateien …")
         threading.Thread(
-            target=self._scan_worker,
-            args=(files, term, self.case_var.get(), self.search_mode_var.get(), self.whole_word_var.get()),
+            target=self._discover_and_scan,
+            args=(Path(folder_text), self.recursive_var.get(), term,
+                  self.case_var.get(), self.search_mode_var.get(), self.whole_word_var.get()),
             daemon=True,
         ).start()
+
+    def _discover_and_scan(self, root: Path, recursive: bool, term: str,
+                           case_sensitive: bool, mode: str, whole_word: bool):
+        files = []
+        skipped = []
+        directories_checked = 0
+
+        def on_walk_error(exc):
+            skipped.append(f"{exc.filename or 'Unbekannter Ordner'}: {exc}")
+
+        try:
+            if recursive:
+                directories = os.walk(root, topdown=True, followlinks=False,
+                                      onerror=on_walk_error)
+            else:
+                def one_directory():
+                    try:
+                        with os.scandir(root) as entries:
+                            yield str(root), [], [entry.name for entry in entries
+                                                   if entry.is_file(follow_symlinks=False)]
+                    except OSError as exc:
+                        on_walk_error(exc)
+                directories = one_directory()
+
+            for directory, subdirs, names in directories:
+                if self.cancel_scan_event.is_set():
+                    break
+                directories_checked += 1
+                if recursive:
+                    subdirs[:] = [name for name in subdirs
+                                  if not os.path.isjunction(os.path.join(directory, name))]
+                for name in names:
+                    if name.lower().endswith((".tb2", ".tbl")):
+                        files.append(Path(directory) / name)
+                if directories_checked % 50 == 0:
+                    self.events.put(("discovery", directories_checked, len(files)))
+            self.events.put(("discovery_done", len(files), directories_checked, skipped))
+            if self.cancel_scan_event.is_set() or not files:
+                self.events.put(("finished", [], len(files), 0, mode, 0.0, 0,
+                                 self.cancel_scan_event.is_set()))
+                return
+            self._scan_worker(files, term, case_sensitive, mode, whole_word)
+        except Exception as exc:
+            self.events.put(("worker_error", str(exc)))
 
     def _scan_worker(self, files: list[Path], term: str, case_sensitive: bool, mode: str, whole_word: bool):
         found: list[str] = []
