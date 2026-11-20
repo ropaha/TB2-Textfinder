@@ -292,7 +292,7 @@ class App(tk.Tk):
             if not self.cancel_scan_event.is_set():
                 self.cancel_scan_event.set()
                 self._update_scan_button()
-                self.status_var.set("Abbruch angefordert – aktuelle Datei wird noch abgeschlossen …")
+                self.status_var.set("Abbruch angefordert – laufender Verzeichniszugriff bzw. aktuelle Datei wird abgeschlossen …")
             return
         self.start_scan()
 
@@ -303,29 +303,10 @@ class App(tk.Tk):
             return
         if self.scanning:
             return
-        root = Path(folder_text).resolve()
-        candidates = root.rglob("*") if self.recursive_var.get() else root.glob("*")
-        files = [p for p in candidates if p.is_file() and p.suffix.lower() in {".tb2", ".tbl"}]
-        try:
-            ignored = set()
-            for directory in {p.parent for p in files}:
-                ignore_file = directory / "ignore.txt"
-                if not ignore_file.is_file():
-                    continue
-                for line in ignore_file.read_text(encoding="utf-8").splitlines():
-                    entry = line.strip()
-                    if entry and not entry.startswith("#"):
-                        ignored.add(self._path_key(directory / entry))
-        except (OSError, UnicodeError) as exc:
-            messagebox.showerror("Ignorierliste nicht lesbar", str(exc))
-            return
-        self.ignored_paths = ignored
-        if not files:
-            messagebox.showinfo("Keine TB2-/TBL-Dateien", "Im Ordner wurden keine .TB2- oder .TBL-Dateien gefunden.")
-            return
         self.cancel_scan_event.clear()
         self.scanning = True
         self.rows = []
+        self.ignored_paths = set()
         self.scan_summary = ""
         self.scan_totals = None
         self.clear_button.configure(state="disabled")
@@ -335,48 +316,120 @@ class App(tk.Tk):
         self.save_button.configure(state="disabled")
         self.open_button.configure(state="disabled")
         self.ignore_button.configure(state="disabled")
-        self.progress.configure(maximum=len(files), value=0)
-        self.status_var.set(f"Prüfe {len(files)} TB2-/TBL-Datei(en) …")
-        threading.Thread(target=self._worker, args=(files,), daemon=True).start()
+        self.progress.configure(mode="indeterminate", value=0)
+        self.progress.start(12)
+        self.status_var.set("Durchsuche Verzeichnisstruktur nach TB2-/TBL-Dateien …")
+        threading.Thread(target=self._worker, args=(Path(folder_text), self.recursive_var.get()),
+                         daemon=True).start()
 
-    def _worker(self, files: list[Path]):
-        flagged = []
-        recognized = errors = empty = fragments = probably_no_text = 0
-        processed = 0
-        for index, path in enumerate(files, start=1):
-            if self.cancel_scan_event.is_set():
-                break
-            category, detail = inspect_file(path)
-            processed = index
-            if category == "Erkannt":
-                recognized += 1
+    def _worker(self, root: Path, recursive: bool):
+        """Dateisuche, Ignorierlisten und Prüfung vollständig außerhalb der GUI."""
+        files = []
+        ignored = set()
+        skipped = []
+        checked_dirs = 0
+
+        def on_walk_error(exc):
+            skipped.append(f"{exc.filename or 'Unbekannter Ordner'}: {exc}")
+
+        try:
+            if recursive:
+                directories = os.walk(root, topdown=True, followlinks=False,
+                                      onerror=on_walk_error)
             else:
-                flagged.append((category, str(path.resolve()), detail))
-                if category == "Fehler":
-                    errors += 1
-                elif category == "Leer":
-                    empty += 1
-                elif category == "Fragment":
-                    fragments += 1
-                elif category == "Vermutlich kein Text":
-                    probably_no_text += 1
-            self.events.put(("progress", index, len(files), path.name))
-        cancelled = self.cancel_scan_event.is_set()
-        self.events.put(("finished", flagged, processed, len(files), recognized,
-                         fragments, probably_no_text, empty, errors, cancelled))
+                # Dieselbe Ereignisstruktur für die Suche ohne Unterordner.
+                def one_directory():
+                    try:
+                        with os.scandir(root) as entries:
+                            yield str(root), [], [entry.name for entry in entries
+                                                   if entry.is_file(follow_symlinks=False)]
+                    except OSError as exc:
+                        on_walk_error(exc)
+                directories = one_directory()
+
+            for directory, subdirs, names in directories:
+                if self.cancel_scan_event.is_set():
+                    break
+                checked_dirs += 1
+                # Windows-Junctions/Reparse-Points nicht rekursiv durchlaufen.
+                if recursive:
+                    subdirs[:] = [name for name in subdirs
+                                  if not os.path.isjunction(os.path.join(directory, name))]
+                for name in names:
+                    if name.lower().endswith((".tb2", ".tbl")):
+                        files.append(Path(directory) / name)
+                if checked_dirs % 50 == 0:
+                    self.events.put(("discovery", checked_dirs, len(files)))
+            if not self.cancel_scan_event.is_set():
+                for directory in {path.parent for path in files}:
+                    if self.cancel_scan_event.is_set():
+                        break
+                    ignore_file = directory / "ignore.txt"
+                    try:
+                        if ignore_file.is_file():
+                            for line in ignore_file.read_text(encoding="utf-8").splitlines():
+                                entry = line.strip()
+                                if entry and not entry.startswith("#"):
+                                    ignored.add(self._path_key(directory / entry))
+                    except (OSError, UnicodeError) as exc:
+                        skipped.append(f"{ignore_file}: {exc}")
+            self.events.put(("discovery_done", len(files), checked_dirs))
+            flagged = []
+            recognized = errors = empty = fragments = probably_no_text = 0
+            processed = 0
+            for index, path in enumerate(files, start=1):
+                if self.cancel_scan_event.is_set():
+                    break
+                category, detail = inspect_file(path)
+                processed = index
+                if category == "Erkannt":
+                    recognized += 1
+                else:
+                    flagged.append((category, str(path.absolute()), detail))
+                    if category == "Fehler":
+                        errors += 1
+                    elif category == "Leer":
+                        empty += 1
+                    elif category == "Fragment":
+                        fragments += 1
+                    elif category == "Vermutlich kein Text":
+                        probably_no_text += 1
+                self.events.put(("progress", index, len(files), path.name))
+            self.events.put(("finished", flagged, processed, len(files), recognized,
+                             fragments, probably_no_text, empty, errors,
+                             self.cancel_scan_event.is_set(), ignored, skipped, checked_dirs))
+        except Exception as exc:
+            self.events.put(("worker_error", str(exc)))
 
     def _poll_events(self):
         try:
             while True:
                 event = self.events.get_nowait()
-                if event[0] == "progress":
+                if event[0] == "discovery":
+                    _, directories, found = event
+                    if not self.cancel_scan_event.is_set():
+                        self.status_var.set(
+                            f"Durchsuche Verzeichnisse: {directories} Ordner, "
+                            f"{found} TB2-/TBL-Datei(en) gefunden …")
+                elif event[0] == "discovery_done":
+                    _, total, directories = event
+                    self.progress.stop()
+                    self.progress.configure(mode="determinate", maximum=max(total, 1), value=0)
+                    if not self.cancel_scan_event.is_set():
+                        self.status_var.set(
+                            f"Dateisuche abgeschlossen: {directories} Ordner, "
+                            f"{total} TB2-/TBL-Datei(en). Prüfung läuft …")
+                elif event[0] == "progress":
                     _, current, total, name = event
                     self.progress.configure(value=current)
                     if not self.cancel_scan_event.is_set():
                         self.status_var.set(f"Datei {current}/{total}: {name}")
                 elif event[0] == "finished":
                     (_, flagged, processed, total, recognized, fragments,
-                     probably_no_text, empty, errors, cancelled) = event
+                     probably_no_text, empty, errors, cancelled,
+                     ignored, skipped, checked_dirs) = event
+                    self.progress.stop()
+                    self.ignored_paths = ignored
                     self.rows = flagged
                     self.scanning = False
                     self.apply_filter()
@@ -386,8 +439,24 @@ class App(tk.Tk):
                     self._refresh_scan_summary()
                     if cancelled:
                         self.status_var.set(
-                            f"Abgebrochen: {processed}/{total} Datei(en) geprüft | "
+                            f"Abgebrochen: {processed}/{total} gefundene Datei(en) geprüft | "
                             + self.scan_summary.removeprefix("Fertig: "))
+                    elif not total:
+                        self.status_var.set(
+                            f"Keine TB2-/TBL-Dateien gefunden ({checked_dirs} Ordner durchsucht).")
+                    if skipped:
+                        messagebox.showwarning(
+                            "Nicht alle Verzeichnisse/Listen lesbar",
+                            f"{len(skipped)} Zugriff(e) konnten nicht abgeschlossen werden. "
+                            "Diese Bereiche wurden übersprungen.\n\n"
+                            + "\n".join(skipped[:8])
+                            + ("\n…" if len(skipped) > 8 else ""))
+                elif event[0] == "worker_error":
+                    self.progress.stop()
+                    self.scanning = False
+                    self.apply_filter()
+                    self._update_scan_button()
+                    messagebox.showerror("Prüfung fehlgeschlagen", event[1])
         except queue.Empty:
             pass
         self.after(100, self._poll_events)
