@@ -10,7 +10,7 @@ from pathlib import Path
 from tb2_window_position import center_window
 from tb2_app_identity import configure_app_identity, apply_window_icon
 import tkinter as tk
-from tkinter import filedialog, messagebox, ttk
+from tkinter import filedialog, messagebox, ttk, font as tkfont
 from TB2_Textfinder import has_variable_80_pattern, has_wide_587_pattern, has_early_80_pattern, has_early_82_pattern, has_variable_98_pattern, has_variable_106_pattern
 
 APP_VERSION = "1.8.8"
@@ -104,8 +104,8 @@ class App(tk.Tk):
         super().__init__()
         apply_window_icon(self)
         self.title(f"TB2-Negativtester – {APP_VERSION}")
-        center_window(self, 1000, 650)
-        self.minsize(760, 460)
+        center_window(self, 900, 560)
+        self.minsize(800, 480)
         self.events: queue.Queue = queue.Queue()
         self.scanning = False
         self.rows: list[tuple[str, str, str]] = []
@@ -153,34 +153,39 @@ class App(tk.Tk):
         filters.grid(row=5, column=0, columnspan=3, sticky="ew", pady=(3, 7))
         ttk.Label(filters, text="Trefferliste filtern:").pack(side="left", padx=(0, 9))
         self.filter_box = ttk.Combobox(filters, textvariable=self.filter_var, state="readonly",
-                                       values=list(self.filter_options), width=51)
+                                       values=list(self.filter_options), width=42)
         self.filter_box.pack(side="left")
         self.filter_box.bind("<<ComboboxSelected>>", self.apply_filter)
         self.visible_count_var = tk.StringVar(value="Noch keine Ergebnisse")
         ttk.Label(filters, textvariable=self.visible_count_var).pack(side="left", padx=(14, 0))
-        self.tree = ttk.Treeview(frame, columns=("category", "path", "detail"), show="headings")
+        results_frame = ttk.Frame(frame)
+        results_frame.grid(row=6, column=0, columnspan=3, sticky="nsew")
+        results_frame.columnconfigure(0, weight=1)
+        results_frame.rowconfigure(0, weight=1)
+        self.tree = ttk.Treeview(results_frame, columns=("category", "path", "detail"), show="headings")
         self.tree.heading("category", text="Status")
-        self.tree.heading("path", text="Vollständiger Dateipfad")
+        self.tree.heading("path", text="Dateipfad")
         self.tree.heading("detail", text="Hinweis")
-        self.tree.column("category", width=160, stretch=False)
+        self.tree.column("category", width=150, minwidth=120, stretch=False, anchor="w")
+        self.tree.column("path", width=100, minwidth=100, stretch=True, anchor="w")
+        self.tree.column("detail", width=190, minwidth=130, stretch=False, anchor="w")
         self.tree.tag_configure("ignored", foreground="#777777")
-        self.tree.column("path", width=600, anchor="w")
-        self.tree.column("detail", width=240, anchor="w")
-        self.tree.grid(row=6, column=0, columnspan=2, sticky="nsew")
-        yscroll = ttk.Scrollbar(frame, orient="vertical", command=self.tree.yview)
-        yscroll.grid(row=6, column=2, sticky="ns")
+        self.tree.grid(row=0, column=0, sticky="nsew")
+        yscroll = ttk.Scrollbar(results_frame, orient="vertical", command=self.tree.yview)
+        yscroll.grid(row=0, column=1, sticky="ns")
         self.tree.configure(yscrollcommand=yscroll.set)
-        xscroll = ttk.Scrollbar(frame, orient="horizontal", command=self.tree.xview)
-        xscroll.grid(row=7, column=0, columnspan=2, sticky="ew")
+        xscroll = ttk.Scrollbar(results_frame, orient="horizontal", command=self.tree.xview)
+        xscroll.grid(row=1, column=0, sticky="ew")
         self.tree.configure(xscrollcommand=xscroll.set)
+        self.tree.after_idle(self._fit_path_column)
         self.tree.bind("<Double-1>", self.open_result)
         self.tree.bind("<<TreeviewSelect>>", self.update_buttons)
         note = ("Erkannt: mindestens 3 zusammenhängende Zeichen im bekannten TB2-Muster. "
                 "Fragment: 2 Zeichen in passender Struktur – könnte Text enthalten, muss analysiert werden. "
                 "Ohne Treffer: enthält vermutlich keinen Text. Dies ist keine sichere Aussage; "
                 "unbekannte Kodierungen können übersehen werden. Leer und Fehler werden separat gemeldet.")
-        ttk.Label(frame, text=note, wraplength=950, foreground="#555555").grid(
-            row=8, column=0, columnspan=3, sticky="w", pady=(10, 0))
+        ttk.Label(frame, text=note, wraplength=850, foreground="#555555").grid(
+            row=7, column=0, columnspan=3, sticky="w", pady=(10, 0))
         frame.columnconfigure(1, weight=1)
         frame.rowconfigure(6, weight=1)
 
@@ -302,10 +307,23 @@ class App(tk.Tk):
             if path == selected_path:
                 self.tree.selection_set(iid)
         self.visible_count_var.set(f"{len(visible)} von {len(self.rows)} angezeigt")
+        self._fit_path_column([path for _, path, _ in visible])
         state = "normal" if visible and not self.scanning else "disabled"
         self.copy_button.configure(state=state)
         self.save_button.configure(state=state)
         self.update_buttons()
+
+    def _fit_path_column(self, paths=None):
+        """Dateipfadspalte an sichtbare Inhalte anpassen, ohne unnötig zu scrollen."""
+        if paths is None:
+            paths = [path for _, path, _ in self.filtered_rows()]
+        style = ttk.Style(self)
+        font_name = style.lookup("Treeview", "font") or "TkDefaultFont"
+        tree_font = tkfont.nametofont(font_name) if isinstance(font_name, str) and font_name in tkfont.names(self) else tkfont.Font(font=font_name)
+        heading_width = tree_font.measure("Dateipfad") + 32
+        content_width = max((tree_font.measure(path) + 24 for path in paths), default=0)
+        # Die Spalte darf den freien Bereich nutzen; nur lange Pfade benötigen horizontales Scrollen.
+        self.tree.column("path", width=max(100, heading_width, content_width), stretch=True)
 
     def update_buttons(self, _event=None):
         selected = self.selected_path()
