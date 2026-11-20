@@ -114,6 +114,7 @@ class App(tk.Tk):
         self.minsize(800, 480)
         self.events: queue.Queue = queue.Queue()
         self.scanning = False
+        self.cancel_scan_event = threading.Event()
         self.rows: list[tuple[str, str, str]] = []
         self.ignored_paths: set[str] = set()
         self.filter_var = tk.StringVar(value="Alle auffälligen Dateien")
@@ -142,7 +143,7 @@ class App(tk.Tk):
             row=1, column=1, sticky="w", pady=(9, 2))
         actions = ttk.Frame(frame)
         actions.grid(row=2, column=0, columnspan=3, sticky="w", pady=(12, 10))
-        self.scan_button = ttk.Button(actions, text="Ordner prüfen", command=self.start_scan, state="disabled")
+        self.scan_button = ttk.Button(actions, text="Ordner prüfen", command=self.scan_or_cancel, state="disabled")
         self.scan_button.pack(side="left")
         self.open_button = ttk.Button(actions, text="Datei öffnen", command=self.open_selected, state="disabled")
         self.open_button.pack(side="left", padx=(8, 0))
@@ -274,10 +275,26 @@ class App(tk.Tk):
             self.folder_var.set(folder)
 
     def _update_scan_button(self, *_args):
-        """Prüfung nur bei eingetragenem Ordner anbieten."""
-        self.scan_button.configure(
-            state="normal" if self.folder_var.get().strip() and not self.scanning
-            else "disabled")
+        """Ordner prüfen anbieten oder laufende Prüfung abbrechbar halten."""
+        if self.scanning:
+            if self.cancel_scan_event.is_set():
+                self.scan_button.configure(state="disabled", text="Abbruch läuft …")
+            else:
+                self.scan_button.configure(state="normal", text="Prüfung abbrechen")
+        else:
+            self.scan_button.configure(
+                state="normal" if self.folder_var.get().strip() else "disabled",
+                text="Ordner prüfen")
+
+    def scan_or_cancel(self):
+        """Prüfung starten oder kooperativen Abbruch anfordern."""
+        if self.scanning:
+            if not self.cancel_scan_event.is_set():
+                self.cancel_scan_event.set()
+                self._update_scan_button()
+                self.status_var.set("Abbruch angefordert – aktuelle Datei wird noch abgeschlossen …")
+            return
+        self.start_scan()
 
     def start_scan(self):
         folder_text = self.folder_var.get().strip()
@@ -306,13 +323,14 @@ class App(tk.Tk):
         if not files:
             messagebox.showinfo("Keine TB2-/TBL-Dateien", "Im Ordner wurden keine .TB2- oder .TBL-Dateien gefunden.")
             return
+        self.cancel_scan_event.clear()
         self.scanning = True
         self.rows = []
         self.scan_summary = ""
         self.scan_totals = None
         self.clear_button.configure(state="disabled")
         self.apply_filter()
-        self.scan_button.configure(state="disabled")
+        self._update_scan_button()
         self.copy_button.configure(state="disabled")
         self.save_button.configure(state="disabled")
         self.open_button.configure(state="disabled")
@@ -324,8 +342,12 @@ class App(tk.Tk):
     def _worker(self, files: list[Path]):
         flagged = []
         recognized = errors = empty = fragments = probably_no_text = 0
+        processed = 0
         for index, path in enumerate(files, start=1):
+            if self.cancel_scan_event.is_set():
+                break
             category, detail = inspect_file(path)
+            processed = index
             if category == "Erkannt":
                 recognized += 1
             else:
@@ -339,7 +361,9 @@ class App(tk.Tk):
                 elif category == "Vermutlich kein Text":
                     probably_no_text += 1
             self.events.put(("progress", index, len(files), path.name))
-        self.events.put(("finished", flagged, len(files), recognized, fragments, probably_no_text, empty, errors))
+        cancelled = self.cancel_scan_event.is_set()
+        self.events.put(("finished", flagged, processed, len(files), recognized,
+                         fragments, probably_no_text, empty, errors, cancelled))
 
     def _poll_events(self):
         try:
@@ -348,17 +372,22 @@ class App(tk.Tk):
                 if event[0] == "progress":
                     _, current, total, name = event
                     self.progress.configure(value=current)
-                    self.status_var.set(f"Datei {current}/{total}: {name}")
+                    if not self.cancel_scan_event.is_set():
+                        self.status_var.set(f"Datei {current}/{total}: {name}")
                 elif event[0] == "finished":
-                    _, flagged, total, recognized, fragments, probably_no_text, empty, errors = event
+                    (_, flagged, processed, total, recognized, fragments,
+                     probably_no_text, empty, errors, cancelled) = event
                     self.rows = flagged
-                    self.apply_filter()
                     self.scanning = False
-                    self.clear_button.configure(state="normal" if self.rows else "disabled")
+                    self.apply_filter()
                     self._update_scan_button()
-                    self.scan_totals = (total, recognized, fragments,
+                    self.scan_totals = (processed, recognized, fragments,
                                         probably_no_text, empty, errors)
                     self._refresh_scan_summary()
+                    if cancelled:
+                        self.status_var.set(
+                            f"Abgebrochen: {processed}/{total} Datei(en) geprüft | "
+                            + self.scan_summary.removeprefix("Fertig: "))
         except queue.Empty:
             pass
         self.after(100, self._poll_events)
