@@ -7,6 +7,7 @@ Die Versionsnummer des Gesamtpakets ist unabhängig von den Programmversionen. D
 ## [Unveröffentlicht] – Entwicklungsbranch dev
 
 ### Oberfläche und Bedienung
+- Negativtester: Auch das **Einsammeln der TB2-/TBL-Dateien** und das Einlesen der Ignorierlisten laufen jetzt im Hintergrund. Die Oberfläche bleibt während großer Verzeichnissuchen bedienbar; **Prüfung abbrechen** wirkt bereits in dieser Phase. Fortschrittsmeldung mit Anzahl durchsuchter Ordner und gefundener Dateien, Warnung bei übersprungenen Verzeichnissen oder nicht lesbaren Ignorierlisten; Windows-Junctions werden nicht rekursiv verfolgt.
 - Negativtester: **Ordner prüfen** wechselt während der Analyse zu **Prüfung abbrechen**. Der Abbruch erfolgt nach der laufenden Datei; bereits erkannte Auffälligkeiten bleiben als Ergebnisse erhalten. Die Statuszeile zeigt den Abbruch sowie die Anzahl tatsächlich geprüfter Dateien.
 - Negativtester: eigenes **Infofenster** im Stil des Textfinders mit dem bisherigen Erklärungstext sowie **Was ist neu?**, **GitHub**, **MIT-Lizenz** und **Schließen**. Der Erklärungstext unter der Trefferliste entfällt und gibt Platz frei.
 - Textfinder und Negativtester: **Suchen** bzw. **Ordner prüfen** wird erst mit ausgefülltem Ordnerfeld aktiviert; **Leeren** nur bei vorhandenen Ergebnissen. Laufende Such-/Prüfvorgänge behalten ihre bisherigen Bedienregeln.
