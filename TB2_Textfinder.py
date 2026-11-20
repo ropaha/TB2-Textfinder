@@ -518,6 +518,7 @@ class App(tk.Tk):
         self.access_issues: list[str] = []
         self._build_ui()
         self.folder_var.trace_add("write", self._update_search_button)
+        self.term_var.trace_add("write", self._update_search_button)
         self.after(100, self._poll_events)
 
     def _build_ui(self):
@@ -711,7 +712,7 @@ class App(tk.Tk):
         """Suche nur mit eingetragenem Ordner starten; Abbruchmodus bewahren."""
         if not self.scanning:
             self.search_button.configure(
-                state="normal" if self.folder_var.get().strip() else "disabled",
+                state="normal" if self.folder_var.get().strip() and self.term_var.get().strip() else "disabled",
                 text="Suchen")
 
     def search_or_cancel(self):
