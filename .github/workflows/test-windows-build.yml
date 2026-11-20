@@ -32,7 +32,8 @@ jobs:
           $expected = '1.9.0-rc.1'
           foreach ($file in @('TB2_Textfinder.py', 'TB2_Negativtester.py')) {
             $source = Get-Content $file -Raw
-            if ($source -notmatch ('(?m)^APP_VERSION = "' + [regex]::Escape($expected) + '"\\r?
+            $pattern = '(?m)^APP_VERSION\s*=\s*"' + [regex]::Escape($expected) + '"\r?$'
+            if ($source -notmatch $pattern) {
               throw "Unexpected version in $file; expected $expected"
             }
           }
