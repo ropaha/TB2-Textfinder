@@ -13,6 +13,9 @@ jobs:
       - name: Repository auschecken
         uses: actions/checkout@v4
 
+      - name: Dev-Version prüfen
+        run: python version_workflow.py check --dev
+
       - name: Python einrichten
         uses: actions/setup-python@v5
         with:
