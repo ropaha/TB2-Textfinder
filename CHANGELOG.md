@@ -7,6 +7,9 @@ Die Versionsnummer des Gesamtpakets ist unabhängig von den Programmversionen. D
 ## [Unveröffentlicht] – Entwicklungsbranch dev
 
 ### Oberfläche und Bedienung
+- Negativtester: Startfenster von 1000 × 650 auf 900 × 560 Pixel verkleinert (Mindestgröße 800 × 480); Filterauswahl kompakter gestaltet.
+- Negativtester: Ergebnisliste und beide Scrollleisten in einem gemeinsamen Rahmen angeordnet, sodass die Scrollleisten direkt an der Liste sitzen.
+- Negativtester: Dateipfadspalte passt sich wie beim Textfinder den sichtbaren Dateipfaden an, auch nach Filterwechseln; Status- und Hinweisspalten bleiben erhalten.
 - Info-Fenster des TB2-Textfinders: **„Was ist neu? / Versionsverlauf“** öffnet ein natives, scrollbareres Fenster mit dem lokal eingebundenen Changelog (offline).
 - Die Schaltflächen **Was ist neu?**, **GitHub**, **MIT-Lizenz** und **Schließen** sind platzsparend in einer Zeile angeordnet.
 - Info-, Versionsverlauf- und Lizenztext verwenden einheitlich die Tk-Standardschrift statt unterschiedlicher Text-Schriften.
