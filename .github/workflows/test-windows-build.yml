@@ -32,35 +32,7 @@ jobs:
           $expected = '1.9.0-rc.1'
           foreach ($file in @('TB2_Textfinder.py', 'TB2_Negativtester.py')) {
             $source = Get-Content $file -Raw
-            if ($source -notmatch ('(?m)^APP_VERSION = "' + [regex]::Escape($expected) + '"
-        run: python -m pip install -r requirements-build.txt
-
-      - name: Build Textfinder
-        shell: cmd
-        run: call Build_TB2_Textfinder_EXE.bat /nopause
-
-      - name: Build Negativtester
-        shell: cmd
-        run: call Build_TB2_Negativtester_EXE.bat /nopause
-
-      - name: Verify executables
-        shell: pwsh
-        run: |
-          foreach ($file in @('dist/TB2_Textfinder.exe', 'dist/TB2_Negativtester.exe')) {
-            if (-not (Test-Path $file)) { throw "Missing executable: $file" }
-            Get-Item $file | Select-Object Name, Length
-          }
-
-      - name: Upload test build artifacts (not a release)
-        uses: actions/upload-artifact@v4
-        with:
-          name: signum-textfinder-windows-test
-          path: |
-            dist/TB2_Textfinder.exe
-            dist/TB2_Negativtester.exe
-          if-no-files-found: error
-          retention-days: 7
-)) {
+            if ($source -notmatch ('(?m)^APP_VERSION = "' + [regex]::Escape($expected) + '"$')) {
               throw "Unexpected version in $file; expected $expected"
             }
           }
