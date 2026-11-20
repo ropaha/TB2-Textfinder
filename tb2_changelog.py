@@ -15,9 +15,15 @@ def changelog_for_version(version: str) -> str:
         return "Der lokale Versionsverlauf ist nicht verfügbar."
     sections = list(SECTION.finditer(content))
     selected = []
-    installed = tuple(map(int, version.split(".")))
+    is_dev = version.endswith("-dev")
+    installed = tuple(map(int, version.removesuffix("-dev").split(".")))
     for i, match in enumerate(sections):
         label = match.group(1)
+        if label == "Unveröffentlicht":
+            if is_dev:
+                end = sections[i + 1].start() if i + 1 < len(sections) else len(content)
+                selected.append(content[match.start():end].strip())
+            continue
         if not re.fullmatch(r"\d+\.\d+\.\d+", label):
             continue
         if tuple(map(int, label.split("."))) > installed:
