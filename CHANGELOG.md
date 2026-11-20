@@ -6,6 +6,10 @@ Die Versionsnummer des Gesamtpakets ist unabhängig von den Programmversionen. D
 
 ## [Unveröffentlicht] – Entwicklungsbranch dev
 
+### Versionierung und Releases
+- Einheitliche Versionsregel für beide Programme: Entwicklungsstände mit **-dev** (aktuell **1.9.0-dev**), veröffentlichte Versionen ohne Suffix. Test- und Release-Builds prüfen die Versionskonvention; der Release-Vorbereitungsschritt entfernt das Suffix und übernimmt den unveröffentlichten Changelog-Abschnitt. Kein automatischer Merge oder Release.
+- Das Infofenster zeigt bei Entwicklungsversionen auch die unveröffentlichten Änderungen an.
+
 ### Oberfläche und Bedienung
 - Beide Programme: Arbeitsfunktionen wieder in **einer einzigen Schaltflächenzeile**, während **Info** und **Programm beenden** rechtsbündig unter der Trefferliste bleiben. Die Speichern-Schaltfläche heißt platzsparend **TXT speichern …**.
 - Beide Programme: **Info** und **Programm beenden** sind jetzt als separate, rechtsbündige Schaltflächen **unterhalb der Trefferliste** angeordnet. Die oberen Aktionszeilen enthalten nur noch Such- und Ergebnisfunktionen.
