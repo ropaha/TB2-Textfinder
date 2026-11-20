@@ -16,6 +16,9 @@ jobs:
         with:
           ref: ${{ github.event.release.tag_name }}
 
+      - name: Release-Version gegen Tag prüfen
+        run: python version_workflow.py check --release-tag "${{ github.event.release.tag_name }}"
+
       - name: Python einrichten
         uses: actions/setup-python@v5
         with:
