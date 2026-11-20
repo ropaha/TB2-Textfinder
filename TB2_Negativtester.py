@@ -165,8 +165,6 @@ class App(tk.Tk):
         self.save_button.pack(side="left", padx=(8, 0))
         self.clear_button = ttk.Button(secondary_actions, text="Leeren", command=self.clear, state="disabled")
         self.clear_button.pack(side="left", padx=(8, 0))
-        ttk.Button(secondary_actions, text="Info", command=self.show_info).pack(side="left", padx=(8, 0))
-        ttk.Button(secondary_actions, text="Programm beenden", command=self.request_exit).pack(side="left", padx=(8, 0))
         self.progress = ttk.Progressbar(frame, mode="determinate")
         self.progress.grid(row=3, column=0, columnspan=3, sticky="ew", pady=(0, 7))
         self.status_var = tk.StringVar(value="Bereit. Ordner auswählen und Prüfung starten.")
@@ -205,6 +203,11 @@ class App(tk.Tk):
         self.tree.after_idle(self._fit_result_columns)
         self.tree.bind("<Double-1>", self.open_result)
         self.tree.bind("<<TreeviewSelect>>", self.update_buttons)
+
+        footer = ttk.Frame(frame)
+        footer.grid(row=7, column=0, columnspan=3, sticky="ew", pady=(10, 0))
+        ttk.Button(footer, text="Programm beenden", command=self.request_exit).pack(side="right")
+        ttk.Button(footer, text="Info", command=self.show_info).pack(side="right", padx=(0, 8))
 
         frame.columnconfigure(1, weight=1)
         frame.rowconfigure(6, weight=1)
