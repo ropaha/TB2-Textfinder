@@ -7,6 +7,7 @@ Die Versionsnummer des Gesamtpakets ist unabhängig von den Programmversionen. D
 ## [Unveröffentlicht] – Entwicklungsbranch dev
 
 ### Oberfläche und Bedienung
+- Negativtester: Die Statuszeile zeigt die Gesamtzahl der Fragmente mit der Anzahl ignorierter Fragmente in Klammern (z. B. `14 Fragmente (9 ignoriert)`). Nach Ignorieren oder Aufheben wird die Zusammenfassung sofort aktualisiert.
 - Negativtester: Startfenster von 1000 × 650 auf 900 × 560 Pixel verkleinert (Mindestgröße 800 × 480); Filterauswahl kompakter gestaltet.
 - Negativtester: Ergebnisliste und beide Scrollleisten in einem gemeinsamen Rahmen angeordnet, sodass die Scrollleisten direkt an der Liste sitzen.
 - Negativtester: Alle drei Ergebnisspalten (**Status**, **Dateipfad**, **Hinweis**) passen sich nach der Analyse und nach jedem Filterwechsel an die sichtbaren Inhalte an; lange Einträge bleiben horizontal scrollbar.
