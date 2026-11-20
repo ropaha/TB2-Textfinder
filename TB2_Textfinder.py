@@ -560,23 +560,19 @@ class App(tk.Tk):
                         value="full").pack(side="left")
 
         actions = ttk.Frame(frame)
-        primary_actions = ttk.Frame(actions)
-        primary_actions.pack(anchor="w")
-        secondary_actions = ttk.Frame(actions)
-        secondary_actions.pack(anchor="w", pady=(6, 0))
         actions.grid(row=4, column=0, columnspan=3, sticky="w", pady=(12, 10))
-        self.search_button = ttk.Button(primary_actions, text="Suchen", command=self.search_or_cancel, state="disabled")
+        self.search_button = ttk.Button(actions, text="Suchen", command=self.search_or_cancel, state="disabled")
         self.search_button.pack(side="left")
-        self.issues_button = ttk.Button(primary_actions, text="Zugriffsprobleme", command=self.show_access_issues)
+        self.issues_button = ttk.Button(actions, text="Zugriffsprobleme", command=self.show_access_issues)
         self.open_button = ttk.Button(
-            primary_actions, text="Datei öffnen", command=self.open_selected_file, state="disabled"
+            actions, text="Datei öffnen", command=self.open_selected_file, state="disabled"
         )
         self.open_button.pack(side="left", padx=(8, 0))
-        self.copy_button = ttk.Button(primary_actions, text="Pfade kopieren", command=self.copy_paths, state="disabled")
+        self.copy_button = ttk.Button(actions, text="Pfade kopieren", command=self.copy_paths, state="disabled")
         self.copy_button.pack(side="left", padx=(8, 0))
-        self.save_button = ttk.Button(secondary_actions, text="Pfade als TXT speichern …", command=self.save_paths, state="disabled")
+        self.save_button = ttk.Button(actions, text="TXT speichern …", command=self.save_paths, state="disabled")
         self.save_button.pack(side="left", padx=(8, 0))
-        self.clear_button = ttk.Button(secondary_actions, text="Leeren", command=self.clear_results, state="disabled")
+        self.clear_button = ttk.Button(actions, text="Leeren", command=self.clear_results, state="disabled")
         self.clear_button.pack(side="left", padx=(8, 0))
 
         self.progress = ttk.Progressbar(frame, mode="determinate")
