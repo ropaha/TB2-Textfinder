@@ -8,6 +8,7 @@ import queue
 import threading
 import webbrowser
 from pathlib import Path
+from tb2_muster import PROFILES, find_all
 from tb2_window_position import center_window
 from tb2_changelog import changelog_for_version
 from tb2_app_identity import configure_app_identity, apply_window_icon
@@ -22,24 +23,7 @@ INFO_TEXT = ("Erkannt: mindestens 3 zusammenhängende Zeichen im bekannten TB2-M
              "Ohne Treffer: enthält vermutlich keinen Text. Dies ist keine sichere Aussage; "
              "unbekannte Kodierungen können übersehen werden. Leer und Fehler werden separat gemeldet.")
 
-# Empirisch beobachtete Marker und Abstände aus dem TB2-Textfinder-Projekt.
-PROFILES = (
-    ("SignumNext-Profil A", b"\x81\x00\x00", (0x6A,)),
-    ("SignumNext-Profil B", b"\x81\x67\x66\x66\x66\x66\x81", (0x6A,)),
-    ("Signum-Altformat", b"\x81\x00\x00", (0x50,)),
-    ("Signum-Frühformat", b"\x81\x7C\xE9\xE4\x58\x09", (0x50,)),
-    ("Signum-90er-Profil", b"\x81\x00\x00", (0x62,)),
-)
-
-
-def _find_all(data: bytes, needle: bytes):
-    start = 0
-    while True:
-        pos = data.find(needle, start)
-        if pos < 0:
-            return
-        yield pos
-        start = pos + 1
+_find_all = find_all
 
 
 def _printable_codes() -> set[int]:
