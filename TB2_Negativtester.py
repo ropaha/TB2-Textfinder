@@ -119,6 +119,7 @@ class App(tk.Tk):
             "Ignoriert": {"Ignoriert"},
         }
         self.scan_summary = ""
+        self.scan_totals = None
         self._build_ui()
         self.after(100, self._poll_events)
 
@@ -224,6 +225,7 @@ class App(tk.Tk):
         self.scanning = True
         self.rows = []
         self.scan_summary = ""
+        self.scan_totals = None
         self.apply_filter()
         self.scan_button.configure(state="disabled")
         self.copy_button.configure(state="disabled")
@@ -268,14 +270,27 @@ class App(tk.Tk):
                     self.apply_filter()
                     self.scanning = False
                     self.scan_button.configure(state="normal")
-                    self.scan_summary = (
-                        f"Fertig: {total} Datei(en) geprüft | {recognized} erkannt | "
-                        f"{fragments} Fragmente | {probably_no_text} vermutlich ohne Text | "
-                        f"{empty} leer | {errors} Lesefehler.")
-                    self.status_var.set(self.scan_summary)
+                    self.scan_totals = (total, recognized, fragments,
+                                        probably_no_text, empty, errors)
+                    self._refresh_scan_summary()
         except queue.Empty:
             pass
         self.after(100, self._poll_events)
+
+    def _refresh_scan_summary(self):
+        """Gesamtzahl der Fragmente und davon ignorierte Fragmente anzeigen."""
+        if self.scan_totals is None:
+            return
+        total, recognized, fragments, probably_no_text, empty, errors = self.scan_totals
+        ignored_fragments = sum(
+            1 for category, path, _ in self.rows
+            if category == "Fragment" and self.is_ignored(path))
+        self.scan_summary = (
+            f"Fertig: {total} Datei(en) geprüft | {recognized} erkannt | "
+            f"{fragments} Fragmente ({ignored_fragments} ignoriert) | "
+            f"{probably_no_text} vermutlich ohne Text | "
+            f"{empty} leer | {errors} Lesefehler.")
+        self.status_var.set(self.scan_summary)
 
     @staticmethod
     def _path_key(path: Path) -> str:
@@ -369,7 +384,7 @@ class App(tk.Tk):
             return
         self.ignored_paths = updated
         self.apply_filter()
-        self.status_var.set(f"Ignorierliste aktualisiert: {ignore_file}")
+        self._refresh_scan_summary()
 
     def selected_path(self):
         selected = self.tree.selection()
