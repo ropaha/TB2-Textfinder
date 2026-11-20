@@ -514,6 +514,8 @@ class App(tk.Tk):
         self.events: queue.Queue = queue.Queue()
         self.scanning = False
         self.cancel_scan_event = threading.Event()
+        self.exit_after_scan = False
+        self.protocol("WM_DELETE_WINDOW", self.request_exit)
         self.result_paths: list[str] = []
         self.access_issues: list[str] = []
         self._build_ui()
@@ -573,6 +575,7 @@ class App(tk.Tk):
         self.clear_button = ttk.Button(actions, text="Leeren", command=self.clear_results, state="disabled")
         self.clear_button.pack(side="left", padx=(8, 0))
         ttk.Button(actions, text="Info", command=self.show_info).pack(side="left", padx=(8, 0))
+        ttk.Button(actions, text="Programm beenden", command=self.request_exit).pack(side="left", padx=(8, 0))
 
         self.progress = ttk.Progressbar(frame, mode="determinate")
         self.progress.grid(row=5, column=0, columnspan=3, sticky="ew", pady=(0, 6))
@@ -714,6 +717,23 @@ class App(tk.Tk):
             self.search_button.configure(
                 state="normal" if self.folder_var.get().strip() and self.term_var.get().strip() else "disabled",
                 text="Suchen")
+
+    def request_exit(self):
+        """Während einer Prüfung Rückfrage stellen und kontrolliert beenden."""
+        if not self.scanning:
+            self.destroy()
+            return
+        if self.exit_after_scan:
+            return
+        if not messagebox.askyesno(
+                "Programm beenden",
+                "Sind Sie sicher, dass Sie die Suche abbrechen und das Programm beenden möchten?",
+                parent=self):
+            return
+        self.exit_after_scan = True
+        self.cancel_scan_event.set()
+        self.search_button.configure(state="disabled", text="Abbruch läuft …")
+        self.status_var.set("Programm wird nach Abbruch der laufenden Arbeit beendet …")
 
     def search_or_cancel(self):
         """Start a scan, or request cooperative cancellation."""
@@ -873,6 +893,9 @@ class App(tk.Tk):
                     if not self.cancel_scan_event.is_set():
                         self.status_var.set(f"Datei {current}/{total}: {filename}")
                 elif event[0] == "finished":
+                    if self.exit_after_scan:
+                        self.destroy()
+                        return
                     _, found, total, errors, mode, seconds, processed, cancelled = event
                     self.progress.stop()
                     self.result_paths = found
@@ -903,6 +926,9 @@ class App(tk.Tk):
                             text=f"Zugriffsprobleme ({len(self.access_issues)})")
                         self.issues_button.pack(side="left", padx=(8, 0), after=self.search_button)
                 elif event[0] == "worker_error":
+                    if self.exit_after_scan:
+                        self.destroy()
+                        return
                     self.progress.stop()
                     self.scanning = False
                     self._update_search_button()
