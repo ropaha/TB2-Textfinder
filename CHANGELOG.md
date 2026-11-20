@@ -4,6 +4,12 @@ Alle wesentlichen Änderungen am TB2-Textfinder und Negativtester werden hier do
 
 Die Versionsnummer des Gesamtpakets ist unabhängig von den Programmversionen. Die Erkennung beruht auf empirisch untersuchten TB2-Dateien, nicht auf einer vollständigen offiziellen Formatspezifikation.
 
+## [1.9.1] – Release
+
+### Wartung und Releases
+- Vorbereitung von **1.9.1-dev** als Test- und Wartungsrelease ohne neue Programmfunktionen.
+- Test des manuellen GitHub-Actions-Release-Workflows für die nächste offizielle Veröffentlichung.
+
 ## [1.9.0] – Release
 
 ### Versionierung und Releases

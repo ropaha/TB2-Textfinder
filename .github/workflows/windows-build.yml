@@ -13,8 +13,16 @@ jobs:
       - name: Repository auschecken
         uses: actions/checkout@v4
 
-      - name: Dev-Version prüfen
-        run: python version_workflow.py check --dev
+      - name: Version prüfen (Entwicklung oder Release)
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF -like 'refs/heads/release/*') {
+            $version = $env:GITHUB_REF.Substring('refs/heads/release/'.Length)
+            python version_workflow.py check --release-tag $version
+          } else {
+            python version_workflow.py check --dev
+          }
+          if ($LASTEXITCODE -ne 0) { throw 'Versionsprüfung fehlgeschlagen.' }
 
       - name: Python einrichten
         uses: actions/setup-python@v5
