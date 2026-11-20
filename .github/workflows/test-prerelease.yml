@@ -1,0 +1,64 @@
+name: Test Release Candidate Publication
+
+on:
+  push:
+    tags:
+      - 'test/v*-rc.*'
+
+permissions:
+  contents: write
+
+jobs:
+  publish-prerelease:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout tagged commit
+        uses: actions/checkout@v4
+
+      - name: Validate test tag and program versions
+        shell: pwsh
+        env:
+          TEST_TAG: ${{ github.ref_name }}
+        run: |
+          if ($env:TEST_TAG -ne 'test/v1.9.0-rc.1') {
+            throw "Unexpected test tag: $env:TEST_TAG"
+          }
+          $expected = '1.9.0-rc.1'
+          foreach ($file in @('TB2_Textfinder.py', 'TB2_Negativtester.py')) {
+            $source = Get-Content $file -Raw
+            $pattern = '(?m)^APP_VERSION\s*=\s*"' + [regex]::Escape($expected) + '"\r?$'
+            if ($source -notmatch $pattern) {
+              throw "Unexpected version in $file; expected $expected"
+            }
+          }
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements-build.txt
+
+      - name: Install build requirements
+        run: python -m pip install -r requirements-build.txt
+
+      - name: Build Textfinder
+        shell: cmd
+        run: call Build_TB2_Textfinder_EXE.bat /nopause
+
+      - name: Build Negativtester
+        shell: cmd
+        run: call Build_TB2_Negativtester_EXE.bat /nopause
+
+      - name: Publish isolated prerelease with both executables
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TEST_TAG: ${{ github.ref_name }}
+        run: |
+          foreach ($file in @('dist/TB2_Textfinder.exe', 'dist/TB2_Negativtester.exe')) {
+            if (-not (Test-Path $file)) { throw "Missing executable: $file" }
+          }
+          gh release create "$env:TEST_TAG" "dist/TB2_Textfinder.exe" "dist/TB2_Negativtester.exe" --verify-tag --prerelease --title "TEST Release Candidate 1.9.0-rc.1" --notes "Isolierter Workflow-Test. Kein offizielles Release. Bitte nicht als stabile Version verwenden."
