@@ -7,6 +7,7 @@ Die Versionsnummer des Gesamtpakets ist unabhängig von den Programmversionen. D
 ## [Unveröffentlicht] – Entwicklungsbranch dev
 
 ### Oberfläche und Bedienung
+- Beide Programme: **Info** und **Programm beenden** sind jetzt als separate, rechtsbündige Schaltflächen **unterhalb der Trefferliste** angeordnet. Die oberen Aktionszeilen enthalten nur noch Such- und Ergebnisfunktionen.
 - Beide Programme: Schaltflächen auf zwei übersichtliche Aktionszeilen verteilt, damit **Programm beenden** und **Zugriffsprobleme** bei der bisherigen Standardfensterbreite nicht abgeschnitten werden. Hauptaktionen stehen oben, weitere Aktionen darunter.
 - Beide Programme: **Programm beenden** als zusätzliche Schaltfläche. Das Windows-Fensterkreuz und die Schaltfläche schließen im Leerlauf sofort; während einer Suche/Prüfung erscheint eine Sicherheitsabfrage. Bei Bestätigung wird der laufende Vorgang kontrolliert abgebrochen und das Fenster nach Ende der Hintergrundarbeit geschlossen, bei Ablehnung läuft alles weiter.
 - Textfinder: **Suchen** ist nur aktiv, wenn sowohl **Gesuchter Text** als auch **Ordner** ausgefüllt sind. Änderungen an beiden Feldern aktualisieren den Button unmittelbar; während einer laufenden Suche bleibt der Abbruch möglich.
