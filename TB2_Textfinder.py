@@ -516,6 +516,7 @@ class App(tk.Tk):
         self.cancel_scan_event = threading.Event()
         self.result_paths: list[str] = []
         self._build_ui()
+        self.folder_var.trace_add("write", self._update_search_button)
         self.after(100, self._poll_events)
 
     def _build_ui(self):
@@ -556,7 +557,7 @@ class App(tk.Tk):
 
         actions = ttk.Frame(frame)
         actions.grid(row=4, column=0, columnspan=3, sticky="w", pady=(12, 10))
-        self.search_button = ttk.Button(actions, text="Suchen", command=self.search_or_cancel)
+        self.search_button = ttk.Button(actions, text="Suchen", command=self.search_or_cancel, state="disabled")
         self.search_button.pack(side="left")
         self.open_button = ttk.Button(
             actions, text="Datei öffnen", command=self.open_selected_file, state="disabled"
@@ -566,7 +567,7 @@ class App(tk.Tk):
         self.copy_button.pack(side="left", padx=(8, 0))
         self.save_button = ttk.Button(actions, text="Pfade als TXT speichern …", command=self.save_paths, state="disabled")
         self.save_button.pack(side="left", padx=(8, 0))
-        self.clear_button = ttk.Button(actions, text="Leeren", command=self.clear_results)
+        self.clear_button = ttk.Button(actions, text="Leeren", command=self.clear_results, state="disabled")
         self.clear_button.pack(side="left", padx=(8, 0))
         ttk.Button(actions, text="Info", command=self.show_info).pack(side="left", padx=(8, 0))
 
@@ -681,6 +682,13 @@ class App(tk.Tk):
         if folder:
             self.folder_var.set(folder)
 
+    def _update_search_button(self, *_args):
+        """Suche nur mit eingetragenem Ordner starten; Abbruchmodus bewahren."""
+        if not self.scanning:
+            self.search_button.configure(
+                state="normal" if self.folder_var.get().strip() else "disabled",
+                text="Suchen")
+
     def search_or_cancel(self):
         """Start a scan, or request cooperative cancellation."""
         if self.scanning:
@@ -790,8 +798,8 @@ class App(tk.Tk):
                         self.tree.insert("", "end", values=(path,))
                     self._fit_path_column(found)
                     self.scanning = False
-                    self.search_button.configure(state="normal", text="Suchen")
-                    self.clear_button.configure(state="normal")
+                    self._update_search_button()
+                    self.clear_button.configure(state="normal" if found else "disabled")
                     state = "normal" if found else "disabled"
                     self.copy_button.configure(state=state)
                     self.save_button.configure(state=state)
@@ -911,6 +919,7 @@ class App(tk.Tk):
         if self.scanning:
             return
         self.result_paths = []
+        self.clear_button.configure(state="disabled")
         for item in self.tree.get_children():
             self.tree.delete(item)
         self.copy_button.configure(state="disabled")
