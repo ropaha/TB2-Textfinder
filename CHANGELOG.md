@@ -4,10 +4,10 @@ Alle wesentlichen Änderungen am TB2-Textfinder und Negativtester werden hier do
 
 Die Versionsnummer des Gesamtpakets ist unabhängig von den Programmversionen. Die Erkennung beruht auf empirisch untersuchten TB2-Dateien, nicht auf einer vollständigen offiziellen Formatspezifikation.
 
-## [Unveröffentlicht] – Entwicklungsbranch dev
+## [1.9.0] – Release
 
 ### Versionierung und Releases
-- Einheitliche Versionsregel für beide Programme: Entwicklungsstände mit **-dev** (aktuell **1.9.0-dev**), veröffentlichte Versionen ohne Suffix. Test- und Release-Builds prüfen die Versionskonvention; der Release-Vorbereitungsschritt entfernt das Suffix und übernimmt den unveröffentlichten Changelog-Abschnitt. Kein automatischer Merge oder Release.
+- Einheitliche Versionsregel für beide Programme: Entwicklungsstände mit **-dev** (Entwicklungsstand **1.9.0-dev** vor diesem Release), veröffentlichte Versionen ohne Suffix. Test- und Release-Builds prüfen die Versionskonvention; der Release-Vorbereitungsschritt entfernt das Suffix und übernimmt den unveröffentlichten Changelog-Abschnitt. Kein automatischer Merge oder Release.
 - Das Infofenster zeigt bei Entwicklungsversionen auch die unveröffentlichten Änderungen an.
 
 ### Oberfläche und Bedienung
