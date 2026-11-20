@@ -127,6 +127,7 @@ class App(tk.Tk):
         }
         self.scan_summary = ""
         self.scan_totals = None
+        self.access_issues = []
         self._build_ui()
         self.folder_var.trace_add("write", self._update_scan_button)
         self.after(100, self._poll_events)
@@ -159,7 +160,13 @@ class App(tk.Tk):
         self.progress = ttk.Progressbar(frame, mode="determinate")
         self.progress.grid(row=3, column=0, columnspan=3, sticky="ew", pady=(0, 7))
         self.status_var = tk.StringVar(value="Bereit. Ordner auswählen und Prüfung starten.")
-        ttk.Label(frame, textvariable=self.status_var).grid(row=4, column=0, columnspan=3, sticky="w", pady=(0, 8))
+        status_frame = ttk.Frame(frame)
+        status_frame.grid(row=4, column=0, columnspan=3, sticky="ew", pady=(0, 8))
+        ttk.Label(status_frame, textvariable=self.status_var).pack(side="left")
+        self.issues_button = ttk.Button(
+            status_frame, text="Zugriffsprobleme", command=self.show_access_issues)
+        # Nur bei tatsächlichen Zugriffsproblemen anzeigen.
+
         filters = ttk.Frame(frame)
         filters.grid(row=5, column=0, columnspan=3, sticky="ew", pady=(3, 7))
         ttk.Label(filters, text="Trefferliste filtern:").pack(side="left", padx=(0, 9))
@@ -269,6 +276,32 @@ class App(tk.Tk):
         license_text.configure(yscrollcommand=scrollbar.set)
         ttk.Button(body, text="Schließen", command=dialog.destroy).pack(anchor="e", pady=(10, 0))
 
+    def show_access_issues(self):
+        """Alle übersprungenen Verzeichnisse/Listen bei Bedarf anzeigen."""
+        if not self.access_issues:
+            return
+        dialog = tk.Toplevel(self)
+        dialog.title("Zugriffsprobleme – TB2-Negativtester")
+        center_window(dialog, 780, 500, parent=self)
+        dialog.minsize(480, 300)
+        dialog.transient(self)
+        body = ttk.Frame(dialog, padding=14)
+        body.pack(fill="both", expand=True)
+        ttk.Label(body, text=f"{len(self.access_issues)} übersprungene Verzeichnisse/Listen",
+                  font=("TkDefaultFont", 12, "bold")).pack(anchor="w", pady=(0, 10))
+        text_frame = ttk.Frame(body)
+        text_frame.pack(fill="both", expand=True)
+        details = tk.Text(text_frame, wrap="word", font=("TkDefaultFont", 10),
+                          padx=8, pady=8)
+        details.insert("1.0", "\n\n".join(self.access_issues))
+        details.configure(state="disabled")
+        details.pack(side="left", fill="both", expand=True)
+        scrollbar = ttk.Scrollbar(text_frame, orient="vertical", command=details.yview)
+        scrollbar.pack(side="right", fill="y")
+        details.configure(yscrollcommand=scrollbar.set)
+        ttk.Button(body, text="Schließen", command=dialog.destroy).pack(
+            anchor="e", pady=(10, 0))
+
     def choose_folder(self):
         folder = filedialog.askdirectory(title="Ordner mit TB2-/TBL-Dateien auswählen")
         if folder:
@@ -309,6 +342,8 @@ class App(tk.Tk):
         self.ignored_paths = set()
         self.scan_summary = ""
         self.scan_totals = None
+        self.access_issues = []
+        self.issues_button.pack_forget()
         self.clear_button.configure(state="disabled")
         self.apply_filter()
         self._update_scan_button()
@@ -444,13 +479,11 @@ class App(tk.Tk):
                     elif not total:
                         self.status_var.set(
                             f"Keine TB2-/TBL-Dateien gefunden ({checked_dirs} Ordner durchsucht).")
+                    self.access_issues = skipped
                     if skipped:
-                        messagebox.showwarning(
-                            "Nicht alle Verzeichnisse/Listen lesbar",
-                            f"{len(skipped)} Zugriff(e) konnten nicht abgeschlossen werden. "
-                            "Diese Bereiche wurden übersprungen.\n\n"
-                            + "\n".join(skipped[:8])
-                            + ("\n…" if len(skipped) > 8 else ""))
+                        self.issues_button.configure(
+                            text=f"Zugriffsprobleme ({len(skipped)})")
+                        self.issues_button.pack(side="left", padx=(12, 0))
                 elif event[0] == "worker_error":
                     self.progress.stop()
                     self.scanning = False
