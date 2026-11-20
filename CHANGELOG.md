@@ -7,6 +7,7 @@ Die Versionsnummer des Gesamtpakets ist unabhängig von den Programmversionen. D
 ## [Unveröffentlicht] – Entwicklungsbranch dev
 
 ### Oberfläche und Bedienung
+- Negativtester: eigenes **Infofenster** im Stil des Textfinders mit dem bisherigen Erklärungstext sowie **Was ist neu?**, **GitHub**, **MIT-Lizenz** und **Schließen**. Der Erklärungstext unter der Trefferliste entfällt und gibt Platz frei.
 - Textfinder und Negativtester: **Suchen** bzw. **Ordner prüfen** wird erst mit ausgefülltem Ordnerfeld aktiviert; **Leeren** nur bei vorhandenen Ergebnissen. Laufende Such-/Prüfvorgänge behalten ihre bisherigen Bedienregeln.
 - Negativtester: Mehrere markierte Dateien können gemeinsam ignoriert oder wieder freigegeben werden, wenn alle denselben Ignorierstatus besitzen; bei gemischtem Status bleibt der Button deaktiviert. Die `ignore.txt` wird je betroffenem Ordner aktualisiert, Mehrfachauswahl nach dem Aktualisieren beibehalten. **Datei öffnen** bleibt auf genau eine Auswahl beschränkt.
 - Negativtester: Die Statuszeile zeigt für **Fragmente**, **vermutlich ohne Text**, **leere Dateien** und **Lesefehler** jeweils die Anzahl ignorierter Einträge in Klammern (z. B. `14 Fragmente (9 ignoriert)`). Nach Ignorieren oder Aufheben wird die Zusammenfassung sofort aktualisiert.
