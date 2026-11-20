@@ -13,6 +13,9 @@ jobs:
       - name: Repository auschecken
         uses: actions/checkout@v4
 
+      - name: Dev-Version prüfen
+        run: python version_workflow.py check --dev
+
       - name: Python einrichten
         uses: actions/setup-python@v5
         with:
@@ -26,14 +29,14 @@ jobs:
       - name: Textfinder bauen
         run: >-
           python -m PyInstaller --noconfirm --clean --onefile --windowed
-          --icon logo.ico --add-data "logo.ico;."
+          --icon logo.ico --add-data "logo.ico;." --add-data "CHANGELOG.md;."
           --name TB2_Textfinder --distpath dist --workpath build
           --specpath . TB2_Textfinder.py
 
       - name: Negativtester bauen
         run: >-
           python -m PyInstaller --noconfirm --clean --onefile --windowed
-          --icon logo.ico --add-data "logo.ico;."
+          --icon logo.ico --add-data "logo.ico;." --add-data "CHANGELOG.md;."
           --hidden-import TB2_Textfinder
           --name TB2_Negativtester --distpath dist --workpath build
           --specpath . TB2_Negativtester.py

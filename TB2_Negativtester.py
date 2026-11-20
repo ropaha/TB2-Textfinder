@@ -6,15 +6,21 @@ from __future__ import annotations
 import os
 import queue
 import threading
+import webbrowser
 from pathlib import Path
 from tb2_window_position import center_window
+from tb2_changelog import changelog_for_version
 from tb2_app_identity import configure_app_identity, apply_window_icon
 import tkinter as tk
-from tkinter import filedialog, messagebox, ttk
-from TB2_Textfinder import has_variable_80_pattern, has_wide_587_pattern, has_early_80_pattern, has_early_82_pattern, has_variable_98_pattern, has_variable_106_pattern
+from tkinter import filedialog, messagebox, ttk, font as tkfont
+from TB2_Textfinder import PROJECT_URL, MIT_LICENSE, has_variable_80_pattern, has_wide_587_pattern, has_early_80_pattern, has_early_82_pattern, has_variable_98_pattern, has_variable_106_pattern
 
-APP_VERSION = "1.8.8"
+APP_VERSION = "1.9.0"
 MIN_CHARACTERS = 3
+INFO_TEXT = ("Erkannt: mindestens 3 zusammenhängende Zeichen im bekannten TB2-Muster. "
+             "Fragment: 2 Zeichen in passender Struktur – könnte Text enthalten, muss analysiert werden. "
+             "Ohne Treffer: enthält vermutlich keinen Text. Dies ist keine sichere Aussage; "
+             "unbekannte Kodierungen können übersehen werden. Leer und Fehler werden separat gemeldet.")
 
 # Empirisch beobachtete Marker und Abstände aus dem TB2-Textfinder-Projekt.
 PROFILES = (
@@ -104,10 +110,13 @@ class App(tk.Tk):
         super().__init__()
         apply_window_icon(self)
         self.title(f"TB2-Negativtester – {APP_VERSION}")
-        center_window(self, 1000, 650)
-        self.minsize(760, 460)
+        center_window(self, 900, 560)
+        self.minsize(800, 480)
         self.events: queue.Queue = queue.Queue()
         self.scanning = False
+        self.cancel_scan_event = threading.Event()
+        self.exit_after_scan = False
+        self.protocol("WM_DELETE_WINDOW", self.request_exit)
         self.rows: list[tuple[str, str, str]] = []
         self.ignored_paths: set[str] = set()
         self.filter_var = tk.StringVar(value="Alle auffälligen Dateien")
@@ -119,7 +128,10 @@ class App(tk.Tk):
             "Ignoriert": {"Ignoriert"},
         }
         self.scan_summary = ""
+        self.scan_totals = None
+        self.access_issues = []
         self._build_ui()
+        self.folder_var.trace_add("write", self._update_scan_button)
         self.after(100, self._poll_events)
 
     def _build_ui(self):
@@ -134,60 +146,211 @@ class App(tk.Tk):
             row=1, column=1, sticky="w", pady=(9, 2))
         actions = ttk.Frame(frame)
         actions.grid(row=2, column=0, columnspan=3, sticky="w", pady=(12, 10))
-        self.scan_button = ttk.Button(actions, text="Ordner prüfen", command=self.start_scan)
+        self.scan_button = ttk.Button(actions, text="Ordner prüfen", command=self.scan_or_cancel, state="disabled")
         self.scan_button.pack(side="left")
+        self.issues_button = ttk.Button(
+            actions, text="Zugriffsprobleme", command=self.show_access_issues)
+        # Erst nach einer Prüfung mit Zugriffsproblemen sichtbar.
         self.open_button = ttk.Button(actions, text="Datei öffnen", command=self.open_selected, state="disabled")
         self.open_button.pack(side="left", padx=(8, 0))
         self.ignore_button = ttk.Button(actions, text="Ignorieren", command=self.toggle_ignore, state="disabled")
         self.ignore_button.pack(side="left", padx=(8, 0))
         self.copy_button = ttk.Button(actions, text="Pfade kopieren", command=self.copy_paths, state="disabled")
         self.copy_button.pack(side="left", padx=(8, 0))
-        self.save_button = ttk.Button(actions, text="Liste als TXT speichern …", command=self.save_report, state="disabled")
+        self.save_button = ttk.Button(actions, text="TXT speichern …", command=self.save_report, state="disabled")
         self.save_button.pack(side="left", padx=(8, 0))
-        ttk.Button(actions, text="Leeren", command=self.clear).pack(side="left", padx=(8, 0))
+        self.clear_button = ttk.Button(actions, text="Leeren", command=self.clear, state="disabled")
+        self.clear_button.pack(side="left", padx=(8, 0))
         self.progress = ttk.Progressbar(frame, mode="determinate")
         self.progress.grid(row=3, column=0, columnspan=3, sticky="ew", pady=(0, 7))
         self.status_var = tk.StringVar(value="Bereit. Ordner auswählen und Prüfung starten.")
-        ttk.Label(frame, textvariable=self.status_var).grid(row=4, column=0, columnspan=3, sticky="w", pady=(0, 8))
+        status_frame = ttk.Frame(frame)
+        status_frame.grid(row=4, column=0, columnspan=3, sticky="ew", pady=(0, 8))
+        ttk.Label(status_frame, textvariable=self.status_var).pack(side="left")
+
         filters = ttk.Frame(frame)
         filters.grid(row=5, column=0, columnspan=3, sticky="ew", pady=(3, 7))
         ttk.Label(filters, text="Trefferliste filtern:").pack(side="left", padx=(0, 9))
         self.filter_box = ttk.Combobox(filters, textvariable=self.filter_var, state="readonly",
-                                       values=list(self.filter_options), width=51)
+                                       values=list(self.filter_options), width=42)
         self.filter_box.pack(side="left")
         self.filter_box.bind("<<ComboboxSelected>>", self.apply_filter)
         self.visible_count_var = tk.StringVar(value="Noch keine Ergebnisse")
         ttk.Label(filters, textvariable=self.visible_count_var).pack(side="left", padx=(14, 0))
-        self.tree = ttk.Treeview(frame, columns=("category", "path", "detail"), show="headings")
+        results_frame = ttk.Frame(frame)
+        results_frame.grid(row=6, column=0, columnspan=3, sticky="nsew")
+        results_frame.columnconfigure(0, weight=1)
+        results_frame.rowconfigure(0, weight=1)
+        self.tree = ttk.Treeview(results_frame, columns=("category", "path", "detail"), show="headings")
         self.tree.heading("category", text="Status")
-        self.tree.heading("path", text="Vollständiger Dateipfad")
+        self.tree.heading("path", text="Dateipfad")
         self.tree.heading("detail", text="Hinweis")
-        self.tree.column("category", width=160, stretch=False)
+        self.tree.column("category", width=150, minwidth=120, stretch=False, anchor="w")
+        self.tree.column("path", width=100, minwidth=100, stretch=True, anchor="w")
+        self.tree.column("detail", width=190, minwidth=130, stretch=False, anchor="w")
         self.tree.tag_configure("ignored", foreground="#777777")
-        self.tree.column("path", width=600, anchor="w")
-        self.tree.column("detail", width=240, anchor="w")
-        self.tree.grid(row=6, column=0, columnspan=2, sticky="nsew")
-        yscroll = ttk.Scrollbar(frame, orient="vertical", command=self.tree.yview)
-        yscroll.grid(row=6, column=2, sticky="ns")
+        self.tree.grid(row=0, column=0, sticky="nsew")
+        yscroll = ttk.Scrollbar(results_frame, orient="vertical", command=self.tree.yview)
+        yscroll.grid(row=0, column=1, sticky="ns")
         self.tree.configure(yscrollcommand=yscroll.set)
-        xscroll = ttk.Scrollbar(frame, orient="horizontal", command=self.tree.xview)
-        xscroll.grid(row=7, column=0, columnspan=2, sticky="ew")
+        xscroll = ttk.Scrollbar(results_frame, orient="horizontal", command=self.tree.xview)
+        xscroll.grid(row=1, column=0, sticky="ew")
         self.tree.configure(xscrollcommand=xscroll.set)
+        self.tree.after_idle(self._fit_result_columns)
         self.tree.bind("<Double-1>", self.open_result)
         self.tree.bind("<<TreeviewSelect>>", self.update_buttons)
-        note = ("Erkannt: mindestens 3 zusammenhängende Zeichen im bekannten TB2-Muster. "
-                "Fragment: 2 Zeichen in passender Struktur – könnte Text enthalten, muss analysiert werden. "
-                "Ohne Treffer: enthält vermutlich keinen Text. Dies ist keine sichere Aussage; "
-                "unbekannte Kodierungen können übersehen werden. Leer und Fehler werden separat gemeldet.")
-        ttk.Label(frame, text=note, wraplength=950, foreground="#555555").grid(
-            row=8, column=0, columnspan=3, sticky="w", pady=(10, 0))
+
+        footer = ttk.Frame(frame)
+        footer.grid(row=7, column=0, columnspan=3, sticky="ew", pady=(10, 0))
+        ttk.Button(footer, text="Programm beenden", command=self.request_exit).pack(side="right")
+        ttk.Button(footer, text="Info", command=self.show_info).pack(side="right", padx=(0, 8))
+
         frame.columnconfigure(1, weight=1)
         frame.rowconfigure(6, weight=1)
+
+    def show_info(self):
+        """Show application details and the former footer help text."""
+        dialog = tk.Toplevel(self)
+        dialog.title("Info – TB2-Negativtester")
+        center_window(dialog, 650, 380, parent=self)
+        dialog.minsize(480, 300)
+        dialog.transient(self)
+        body = ttk.Frame(dialog, padding=18)
+        body.pack(fill="both", expand=True)
+        ttk.Label(body, text=f"{'TB2-Negativtester'} – Version {APP_VERSION}",
+                  font=("TkDefaultFont", 13, "bold")).pack(anchor="w", pady=(0, 12))
+        help_frame = ttk.Frame(body)
+        help_frame.pack(fill="both", expand=True)
+        help_text = tk.Text(help_frame, wrap="word", height=9, relief="flat",
+                            font=("TkDefaultFont", 10),
+                            background=dialog.cget("background"), padx=2, pady=2)
+        help_text.insert("1.0", INFO_TEXT)
+        help_text.configure(state="disabled")
+        help_text.pack(side="left", fill="both", expand=True)
+        scrollbar = ttk.Scrollbar(help_frame, orient="vertical", command=help_text.yview)
+        scrollbar.pack(side="right", fill="y")
+        help_text.configure(yscrollcommand=scrollbar.set)
+        buttons = ttk.Frame(body)
+        buttons.pack(fill="x", pady=(14, 0))
+        ttk.Button(buttons, text="Was ist neu?",
+                   command=lambda: self.show_changelog(dialog)).pack(side="left")
+        ttk.Button(buttons, text="GitHub",
+                   command=lambda: webbrowser.open(PROJECT_URL)).pack(side="left", padx=(8, 0))
+        ttk.Button(buttons, text="MIT-Lizenz",
+                   command=lambda: self.show_license(dialog)).pack(side="left", padx=(8, 0))
+        ttk.Button(buttons, text="Schließen", command=dialog.destroy).pack(side="right")
+
+    def show_changelog(self, parent):
+        """Display the bundled version history, including this installed version."""
+        dialog = tk.Toplevel(parent)
+        dialog.title(f"Was ist neu? – TB2-Negativtester {APP_VERSION}")
+        center_window(dialog, 720, 500, parent=parent)
+        dialog.minsize(450, 320)
+        dialog.transient(parent)
+        body = ttk.Frame(dialog, padding=14)
+        body.pack(fill="both", expand=True)
+        ttk.Label(body, text=f"Versionsverlauf bis {APP_VERSION}",
+                  font=("TkDefaultFont", 12, "bold")).pack(anchor="w", pady=(0, 10))
+        text_frame = ttk.Frame(body)
+        text_frame.pack(fill="both", expand=True)
+        history = tk.Text(text_frame, wrap="word", font=("TkDefaultFont", 10), padx=8, pady=8)
+        history.insert("1.0", changelog_for_version(APP_VERSION))
+        history.configure(state="disabled")
+        history.pack(side="left", fill="both", expand=True)
+        scrollbar = ttk.Scrollbar(text_frame, orient="vertical", command=history.yview)
+        scrollbar.pack(side="right", fill="y")
+        history.configure(yscrollcommand=scrollbar.set)
+        ttk.Button(body, text="Schließen", command=dialog.destroy).pack(anchor="e", pady=(10, 0))
+
+    def show_license(self, parent):
+        """Display the complete license bundled with this program."""
+        dialog = tk.Toplevel(parent)
+        dialog.title("MIT-Lizenz – TB2-Negativtester")
+        center_window(dialog, 720, 450, parent=parent)
+        dialog.minsize(450, 300)
+        dialog.transient(parent)
+        body = ttk.Frame(dialog, padding=14)
+        body.pack(fill="both", expand=True)
+        text_frame = ttk.Frame(body)
+        text_frame.pack(fill="both", expand=True)
+        license_text = tk.Text(text_frame, wrap="word", font=("TkDefaultFont", 10))
+        license_text.insert("1.0", MIT_LICENSE)
+        license_text.configure(state="disabled")
+        license_text.pack(side="left", fill="both", expand=True)
+        scrollbar = ttk.Scrollbar(text_frame, orient="vertical", command=license_text.yview)
+        scrollbar.pack(side="right", fill="y")
+        license_text.configure(yscrollcommand=scrollbar.set)
+        ttk.Button(body, text="Schließen", command=dialog.destroy).pack(anchor="e", pady=(10, 0))
+
+    def show_access_issues(self):
+        """Alle übersprungenen Verzeichnisse/Listen bei Bedarf anzeigen."""
+        if not self.access_issues:
+            return
+        dialog = tk.Toplevel(self)
+        dialog.title("Zugriffsprobleme – TB2-Negativtester")
+        center_window(dialog, 780, 500, parent=self)
+        dialog.minsize(480, 300)
+        dialog.transient(self)
+        body = ttk.Frame(dialog, padding=14)
+        body.pack(fill="both", expand=True)
+        ttk.Label(body, text=f"{len(self.access_issues)} übersprungene Verzeichnisse/Listen",
+                  font=("TkDefaultFont", 12, "bold")).pack(anchor="w", pady=(0, 10))
+        text_frame = ttk.Frame(body)
+        text_frame.pack(fill="both", expand=True)
+        details = tk.Text(text_frame, wrap="word", font=("TkDefaultFont", 10),
+                          padx=8, pady=8)
+        details.insert("1.0", "\n\n".join(self.access_issues))
+        details.configure(state="disabled")
+        details.pack(side="left", fill="both", expand=True)
+        scrollbar = ttk.Scrollbar(text_frame, orient="vertical", command=details.yview)
+        scrollbar.pack(side="right", fill="y")
+        details.configure(yscrollcommand=scrollbar.set)
+        ttk.Button(body, text="Schließen", command=dialog.destroy).pack(
+            anchor="e", pady=(10, 0))
 
     def choose_folder(self):
         folder = filedialog.askdirectory(title="Ordner mit TB2-/TBL-Dateien auswählen")
         if folder:
             self.folder_var.set(folder)
+
+    def _update_scan_button(self, *_args):
+        """Ordner prüfen anbieten oder laufende Prüfung abbrechbar halten."""
+        if self.scanning:
+            if self.cancel_scan_event.is_set():
+                self.scan_button.configure(state="disabled", text="Abbruch läuft …")
+            else:
+                self.scan_button.configure(state="normal", text="Prüfung abbrechen")
+        else:
+            self.scan_button.configure(
+                state="normal" if self.folder_var.get().strip() else "disabled",
+                text="Ordner prüfen")
+
+    def request_exit(self):
+        """Während einer Prüfung Rückfrage stellen und kontrolliert beenden."""
+        if not self.scanning:
+            self.destroy()
+            return
+        if self.exit_after_scan:
+            return
+        if not messagebox.askyesno(
+                "Programm beenden",
+                "Sind Sie sicher, dass Sie die Suche abbrechen und das Programm beenden möchten?",
+                parent=self):
+            return
+        self.exit_after_scan = True
+        self.cancel_scan_event.set()
+        self._update_scan_button()
+        self.status_var.set("Programm wird nach Abbruch der laufenden Arbeit beendet …")
+
+    def scan_or_cancel(self):
+        """Prüfung starten oder kooperativen Abbruch anfordern."""
+        if self.scanning:
+            if not self.cancel_scan_event.is_set():
+                self.cancel_scan_event.set()
+                self._update_scan_button()
+                self.status_var.set("Abbruch angefordert – laufender Verzeichniszugriff bzw. aktuelle Datei wird abgeschlossen …")
+            return
+        self.start_scan()
 
     def start_scan(self):
         folder_text = self.folder_var.get().strip()
@@ -196,81 +359,188 @@ class App(tk.Tk):
             return
         if self.scanning:
             return
-        root = Path(folder_text).resolve()
-        candidates = root.rglob("*") if self.recursive_var.get() else root.glob("*")
-        files = [p for p in candidates if p.is_file() and p.suffix.lower() in {".tb2", ".tbl"}]
-        try:
-            ignored = set()
-            for directory in {p.parent for p in files}:
-                ignore_file = directory / "ignore.txt"
-                if not ignore_file.is_file():
-                    continue
-                for line in ignore_file.read_text(encoding="utf-8").splitlines():
-                    entry = line.strip()
-                    if entry and not entry.startswith("#"):
-                        ignored.add(self._path_key(directory / entry))
-        except (OSError, UnicodeError) as exc:
-            messagebox.showerror("Ignorierliste nicht lesbar", str(exc))
-            return
-        self.ignored_paths = ignored
-        if not files:
-            messagebox.showinfo("Keine TB2-/TBL-Dateien", "Im Ordner wurden keine .TB2- oder .TBL-Dateien gefunden.")
-            return
+        self.cancel_scan_event.clear()
         self.scanning = True
         self.rows = []
+        self.ignored_paths = set()
         self.scan_summary = ""
+        self.scan_totals = None
+        self.access_issues = []
+        self.issues_button.pack_forget()
+        self.clear_button.configure(state="disabled")
         self.apply_filter()
-        self.scan_button.configure(state="disabled")
+        self._update_scan_button()
         self.copy_button.configure(state="disabled")
         self.save_button.configure(state="disabled")
         self.open_button.configure(state="disabled")
         self.ignore_button.configure(state="disabled")
-        self.progress.configure(maximum=len(files), value=0)
-        self.status_var.set(f"Prüfe {len(files)} TB2-/TBL-Datei(en) …")
-        threading.Thread(target=self._worker, args=(files,), daemon=True).start()
+        self.progress.configure(mode="indeterminate", value=0)
+        self.progress.start(12)
+        self.status_var.set("Durchsuche Verzeichnisstruktur nach TB2-/TBL-Dateien …")
+        threading.Thread(target=self._worker, args=(Path(folder_text), self.recursive_var.get()),
+                         daemon=True).start()
 
-    def _worker(self, files: list[Path]):
-        flagged = []
-        recognized = errors = empty = fragments = probably_no_text = 0
-        for index, path in enumerate(files, start=1):
-            category, detail = inspect_file(path)
-            if category == "Erkannt":
-                recognized += 1
+    def _worker(self, root: Path, recursive: bool):
+        """Dateisuche, Ignorierlisten und Prüfung vollständig außerhalb der GUI."""
+        files = []
+        ignored = set()
+        skipped = []
+        checked_dirs = 0
+
+        def on_walk_error(exc):
+            skipped.append(f"{exc.filename or 'Unbekannter Ordner'}: {exc}")
+
+        try:
+            if recursive:
+                directories = os.walk(root, topdown=True, followlinks=False,
+                                      onerror=on_walk_error)
             else:
-                flagged.append((category, str(path.resolve()), detail))
-                if category == "Fehler":
-                    errors += 1
-                elif category == "Leer":
-                    empty += 1
-                elif category == "Fragment":
-                    fragments += 1
-                elif category == "Vermutlich kein Text":
-                    probably_no_text += 1
-            self.events.put(("progress", index, len(files), path.name))
-        self.events.put(("finished", flagged, len(files), recognized, fragments, probably_no_text, empty, errors))
+                # Dieselbe Ereignisstruktur für die Suche ohne Unterordner.
+                def one_directory():
+                    try:
+                        with os.scandir(root) as entries:
+                            yield str(root), [], [entry.name for entry in entries
+                                                   if entry.is_file(follow_symlinks=False)]
+                    except OSError as exc:
+                        on_walk_error(exc)
+                directories = one_directory()
+
+            for directory, subdirs, names in directories:
+                if self.cancel_scan_event.is_set():
+                    break
+                checked_dirs += 1
+                # Windows-Junctions/Reparse-Points nicht rekursiv durchlaufen.
+                if recursive:
+                    subdirs[:] = [name for name in subdirs
+                                  if not os.path.isjunction(os.path.join(directory, name))]
+                for name in names:
+                    if name.lower().endswith((".tb2", ".tbl")):
+                        files.append(Path(directory) / name)
+                if checked_dirs % 50 == 0:
+                    self.events.put(("discovery", checked_dirs, len(files)))
+            if not self.cancel_scan_event.is_set():
+                for directory in {path.parent for path in files}:
+                    if self.cancel_scan_event.is_set():
+                        break
+                    ignore_file = directory / "ignore.txt"
+                    try:
+                        if ignore_file.is_file():
+                            for line in ignore_file.read_text(encoding="utf-8").splitlines():
+                                entry = line.strip()
+                                if entry and not entry.startswith("#"):
+                                    ignored.add(self._path_key(directory / entry))
+                    except (OSError, UnicodeError) as exc:
+                        skipped.append(f"{ignore_file}: {exc}")
+            self.events.put(("discovery_done", len(files), checked_dirs))
+            flagged = []
+            recognized = errors = empty = fragments = probably_no_text = 0
+            processed = 0
+            for index, path in enumerate(files, start=1):
+                if self.cancel_scan_event.is_set():
+                    break
+                category, detail = inspect_file(path)
+                processed = index
+                if category == "Erkannt":
+                    recognized += 1
+                else:
+                    flagged.append((category, str(path.absolute()), detail))
+                    if category == "Fehler":
+                        errors += 1
+                    elif category == "Leer":
+                        empty += 1
+                    elif category == "Fragment":
+                        fragments += 1
+                    elif category == "Vermutlich kein Text":
+                        probably_no_text += 1
+                self.events.put(("progress", index, len(files), path.name))
+            self.events.put(("finished", flagged, processed, len(files), recognized,
+                             fragments, probably_no_text, empty, errors,
+                             self.cancel_scan_event.is_set(), ignored, skipped, checked_dirs))
+        except Exception as exc:
+            self.events.put(("worker_error", str(exc)))
 
     def _poll_events(self):
         try:
             while True:
                 event = self.events.get_nowait()
-                if event[0] == "progress":
+                if event[0] == "discovery":
+                    _, directories, found = event
+                    if not self.cancel_scan_event.is_set():
+                        self.status_var.set(
+                            f"Durchsuche Verzeichnisse: {directories} Ordner, "
+                            f"{found} TB2-/TBL-Datei(en) gefunden …")
+                elif event[0] == "discovery_done":
+                    _, total, directories = event
+                    self.progress.stop()
+                    self.progress.configure(mode="determinate", maximum=max(total, 1), value=0)
+                    if not self.cancel_scan_event.is_set():
+                        self.status_var.set(
+                            f"Dateisuche abgeschlossen: {directories} Ordner, "
+                            f"{total} TB2-/TBL-Datei(en). Prüfung läuft …")
+                elif event[0] == "progress":
                     _, current, total, name = event
                     self.progress.configure(value=current)
-                    self.status_var.set(f"Datei {current}/{total}: {name}")
+                    if not self.cancel_scan_event.is_set():
+                        self.status_var.set(f"Datei {current}/{total}: {name}")
                 elif event[0] == "finished":
-                    _, flagged, total, recognized, fragments, probably_no_text, empty, errors = event
+                    if self.exit_after_scan:
+                        self.destroy()
+                        return
+                    (_, flagged, processed, total, recognized, fragments,
+                     probably_no_text, empty, errors, cancelled,
+                     ignored, skipped, checked_dirs) = event
+                    self.progress.stop()
+                    self.ignored_paths = ignored
                     self.rows = flagged
-                    self.apply_filter()
                     self.scanning = False
-                    self.scan_button.configure(state="normal")
-                    self.scan_summary = (
-                        f"Fertig: {total} Datei(en) geprüft | {recognized} erkannt | "
-                        f"{fragments} Fragmente | {probably_no_text} vermutlich ohne Text | "
-                        f"{empty} leer | {errors} Lesefehler.")
-                    self.status_var.set(self.scan_summary)
+                    self.apply_filter()
+                    self._update_scan_button()
+                    self.scan_totals = (processed, recognized, fragments,
+                                        probably_no_text, empty, errors)
+                    self._refresh_scan_summary()
+                    if cancelled:
+                        self.status_var.set(
+                            f"Abgebrochen: {processed}/{total} gefundene Datei(en) geprüft | "
+                            + self.scan_summary.removeprefix("Fertig: "))
+                    elif not total:
+                        self.status_var.set(
+                            f"Keine TB2-/TBL-Dateien gefunden ({checked_dirs} Ordner durchsucht).")
+                    self.access_issues = skipped
+                    if skipped:
+                        self.issues_button.configure(
+                            text=f"Zugriffsprobleme ({len(skipped)})")
+                        self.issues_button.pack(side="left", padx=(8, 0), after=self.scan_button)
+                elif event[0] == "worker_error":
+                    if self.exit_after_scan:
+                        self.destroy()
+                        return
+                    self.progress.stop()
+                    self.scanning = False
+                    self.apply_filter()
+                    self._update_scan_button()
+                    messagebox.showerror("Prüfung fehlgeschlagen", event[1])
         except queue.Empty:
             pass
         self.after(100, self._poll_events)
+
+    def _refresh_scan_summary(self):
+        """Gesamtzahlen und ignorierte Einträge je Ergebniskategorie anzeigen."""
+        if self.scan_totals is None:
+            return
+        total, recognized, fragments, probably_no_text, empty, errors = self.scan_totals
+        ignored = {"Fragment": 0, "Vermutlich kein Text": 0,
+                   "Leer": 0, "Fehler": 0}
+        for category, path, _ in self.rows:
+            if category in ignored and self.is_ignored(path):
+                ignored[category] += 1
+        self.scan_summary = (
+            f"Fertig: {total} Datei(en) geprüft | {recognized} erkannt | "
+            f"{fragments} Fragmente ({ignored['Fragment']} ignoriert) | "
+            f"{probably_no_text} vermutlich ohne Text "
+            f"({ignored['Vermutlich kein Text']} ignoriert) | "
+            f"{empty} leer ({ignored['Leer']} ignoriert) | "
+            f"{errors} Lesefehler ({ignored['Fehler']} ignoriert).")
+        self.status_var.set(self.scan_summary)
 
     @staticmethod
     def _path_key(path: Path) -> str:
@@ -288,7 +558,7 @@ class App(tk.Tk):
                 (not self.is_ignored(row[1]) and row[0] in allowed)]
 
     def apply_filter(self, _event=None):
-        selected_path = self.selected_path() if hasattr(self, "tree") else None
+        selected_paths = set(self.selected_paths()) if hasattr(self, "tree") else set()
         if not hasattr(self, "tree"):
             return
         for item in self.tree.get_children():
@@ -299,48 +569,91 @@ class App(tk.Tk):
             iid = self.tree.insert("", "end", values=(
                 "Ignoriert" if ignored else category, path, detail),
                 tags=("ignored",) if ignored else ())
-            if path == selected_path:
-                self.tree.selection_set(iid)
+            if path in selected_paths:
+                self.tree.selection_add(iid)
         self.visible_count_var.set(f"{len(visible)} von {len(self.rows)} angezeigt")
+        self.clear_button.configure(state="normal" if self.rows and not self.scanning else "disabled")
+        self._fit_result_columns(visible)
         state = "normal" if visible and not self.scanning else "disabled"
         self.copy_button.configure(state=state)
         self.save_button.configure(state=state)
         self.update_buttons()
 
+    def _fit_result_columns(self, rows=None):
+        """Alle drei Spalten an die aktuell sichtbaren Inhalte anpassen."""
+        if rows is None:
+            rows = self.filtered_rows()
+        style = ttk.Style(self)
+        font_name = style.lookup("Treeview", "font") or "TkDefaultFont"
+        font = (tkfont.nametofont(font_name)
+                if isinstance(font_name, str) and font_name in tkfont.names(self)
+                else tkfont.nametofont("TkDefaultFont"))
+        headings = {"category": "Status", "path": "Dateipfad", "detail": "Hinweis"}
+        values = {
+            "category": ["Ignoriert" if self.is_ignored(path) else category
+                         for category, path, detail in rows],
+            "path": [path for category, path, detail in rows],
+            "detail": [detail for category, path, detail in rows],
+        }
+        for column in ("category", "path", "detail"):
+            heading_width = font.measure(headings[column]) + 32
+            content_width = max((font.measure(str(value)) for value in values[column]),
+                                default=0) + 24
+            self.tree.column(column, width=max(heading_width, content_width, 80),
+                             stretch=(column == "path"))
+
+    def selected_paths(self):
+        """Dateipfade aller ausgewählten Zeilen, auch bei Mehrfachauswahl."""
+        paths = []
+        for item in self.tree.selection():
+            values = self.tree.item(item, "values")
+            if len(values) > 1:
+                paths.append(str(values[1]))
+        return paths
+
     def update_buttons(self, _event=None):
-        selected = self.selected_path()
-        state = "normal" if selected and not self.scanning else "disabled"
-        self.open_button.configure(state=state)
-        self.ignore_button.configure(state=state)
-        self.ignore_button.configure(text="Ignorieren aufheben" if selected and self.is_ignored(selected) else "Ignorieren")
+        paths = self.selected_paths()
+        self.open_button.configure(
+            state="normal" if len(paths) == 1 and not self.scanning else "disabled")
+        states = {self.is_ignored(path) for path in paths}
+        uniform = bool(paths) and len(states) == 1 and not self.scanning
+        self.ignore_button.configure(
+            state="normal" if uniform else "disabled",
+            text="Ignorieren aufheben" if uniform and True in states else "Ignorieren")
 
     def toggle_ignore(self):
-        selected = self.selected_path()
-        if not selected or self.scanning:
+        paths = self.selected_paths()
+        states = {self.is_ignored(path) for path in paths}
+        if self.scanning or not paths or len(states) != 1:
             return
-        file_path = Path(selected)
-        ignore_file = file_path.parent / "ignore.txt"
-        key = self._path_key(file_path)
+        should_ignore = True not in states
         updated = set(self.ignored_paths)
-        if key in updated:
-            updated.remove(key)
-        else:
-            updated.add(key)
-        try:
-            # Jede Ignorierliste enthält nur Dateien aus ihrem eigenen Verzeichnis.
+        folders = {}
+        for path in paths:
+            file_path = Path(path)
+            folders.setdefault(file_path.parent, set()).add(self._path_key(file_path))
+        for directory, keys in folders.items():
+            new_keys = (updated | keys) if should_ignore else (updated - keys)
             names = sorted(
-                (Path(p).name for p in updated
-                 if self._path_key(Path(p).parent) == self._path_key(file_path.parent)),
+                (Path(key).name for key in new_keys
+                 if self._path_key(Path(key).parent) == self._path_key(directory)),
                 key=str.casefold)
+            ignore_file = directory / "ignore.txt"
             temporary = ignore_file.with_name("ignore.txt.tmp")
-            temporary.write_text("\n".join(names) + ("\n" if names else ""), encoding="utf-8")
-            temporary.replace(ignore_file)
-        except (OSError, ValueError) as exc:
-            messagebox.showerror("Ignorierliste nicht gespeichert", str(exc))
-            return
+            try:
+                temporary.write_text("\n".join(names) + ("\n" if names else ""),
+                                     encoding="utf-8")
+                temporary.replace(ignore_file)
+            except (OSError, ValueError) as exc:
+                messagebox.showerror("Ignorierliste nicht gespeichert",
+                                     f"{ignore_file}\n\n{exc}")
+                break
+            # Erfolgreich gespeicherte Ordner sofort übernehmen; bei einem
+            # späteren Schreibfehler bleiben Speicherstand und Anzeige konsistent.
+            updated = new_keys
         self.ignored_paths = updated
         self.apply_filter()
-        self.status_var.set(f"Ignorierliste aktualisiert: {ignore_file}")
+        self._refresh_scan_summary()
 
     def selected_path(self):
         selected = self.tree.selection()
@@ -406,7 +719,10 @@ class App(tk.Tk):
         self.status_var.set(f"Bericht gespeichert: {destination}")
 
     def clear(self):
+        if self.scanning or not self.rows:
+            return
         self.rows = []
+        self.clear_button.configure(state="disabled")
         self.scan_summary = ""
         self.apply_filter()
         self.copy_button.configure(state="disabled")

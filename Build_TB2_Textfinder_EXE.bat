@@ -26,7 +26,7 @@ python -m pip install -r "%~dp0requirements-build.txt"
 if errorlevel 1 goto :error
 REM Alle Pfade relativ zum Projektordner; cd /d oben wechselt dorthin.
 REM --hidden-import stellt die Finder-Abhaengigkeit des Testers sicher.
-python -m PyInstaller --noconfirm --clean --onefile --windowed --icon "logo.ico" --add-data "logo.ico;." --name "TB2_Textfinder" --distpath "dist" --workpath "build" --specpath "." "TB2_Textfinder.py"
+python -m PyInstaller --noconfirm --clean --onefile --windowed --icon "logo.ico" --add-data "logo.ico;." --add-data "CHANGELOG.md;." --name "TB2_Textfinder" --distpath "dist" --workpath "build" --specpath "." "TB2_Textfinder.py"
 if errorlevel 1 goto :error
 if not exist "%~dp0dist\TB2_Textfinder.exe" goto :error
 echo ERFOLG: dist\TB2_Textfinder.exe

@@ -17,12 +17,13 @@ from tb2_resource_paths import mask_resource_paths
 from tb2_whole_words import contains_whole_word
 from pathlib import Path
 from tb2_window_position import center_window
+from tb2_changelog import changelog_for_version
 from tb2_app_identity import configure_app_identity, apply_window_icon
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk, font as tkfont
 
 APP_TITLE = "TB2-Textfinder"
-APP_VERSION = "1.8.8"
+APP_VERSION = "1.9.0"
 PROJECT_URL = "https://github.com/ropaha/TB2-Textfinder"
 MIT_LICENSE = "MIT License\n\nCopyright (c) 2026 Roga Hagen (roga@hagen.me)\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE.\n"
 
@@ -513,8 +514,13 @@ class App(tk.Tk):
         self.events: queue.Queue = queue.Queue()
         self.scanning = False
         self.cancel_scan_event = threading.Event()
+        self.exit_after_scan = False
+        self.protocol("WM_DELETE_WINDOW", self.request_exit)
         self.result_paths: list[str] = []
+        self.access_issues: list[str] = []
         self._build_ui()
+        self.folder_var.trace_add("write", self._update_search_button)
+        self.term_var.trace_add("write", self._update_search_button)
         self.after(100, self._poll_events)
 
     def _build_ui(self):
@@ -555,19 +561,19 @@ class App(tk.Tk):
 
         actions = ttk.Frame(frame)
         actions.grid(row=4, column=0, columnspan=3, sticky="w", pady=(12, 10))
-        self.search_button = ttk.Button(actions, text="Suchen", command=self.search_or_cancel)
+        self.search_button = ttk.Button(actions, text="Suchen", command=self.search_or_cancel, state="disabled")
         self.search_button.pack(side="left")
+        self.issues_button = ttk.Button(actions, text="Zugriffsprobleme", command=self.show_access_issues)
         self.open_button = ttk.Button(
             actions, text="Datei öffnen", command=self.open_selected_file, state="disabled"
         )
         self.open_button.pack(side="left", padx=(8, 0))
         self.copy_button = ttk.Button(actions, text="Pfade kopieren", command=self.copy_paths, state="disabled")
         self.copy_button.pack(side="left", padx=(8, 0))
-        self.save_button = ttk.Button(actions, text="Pfade als TXT speichern …", command=self.save_paths, state="disabled")
+        self.save_button = ttk.Button(actions, text="TXT speichern …", command=self.save_paths, state="disabled")
         self.save_button.pack(side="left", padx=(8, 0))
-        self.clear_button = ttk.Button(actions, text="Leeren", command=self.clear_results)
+        self.clear_button = ttk.Button(actions, text="Leeren", command=self.clear_results, state="disabled")
         self.clear_button.pack(side="left", padx=(8, 0))
-        ttk.Button(actions, text="Info", command=self.show_info).pack(side="left", padx=(8, 0))
 
         self.progress = ttk.Progressbar(frame, mode="determinate")
         self.progress.grid(row=5, column=0, columnspan=3, sticky="ew", pady=(0, 6))
@@ -597,6 +603,11 @@ class App(tk.Tk):
         self.tree.bind("<Double-1>", self.open_result_file)
         self.tree.bind("<<TreeviewSelect>>", self._update_open_button_state)
 
+        footer = ttk.Frame(frame)
+        footer.grid(row=10, column=0, columnspan=3, sticky="ew", pady=(10, 0))
+        ttk.Button(footer, text="Programm beenden", command=self.request_exit).pack(side="right")
+        ttk.Button(footer, text="Info", command=self.show_info).pack(side="right", padx=(0, 8))
+
         frame.columnconfigure(1, weight=1)
         frame.rowconfigure(9, weight=1)
         self.term_entry.focus_set()
@@ -606,7 +617,7 @@ class App(tk.Tk):
         dialog = tk.Toplevel(self)
         dialog.title("Info – TB2-Textfinder")
         center_window(dialog, 650, 380, parent=self)
-        dialog.minsize(420, 280)
+        dialog.minsize(480, 300)
         dialog.transient(self)
         body = ttk.Frame(dialog, padding=18)
         body.pack(fill="both", expand=True)
@@ -615,6 +626,7 @@ class App(tk.Tk):
         help_frame = ttk.Frame(body)
         help_frame.pack(fill="both", expand=True)
         help_text = tk.Text(help_frame, wrap="word", height=9, relief="flat",
+                            font=("TkDefaultFont", 10),
                             background=dialog.cget("background"), padx=2, pady=2)
         help_text.insert("1.0", INFO_TEXT)
         help_text.configure(state="disabled")
@@ -624,11 +636,35 @@ class App(tk.Tk):
         help_text.configure(yscrollcommand=scrollbar.set)
         buttons = ttk.Frame(body)
         buttons.pack(fill="x", pady=(14, 0))
-        ttk.Button(buttons, text="MIT-Lizenz anzeigen",
-                   command=lambda: self.show_license(dialog)).pack(side="left")
-        ttk.Button(buttons, text="GitHub-Projekt öffnen",
-                   command=lambda: webbrowser.open(PROJECT_URL)).pack(side="left", padx=(10, 0))
+        ttk.Button(buttons, text="Was ist neu?",
+                   command=lambda: self.show_changelog(dialog)).pack(side="left")
+        ttk.Button(buttons, text="GitHub",
+                   command=lambda: webbrowser.open(PROJECT_URL)).pack(side="left", padx=(8, 0))
+        ttk.Button(buttons, text="MIT-Lizenz",
+                   command=lambda: self.show_license(dialog)).pack(side="left", padx=(8, 0))
         ttk.Button(buttons, text="Schließen", command=dialog.destroy).pack(side="right")
+
+    def show_changelog(self, parent):
+        """Display the bundled version history, including this installed version."""
+        dialog = tk.Toplevel(parent)
+        dialog.title(f"Was ist neu? – TB2-Textfinder {APP_VERSION}")
+        center_window(dialog, 720, 500, parent=parent)
+        dialog.minsize(450, 320)
+        dialog.transient(parent)
+        body = ttk.Frame(dialog, padding=14)
+        body.pack(fill="both", expand=True)
+        ttk.Label(body, text=f"Versionsverlauf bis {APP_VERSION}",
+                  font=("TkDefaultFont", 12, "bold")).pack(anchor="w", pady=(0, 10))
+        text_frame = ttk.Frame(body)
+        text_frame.pack(fill="both", expand=True)
+        history = tk.Text(text_frame, wrap="word", font=("TkDefaultFont", 10), padx=8, pady=8)
+        history.insert("1.0", changelog_for_version(APP_VERSION))
+        history.configure(state="disabled")
+        history.pack(side="left", fill="both", expand=True)
+        scrollbar = ttk.Scrollbar(text_frame, orient="vertical", command=history.yview)
+        scrollbar.pack(side="right", fill="y")
+        history.configure(yscrollcommand=scrollbar.set)
+        ttk.Button(body, text="Schließen", command=dialog.destroy).pack(anchor="e", pady=(10, 0))
 
     def show_license(self, parent):
         """Display the complete license bundled with this program."""
@@ -641,7 +677,7 @@ class App(tk.Tk):
         body.pack(fill="both", expand=True)
         text_frame = ttk.Frame(body)
         text_frame.pack(fill="both", expand=True)
-        license_text = tk.Text(text_frame, wrap="word", font=("TkFixedFont", 10))
+        license_text = tk.Text(text_frame, wrap="word", font=("TkDefaultFont", 10))
         license_text.insert("1.0", MIT_LICENSE)
         license_text.configure(state="disabled")
         license_text.pack(side="left", fill="both", expand=True)
@@ -650,10 +686,57 @@ class App(tk.Tk):
         license_text.configure(yscrollcommand=scrollbar.set)
         ttk.Button(body, text="Schließen", command=dialog.destroy).pack(anchor="e", pady=(10, 0))
 
+    def show_access_issues(self):
+        if not self.access_issues:
+            return
+        dialog = tk.Toplevel(self)
+        dialog.title("Zugriffsprobleme – TB2-Textfinder")
+        center_window(dialog, 780, 500, parent=self)
+        dialog.minsize(480, 300)
+        dialog.transient(self)
+        body = ttk.Frame(dialog, padding=14)
+        body.pack(fill="both", expand=True)
+        ttk.Label(body, text=f"{len(self.access_issues)} übersprungene Verzeichnisse",
+                  font=("TkDefaultFont", 12, "bold")).pack(anchor="w", pady=(0, 10))
+        text_frame = ttk.Frame(body)
+        text_frame.pack(fill="both", expand=True)
+        details = tk.Text(text_frame, wrap="word", font=("TkDefaultFont", 10), padx=8, pady=8)
+        details.insert("1.0", "\n\n".join(self.access_issues))
+        details.configure(state="disabled")
+        details.pack(side="left", fill="both", expand=True)
+        scrollbar = ttk.Scrollbar(text_frame, orient="vertical", command=details.yview)
+        scrollbar.pack(side="right", fill="y")
+        details.configure(yscrollcommand=scrollbar.set)
+        ttk.Button(body, text="Schließen", command=dialog.destroy).pack(anchor="e", pady=(10, 0))
+
     def choose_folder(self):
         folder = filedialog.askdirectory(title="Ordner mit TB2-/TBL-Dateien auswählen")
         if folder:
             self.folder_var.set(folder)
+
+    def _update_search_button(self, *_args):
+        """Suche nur mit eingetragenem Ordner starten; Abbruchmodus bewahren."""
+        if not self.scanning:
+            self.search_button.configure(
+                state="normal" if self.folder_var.get().strip() and self.term_var.get().strip() else "disabled",
+                text="Suchen")
+
+    def request_exit(self):
+        """Während einer Prüfung Rückfrage stellen und kontrolliert beenden."""
+        if not self.scanning:
+            self.destroy()
+            return
+        if self.exit_after_scan:
+            return
+        if not messagebox.askyesno(
+                "Programm beenden",
+                "Sind Sie sicher, dass Sie die Suche abbrechen und das Programm beenden möchten?",
+                parent=self):
+            return
+        self.exit_after_scan = True
+        self.cancel_scan_event.set()
+        self.search_button.configure(state="disabled", text="Abbruch läuft …")
+        self.status_var.set("Programm wird nach Abbruch der laufenden Arbeit beendet …")
 
     def search_or_cancel(self):
         """Start a scan, or request cooperative cancellation."""
@@ -661,7 +744,7 @@ class App(tk.Tk):
             if not self.cancel_scan_event.is_set():
                 self.cancel_scan_event.set()
                 self.search_button.configure(state="disabled", text="Abbruch läuft …")
-                self.status_var.set("Abbruch angefordert – aktuelle Datei wird noch abgeschlossen …")
+                self.status_var.set("Abbruch angefordert – laufender Verzeichniszugriff bzw. aktuelle Datei wird abgeschlossen …")
             return
         self.start_scan()
 
@@ -676,17 +759,11 @@ class App(tk.Tk):
             return
         if self.scanning:
             return
-
-        root = Path(folder_text)
-        candidates = root.rglob("*") if self.recursive_var.get() else root.glob("*")
-        files = [p for p in candidates if p.is_file() and p.suffix.lower() in {".tb2", ".tbl"}]
-        if not files:
-            messagebox.showinfo("Keine TB2-/TBL-Dateien", "Im ausgewählten Ordner wurden keine .TB2- oder .TBL-Dateien gefunden.")
-            return
-
         self.cancel_scan_event.clear()
         self.scanning = True
         self.result_paths = []
+        self.access_issues = []
+        self.issues_button.pack_forget()
         self.search_button.configure(state="normal", text="Suche abbrechen")
         self.clear_button.configure(state="disabled")
         self.copy_button.configure(state="disabled")
@@ -695,14 +772,60 @@ class App(tk.Tk):
         for item in self.tree.get_children():
             self.tree.delete(item)
         self._fit_path_column([])
-        self.progress.configure(maximum=len(files), value=0)
+        self.progress.configure(mode="indeterminate", value=0)
+        self.progress.start(12)
         self.summary_var.set("Suche läuft – Ergebnis folgt nach Abschluss oder Abbruch.")
-        self.status_var.set(f"Untersuche {len(files)} TB2-/TBL-Datei(en) …")
+        self.status_var.set("Durchsuche Verzeichnisstruktur nach TB2-/TBL-Dateien …")
         threading.Thread(
-            target=self._scan_worker,
-            args=(files, term, self.case_var.get(), self.search_mode_var.get(), self.whole_word_var.get()),
+            target=self._discover_and_scan,
+            args=(Path(folder_text), self.recursive_var.get(), term,
+                  self.case_var.get(), self.search_mode_var.get(), self.whole_word_var.get()),
             daemon=True,
         ).start()
+
+    def _discover_and_scan(self, root: Path, recursive: bool, term: str,
+                           case_sensitive: bool, mode: str, whole_word: bool):
+        files = []
+        skipped = []
+        directories_checked = 0
+
+        def on_walk_error(exc):
+            skipped.append(f"{exc.filename or 'Unbekannter Ordner'}: {exc}")
+
+        try:
+            if recursive:
+                directories = os.walk(root, topdown=True, followlinks=False,
+                                      onerror=on_walk_error)
+            else:
+                def one_directory():
+                    try:
+                        with os.scandir(root) as entries:
+                            yield str(root), [], [entry.name for entry in entries
+                                                   if entry.is_file(follow_symlinks=False)]
+                    except OSError as exc:
+                        on_walk_error(exc)
+                directories = one_directory()
+
+            for directory, subdirs, names in directories:
+                if self.cancel_scan_event.is_set():
+                    break
+                directories_checked += 1
+                if recursive:
+                    subdirs[:] = [name for name in subdirs
+                                  if not os.path.isjunction(os.path.join(directory, name))]
+                for name in names:
+                    if name.lower().endswith((".tb2", ".tbl")):
+                        files.append(Path(directory) / name)
+                if directories_checked % 50 == 0:
+                    self.events.put(("discovery", directories_checked, len(files)))
+            self.events.put(("discovery_done", len(files), directories_checked, skipped))
+            if self.cancel_scan_event.is_set() or not files:
+                self.events.put(("finished", [], len(files), 0, mode, 0.0, 0,
+                                 self.cancel_scan_event.is_set()))
+                return
+            self._scan_worker(files, term, case_sensitive, mode, whole_word)
+        except Exception as exc:
+            self.events.put(("worker_error", str(exc)))
 
     def _scan_worker(self, files: list[Path], term: str, case_sensitive: bool, mode: str, whole_word: bool):
         found: list[str] = []
@@ -752,20 +875,39 @@ class App(tk.Tk):
         try:
             while True:
                 event = self.events.get_nowait()
-                if event[0] == "progress":
+                if event[0] == "discovery":
+                    _, directories, found = event
+                    if not self.cancel_scan_event.is_set():
+                        self.status_var.set(
+                            f"Durchsuche Verzeichnisse: {directories} Ordner, "
+                            f"{found} TB2-/TBL-Datei(en) gefunden …")
+                elif event[0] == "discovery_done":
+                    _, total, directories, skipped = event
+                    self.access_issues = skipped
+                    self.progress.stop()
+                    self.progress.configure(mode="determinate", maximum=max(total, 1), value=0)
+                    if not self.cancel_scan_event.is_set():
+                        self.status_var.set(
+                            f"Dateisuche abgeschlossen: {directories} Ordner, "
+                            f"{total} TB2-/TBL-Datei(en). Suche läuft …")
+                elif event[0] == "progress":
                     _, current, total, filename = event
                     self.progress.configure(value=current)
                     if not self.cancel_scan_event.is_set():
                         self.status_var.set(f"Datei {current}/{total}: {filename}")
                 elif event[0] == "finished":
+                    if self.exit_after_scan:
+                        self.destroy()
+                        return
                     _, found, total, errors, mode, seconds, processed, cancelled = event
+                    self.progress.stop()
                     self.result_paths = found
                     for path in found:
                         self.tree.insert("", "end", values=(path,))
                     self._fit_path_column(found)
                     self.scanning = False
-                    self.search_button.configure(state="normal", text="Suchen")
-                    self.clear_button.configure(state="normal")
+                    self._update_search_button()
+                    self.clear_button.configure(state="normal" if found else "disabled")
                     state = "normal" if found else "disabled"
                     self.copy_button.configure(state=state)
                     self.save_button.configure(state=state)
@@ -780,6 +922,21 @@ class App(tk.Tk):
                         msg += f" {errors} Datei(en) konnten nicht gelesen werden."
                     self.summary_var.set(msg)
                     self.status_var.set("Suche abgebrochen." if cancelled else "Suche abgeschlossen.")
+                    if not cancelled and not total:
+                        self.status_var.set("Keine TB2-/TBL-Dateien gefunden.")
+                    if self.access_issues:
+                        self.issues_button.configure(
+                            text=f"Zugriffsprobleme ({len(self.access_issues)})")
+                        self.issues_button.pack(side="left", padx=(8, 0), after=self.search_button)
+                elif event[0] == "worker_error":
+                    if self.exit_after_scan:
+                        self.destroy()
+                        return
+                    self.progress.stop()
+                    self.scanning = False
+                    self._update_search_button()
+                    self.status_var.set("Suche fehlgeschlagen.")
+                    messagebox.showerror("Suche fehlgeschlagen", event[1])
         except queue.Empty:
             pass
         self.after(100, self._poll_events)
@@ -885,6 +1042,10 @@ class App(tk.Tk):
         if self.scanning:
             return
         self.result_paths = []
+        self.access_issues = []
+        self.issues_button.pack_forget()
+        self.clear_button.configure(state="disabled")
+        self.clear_button.configure(state="disabled")
         for item in self.tree.get_children():
             self.tree.delete(item)
         self.copy_button.configure(state="disabled")

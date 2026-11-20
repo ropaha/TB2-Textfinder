@@ -26,7 +26,7 @@ python -m pip install -r "%~dp0requirements-build.txt"
 if errorlevel 1 goto :error
 REM Alle Pfade relativ zum Projektordner; cd /d oben wechselt dorthin.
 REM --hidden-import stellt die Finder-Abhaengigkeit des Testers sicher.
-python -m PyInstaller --noconfirm --clean --onefile --windowed --icon "logo.ico" --add-data "logo.ico;." --hidden-import TB2_Textfinder --name "TB2_Negativtester" --distpath "dist" --workpath "build" --specpath "." "TB2_Negativtester.py"
+python -m PyInstaller --noconfirm --clean --onefile --windowed --icon "logo.ico" --add-data "logo.ico;." --add-data "CHANGELOG.md;." --hidden-import TB2_Textfinder --name "TB2_Negativtester" --distpath "dist" --workpath "build" --specpath "." "TB2_Negativtester.py"
 if errorlevel 1 goto :error
 if not exist "%~dp0dist\TB2_Negativtester.exe" goto :error
 echo ERFOLG: dist\TB2_Negativtester.exe

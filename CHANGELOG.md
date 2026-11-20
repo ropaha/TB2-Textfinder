@@ -4,6 +4,37 @@ Alle wesentlichen Änderungen am TB2-Textfinder und Negativtester werden hier do
 
 Die Versionsnummer des Gesamtpakets ist unabhängig von den Programmversionen. Die Erkennung beruht auf empirisch untersuchten TB2-Dateien, nicht auf einer vollständigen offiziellen Formatspezifikation.
 
+## [1.9.0] – Release
+
+### Versionierung und Releases
+- Einheitliche Versionsregel für beide Programme: Entwicklungsstände mit **-dev** (Entwicklungsstand **1.9.0-dev** vor diesem Release), veröffentlichte Versionen ohne Suffix. Test- und Release-Builds prüfen die Versionskonvention; der Release-Vorbereitungsschritt entfernt das Suffix und übernimmt den unveröffentlichten Changelog-Abschnitt. Kein automatischer Merge oder Release.
+- Das Infofenster zeigt bei Entwicklungsversionen auch die unveröffentlichten Änderungen an.
+
+### Oberfläche und Bedienung
+- Beide Programme: Arbeitsfunktionen wieder in **einer einzigen Schaltflächenzeile**, während **Info** und **Programm beenden** rechtsbündig unter der Trefferliste bleiben. Die Speichern-Schaltfläche heißt platzsparend **TXT speichern …**.
+- Beide Programme: **Info** und **Programm beenden** sind jetzt als separate, rechtsbündige Schaltflächen **unterhalb der Trefferliste** angeordnet. Die oberen Aktionszeilen enthalten nur noch Such- und Ergebnisfunktionen.
+- Beide Programme: Schaltflächen auf zwei übersichtliche Aktionszeilen verteilt, damit **Programm beenden** und **Zugriffsprobleme** bei der bisherigen Standardfensterbreite nicht abgeschnitten werden. Hauptaktionen stehen oben, weitere Aktionen darunter.
+- Beide Programme: **Programm beenden** als zusätzliche Schaltfläche. Das Windows-Fensterkreuz und die Schaltfläche schließen im Leerlauf sofort; während einer Suche/Prüfung erscheint eine Sicherheitsabfrage. Bei Bestätigung wird der laufende Vorgang kontrolliert abgebrochen und das Fenster nach Ende der Hintergrundarbeit geschlossen, bei Ablehnung läuft alles weiter.
+- Textfinder: **Suchen** ist nur aktiv, wenn sowohl **Gesuchter Text** als auch **Ordner** ausgefüllt sind. Änderungen an beiden Feldern aktualisieren den Button unmittelbar; während einer laufenden Suche bleibt der Abbruch möglich.
+- Textfinder: Verzeichnissuche läuft jetzt ebenfalls **im Hintergrund** und kann bereits beim Einsammeln der TB2-/TBL-Dateien abgebrochen werden. Die Oberfläche zeigt den Suchfortschritt, überspringt Windows-Junctions und bietet bei tatsächlich nicht lesbaren Verzeichnissen den Button **Zugriffsprobleme (Anzahl)** direkt hinter **Suchen** mit scrollbareren Details. Bestehende Suchmodi und Trefferverarbeitung bleiben unverändert.
+- Negativtester: Zugriffsprobleme erscheinen nach der Prüfung nicht mehr als blockierende Warnmeldung. Stattdessen zeigt ein kompakter Button **Zugriffsprobleme (Anzahl)** direkt hinter **Ordner prüfen** in der oberen Schaltflächenleiste bei Bedarf ein scrollbareres Detailfenster mit allen betroffenen Pfaden und Fehlermeldungen. Beim Start einer neuen Prüfung oder beim Leeren wird der Hinweis zurückgesetzt.
+- Negativtester: Auch das **Einsammeln der TB2-/TBL-Dateien** und das Einlesen der Ignorierlisten laufen jetzt im Hintergrund. Die Oberfläche bleibt während großer Verzeichnissuchen bedienbar; **Prüfung abbrechen** wirkt bereits in dieser Phase. Fortschrittsmeldung mit Anzahl durchsuchter Ordner und gefundener Dateien, Warnung bei übersprungenen Verzeichnissen oder nicht lesbaren Ignorierlisten; Windows-Junctions werden nicht rekursiv verfolgt.
+- Negativtester: **Ordner prüfen** wechselt während der Analyse zu **Prüfung abbrechen**. Der Abbruch erfolgt nach der laufenden Datei; bereits erkannte Auffälligkeiten bleiben als Ergebnisse erhalten. Die Statuszeile zeigt den Abbruch sowie die Anzahl tatsächlich geprüfter Dateien.
+- Negativtester: eigenes **Infofenster** im Stil des Textfinders mit dem bisherigen Erklärungstext sowie **Was ist neu?**, **GitHub**, **MIT-Lizenz** und **Schließen**. Der Erklärungstext unter der Trefferliste entfällt und gibt Platz frei.
+- Textfinder und Negativtester: **Suchen** bzw. **Ordner prüfen** wird erst mit ausgefülltem Ordnerfeld aktiviert; **Leeren** nur bei vorhandenen Ergebnissen. Laufende Such-/Prüfvorgänge behalten ihre bisherigen Bedienregeln.
+- Negativtester: Mehrere markierte Dateien können gemeinsam ignoriert oder wieder freigegeben werden, wenn alle denselben Ignorierstatus besitzen; bei gemischtem Status bleibt der Button deaktiviert. Die `ignore.txt` wird je betroffenem Ordner aktualisiert, Mehrfachauswahl nach dem Aktualisieren beibehalten. **Datei öffnen** bleibt auf genau eine Auswahl beschränkt.
+- Negativtester: Die Statuszeile zeigt für **Fragmente**, **vermutlich ohne Text**, **leere Dateien** und **Lesefehler** jeweils die Anzahl ignorierter Einträge in Klammern (z. B. `14 Fragmente (9 ignoriert)`). Nach Ignorieren oder Aufheben wird die Zusammenfassung sofort aktualisiert.
+- Negativtester: Startfenster von 1000 × 650 auf 900 × 560 Pixel verkleinert (Mindestgröße 800 × 480); Filterauswahl kompakter gestaltet.
+- Negativtester: Ergebnisliste und beide Scrollleisten in einem gemeinsamen Rahmen angeordnet, sodass die Scrollleisten direkt an der Liste sitzen.
+- Negativtester: Alle drei Ergebnisspalten (**Status**, **Dateipfad**, **Hinweis**) passen sich nach der Analyse und nach jedem Filterwechsel an die sichtbaren Inhalte an; lange Einträge bleiben horizontal scrollbar.
+- Info-Fenster des TB2-Textfinders: **„Was ist neu? / Versionsverlauf“** öffnet ein natives, scrollbareres Fenster mit dem lokal eingebundenen Changelog (offline).
+- Die Schaltflächen **Was ist neu?**, **GitHub**, **MIT-Lizenz** und **Schließen** sind platzsparend in einer Zeile angeordnet.
+- Info-, Versionsverlauf- und Lizenztext verwenden einheitlich die Tk-Standardschrift statt unterschiedlicher Text-Schriften.
+- Das Changelog zeigt nur veröffentlichte Einträge bis einschließlich der installierten Version; unveröffentlichte und neuere Einträge werden ausgeblendet.
+- Lokale BAT-Builds und beide GitHub-Actions-Builds binden `CHANGELOG.md` in die EXE-Dateien ein.
+- Info-Fenster wieder kompakter gestaltet.
+- **Windows-Praxistest steht noch aus.** Such- und Erkennungslogik unverändert.
+
 ## [1.8.8] – 2026-11-19
 
 ### Build-Automatisierung
