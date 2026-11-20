@@ -177,7 +177,7 @@ class App(tk.Tk):
         xscroll = ttk.Scrollbar(results_frame, orient="horizontal", command=self.tree.xview)
         xscroll.grid(row=1, column=0, sticky="ew")
         self.tree.configure(xscrollcommand=xscroll.set)
-        self.tree.after_idle(self._fit_path_column)
+        self.tree.after_idle(self._fit_result_columns)
         self.tree.bind("<Double-1>", self.open_result)
         self.tree.bind("<<TreeviewSelect>>", self.update_buttons)
         note = ("Erkannt: mindestens 3 zusammenhängende Zeichen im bekannten TB2-Muster. "
@@ -307,23 +307,34 @@ class App(tk.Tk):
             if path == selected_path:
                 self.tree.selection_set(iid)
         self.visible_count_var.set(f"{len(visible)} von {len(self.rows)} angezeigt")
-        self._fit_path_column([path for _, path, _ in visible])
+        self._fit_result_columns(visible)
         state = "normal" if visible and not self.scanning else "disabled"
         self.copy_button.configure(state=state)
         self.save_button.configure(state=state)
         self.update_buttons()
 
-    def _fit_path_column(self, paths=None):
-        """Dateipfadspalte an sichtbare Inhalte anpassen, ohne unnötig zu scrollen."""
-        if paths is None:
-            paths = [path for _, path, _ in self.filtered_rows()]
+    def _fit_result_columns(self, rows=None):
+        """Alle drei Spalten an die aktuell sichtbaren Inhalte anpassen."""
+        if rows is None:
+            rows = self.filtered_rows()
         style = ttk.Style(self)
         font_name = style.lookup("Treeview", "font") or "TkDefaultFont"
-        tree_font = tkfont.nametofont(font_name) if isinstance(font_name, str) and font_name in tkfont.names(self) else tkfont.Font(font=font_name)
-        heading_width = tree_font.measure("Dateipfad") + 32
-        content_width = max((tree_font.measure(path) + 24 for path in paths), default=0)
-        # Die Spalte darf den freien Bereich nutzen; nur lange Pfade benötigen horizontales Scrollen.
-        self.tree.column("path", width=max(100, heading_width, content_width), stretch=True)
+        font = (tkfont.nametofont(font_name)
+                if isinstance(font_name, str) and font_name in tkfont.names(self)
+                else tkfont.nametofont("TkDefaultFont"))
+        headings = {"category": "Status", "path": "Dateipfad", "detail": "Hinweis"}
+        values = {
+            "category": ["Ignoriert" if self.is_ignored(path) else category
+                         for category, path, detail in rows],
+            "path": [path for category, path, detail in rows],
+            "detail": [detail for category, path, detail in rows],
+        }
+        for column in ("category", "path", "detail"):
+            heading_width = font.measure(headings[column]) + 32
+            content_width = max((font.measure(str(value)) for value in values[column]),
+                                default=0) + 24
+            self.tree.column(column, width=max(heading_width, content_width, 80),
+                             stretch=(column == "path"))
 
     def update_buttons(self, _event=None):
         selected = self.selected_path()
