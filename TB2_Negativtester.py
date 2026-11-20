@@ -278,6 +278,7 @@ class App(tk.Tk):
                     self.rows = flagged
                     self.apply_filter()
                     self.scanning = False
+                    self.clear_button.configure(state="normal" if self.rows else "disabled")
                     self._update_scan_button()
                     self.scan_totals = (total, recognized, fragments,
                                         probably_no_text, empty, errors)
