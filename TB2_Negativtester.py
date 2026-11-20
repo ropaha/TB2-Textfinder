@@ -146,6 +146,9 @@ class App(tk.Tk):
         actions.grid(row=2, column=0, columnspan=3, sticky="w", pady=(12, 10))
         self.scan_button = ttk.Button(actions, text="Ordner prüfen", command=self.scan_or_cancel, state="disabled")
         self.scan_button.pack(side="left")
+        self.issues_button = ttk.Button(
+            actions, text="Zugriffsprobleme", command=self.show_access_issues)
+        # Erst nach einer Prüfung mit Zugriffsproblemen sichtbar.
         self.open_button = ttk.Button(actions, text="Datei öffnen", command=self.open_selected, state="disabled")
         self.open_button.pack(side="left", padx=(8, 0))
         self.ignore_button = ttk.Button(actions, text="Ignorieren", command=self.toggle_ignore, state="disabled")
@@ -163,9 +166,6 @@ class App(tk.Tk):
         status_frame = ttk.Frame(frame)
         status_frame.grid(row=4, column=0, columnspan=3, sticky="ew", pady=(0, 8))
         ttk.Label(status_frame, textvariable=self.status_var).pack(side="left")
-        self.issues_button = ttk.Button(
-            status_frame, text="Zugriffsprobleme", command=self.show_access_issues)
-        # Nur bei tatsächlichen Zugriffsproblemen anzeigen.
 
         filters = ttk.Frame(frame)
         filters.grid(row=5, column=0, columnspan=3, sticky="ew", pady=(3, 7))
@@ -483,7 +483,7 @@ class App(tk.Tk):
                     if skipped:
                         self.issues_button.configure(
                             text=f"Zugriffsprobleme ({len(skipped)})")
-                        self.issues_button.pack(side="left", padx=(12, 0))
+                        self.issues_button.pack(side="left", padx=(8, 0), after=self.scan_button)
                 elif event[0] == "worker_error":
                     self.progress.stop()
                     self.scanning = False
