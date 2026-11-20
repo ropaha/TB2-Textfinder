@@ -278,18 +278,22 @@ class App(tk.Tk):
         self.after(100, self._poll_events)
 
     def _refresh_scan_summary(self):
-        """Gesamtzahl der Fragmente und davon ignorierte Fragmente anzeigen."""
+        """Gesamtzahlen und ignorierte Einträge je Ergebniskategorie anzeigen."""
         if self.scan_totals is None:
             return
         total, recognized, fragments, probably_no_text, empty, errors = self.scan_totals
-        ignored_fragments = sum(
-            1 for category, path, _ in self.rows
-            if category == "Fragment" and self.is_ignored(path))
+        ignored = {"Fragment": 0, "Vermutlich kein Text": 0,
+                   "Leer": 0, "Fehler": 0}
+        for category, path, _ in self.rows:
+            if category in ignored and self.is_ignored(path):
+                ignored[category] += 1
         self.scan_summary = (
             f"Fertig: {total} Datei(en) geprüft | {recognized} erkannt | "
-            f"{fragments} Fragmente ({ignored_fragments} ignoriert) | "
-            f"{probably_no_text} vermutlich ohne Text | "
-            f"{empty} leer | {errors} Lesefehler.")
+            f"{fragments} Fragmente ({ignored['Fragment']} ignoriert) | "
+            f"{probably_no_text} vermutlich ohne Text "
+            f"({ignored['Vermutlich kein Text']} ignoriert) | "
+            f"{empty} leer ({ignored['Leer']} ignoriert) | "
+            f"{errors} Lesefehler ({ignored['Fehler']} ignoriert).")
         self.status_var.set(self.scan_summary)
 
     @staticmethod
