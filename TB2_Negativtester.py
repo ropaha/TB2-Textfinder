@@ -312,7 +312,7 @@ class App(tk.Tk):
                 (not self.is_ignored(row[1]) and row[0] in allowed)]
 
     def apply_filter(self, _event=None):
-        selected_path = self.selected_path() if hasattr(self, "tree") else None
+        selected_paths = set(self.selected_paths()) if hasattr(self, "tree") else set()
         if not hasattr(self, "tree"):
             return
         for item in self.tree.get_children():
@@ -323,8 +323,8 @@ class App(tk.Tk):
             iid = self.tree.insert("", "end", values=(
                 "Ignoriert" if ignored else category, path, detail),
                 tags=("ignored",) if ignored else ())
-            if path == selected_path:
-                self.tree.selection_set(iid)
+            if path in selected_paths:
+                self.tree.selection_add(iid)
         self.visible_count_var.set(f"{len(visible)} von {len(self.rows)} angezeigt")
         self._fit_result_columns(visible)
         state = "normal" if visible and not self.scanning else "disabled"
@@ -355,37 +355,55 @@ class App(tk.Tk):
             self.tree.column(column, width=max(heading_width, content_width, 80),
                              stretch=(column == "path"))
 
+    def selected_paths(self):
+        """Dateipfade aller ausgewählten Zeilen, auch bei Mehrfachauswahl."""
+        paths = []
+        for item in self.tree.selection():
+            values = self.tree.item(item, "values")
+            if len(values) > 1:
+                paths.append(str(values[1]))
+        return paths
+
     def update_buttons(self, _event=None):
-        selected = self.selected_path()
-        state = "normal" if selected and not self.scanning else "disabled"
-        self.open_button.configure(state=state)
-        self.ignore_button.configure(state=state)
-        self.ignore_button.configure(text="Ignorieren aufheben" if selected and self.is_ignored(selected) else "Ignorieren")
+        paths = self.selected_paths()
+        self.open_button.configure(
+            state="normal" if len(paths) == 1 and not self.scanning else "disabled")
+        states = {self.is_ignored(path) for path in paths}
+        uniform = bool(paths) and len(states) == 1 and not self.scanning
+        self.ignore_button.configure(
+            state="normal" if uniform else "disabled",
+            text="Ignorieren aufheben" if uniform and True in states else "Ignorieren")
 
     def toggle_ignore(self):
-        selected = self.selected_path()
-        if not selected or self.scanning:
+        paths = self.selected_paths()
+        states = {self.is_ignored(path) for path in paths}
+        if self.scanning or not paths or len(states) != 1:
             return
-        file_path = Path(selected)
-        ignore_file = file_path.parent / "ignore.txt"
-        key = self._path_key(file_path)
+        should_ignore = True not in states
         updated = set(self.ignored_paths)
-        if key in updated:
-            updated.remove(key)
-        else:
-            updated.add(key)
-        try:
-            # Jede Ignorierliste enthält nur Dateien aus ihrem eigenen Verzeichnis.
+        folders = {}
+        for path in paths:
+            file_path = Path(path)
+            folders.setdefault(file_path.parent, set()).add(self._path_key(file_path))
+        for directory, keys in folders.items():
+            new_keys = (updated | keys) if should_ignore else (updated - keys)
             names = sorted(
-                (Path(p).name for p in updated
-                 if self._path_key(Path(p).parent) == self._path_key(file_path.parent)),
+                (Path(key).name for key in new_keys
+                 if self._path_key(Path(key).parent) == self._path_key(directory)),
                 key=str.casefold)
+            ignore_file = directory / "ignore.txt"
             temporary = ignore_file.with_name("ignore.txt.tmp")
-            temporary.write_text("\n".join(names) + ("\n" if names else ""), encoding="utf-8")
-            temporary.replace(ignore_file)
-        except (OSError, ValueError) as exc:
-            messagebox.showerror("Ignorierliste nicht gespeichert", str(exc))
-            return
+            try:
+                temporary.write_text("\n".join(names) + ("\n" if names else ""),
+                                     encoding="utf-8")
+                temporary.replace(ignore_file)
+            except (OSError, ValueError) as exc:
+                messagebox.showerror("Ignorierliste nicht gespeichert",
+                                     f"{ignore_file}\n\n{exc}")
+                break
+            # Erfolgreich gespeicherte Ordner sofort übernehmen; bei einem
+            # späteren Schreibfehler bleiben Speicherstand und Anzeige konsistent.
+            updated = new_keys
         self.ignored_paths = updated
         self.apply_filter()
         self._refresh_scan_summary()
