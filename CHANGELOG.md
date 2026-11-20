@@ -7,6 +7,7 @@ Die Versionsnummer des Gesamtpakets ist unabhängig von den Programmversionen. D
 ## [Unveröffentlicht] – Entwicklungsbranch dev
 
 ### Oberfläche und Bedienung
+- Negativtester: Mehrere markierte Dateien können gemeinsam ignoriert oder wieder freigegeben werden, wenn alle denselben Ignorierstatus besitzen; bei gemischtem Status bleibt der Button deaktiviert. Die `ignore.txt` wird je betroffenem Ordner aktualisiert, Mehrfachauswahl nach dem Aktualisieren beibehalten. **Datei öffnen** bleibt auf genau eine Auswahl beschränkt.
 - Negativtester: Die Statuszeile zeigt für **Fragmente**, **vermutlich ohne Text**, **leere Dateien** und **Lesefehler** jeweils die Anzahl ignorierter Einträge in Klammern (z. B. `14 Fragmente (9 ignoriert)`). Nach Ignorieren oder Aufheben wird die Zusammenfassung sofort aktualisiert.
 - Negativtester: Startfenster von 1000 × 650 auf 900 × 560 Pixel verkleinert (Mindestgröße 800 × 480); Filterauswahl kompakter gestaltet.
 - Negativtester: Ergebnisliste und beide Scrollleisten in einem gemeinsamen Rahmen angeordnet, sodass die Scrollleisten direkt an der Liste sitzen.
