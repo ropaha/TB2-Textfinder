@@ -121,6 +121,7 @@ class App(tk.Tk):
         self.scan_summary = ""
         self.scan_totals = None
         self._build_ui()
+        self.folder_var.trace_add("write", self._update_scan_button)
         self.after(100, self._poll_events)
 
     def _build_ui(self):
@@ -135,7 +136,7 @@ class App(tk.Tk):
             row=1, column=1, sticky="w", pady=(9, 2))
         actions = ttk.Frame(frame)
         actions.grid(row=2, column=0, columnspan=3, sticky="w", pady=(12, 10))
-        self.scan_button = ttk.Button(actions, text="Ordner prüfen", command=self.start_scan)
+        self.scan_button = ttk.Button(actions, text="Ordner prüfen", command=self.start_scan, state="disabled")
         self.scan_button.pack(side="left")
         self.open_button = ttk.Button(actions, text="Datei öffnen", command=self.open_selected, state="disabled")
         self.open_button.pack(side="left", padx=(8, 0))
@@ -145,7 +146,8 @@ class App(tk.Tk):
         self.copy_button.pack(side="left", padx=(8, 0))
         self.save_button = ttk.Button(actions, text="Liste als TXT speichern …", command=self.save_report, state="disabled")
         self.save_button.pack(side="left", padx=(8, 0))
-        ttk.Button(actions, text="Leeren", command=self.clear).pack(side="left", padx=(8, 0))
+        self.clear_button = ttk.Button(actions, text="Leeren", command=self.clear, state="disabled")
+        self.clear_button.pack(side="left", padx=(8, 0))
         self.progress = ttk.Progressbar(frame, mode="determinate")
         self.progress.grid(row=3, column=0, columnspan=3, sticky="ew", pady=(0, 7))
         self.status_var = tk.StringVar(value="Bereit. Ordner auswählen und Prüfung starten.")
@@ -195,6 +197,12 @@ class App(tk.Tk):
         if folder:
             self.folder_var.set(folder)
 
+    def _update_scan_button(self, *_args):
+        """Prüfung nur bei eingetragenem Ordner anbieten."""
+        self.scan_button.configure(
+            state="normal" if self.folder_var.get().strip() and not self.scanning
+            else "disabled")
+
     def start_scan(self):
         folder_text = self.folder_var.get().strip()
         if not folder_text or not Path(folder_text).is_dir():
@@ -226,6 +234,7 @@ class App(tk.Tk):
         self.rows = []
         self.scan_summary = ""
         self.scan_totals = None
+        self.clear_button.configure(state="disabled")
         self.apply_filter()
         self.scan_button.configure(state="disabled")
         self.copy_button.configure(state="disabled")
@@ -269,7 +278,7 @@ class App(tk.Tk):
                     self.rows = flagged
                     self.apply_filter()
                     self.scanning = False
-                    self.scan_button.configure(state="normal")
+                    self._update_scan_button()
                     self.scan_totals = (total, recognized, fragments,
                                         probably_no_text, empty, errors)
                     self._refresh_scan_summary()
@@ -326,6 +335,7 @@ class App(tk.Tk):
             if path in selected_paths:
                 self.tree.selection_add(iid)
         self.visible_count_var.set(f"{len(visible)} von {len(self.rows)} angezeigt")
+        self.clear_button.configure(state="normal" if self.rows and not self.scanning else "disabled")
         self._fit_result_columns(visible)
         state = "normal" if visible and not self.scanning else "disabled"
         self.copy_button.configure(state=state)
@@ -472,7 +482,10 @@ class App(tk.Tk):
         self.status_var.set(f"Bericht gespeichert: {destination}")
 
     def clear(self):
+        if self.scanning or not self.rows:
+            return
         self.rows = []
+        self.clear_button.configure(state="disabled")
         self.scan_summary = ""
         self.apply_filter()
         self.copy_button.configure(state="disabled")
