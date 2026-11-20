@@ -851,13 +851,29 @@ class App(tk.Tk):
         try:
             while True:
                 event = self.events.get_nowait()
-                if event[0] == "progress":
+                if event[0] == "discovery":
+                    _, directories, found = event
+                    if not self.cancel_scan_event.is_set():
+                        self.status_var.set(
+                            f"Durchsuche Verzeichnisse: {directories} Ordner, "
+                            f"{found} TB2-/TBL-Datei(en) gefunden …")
+                elif event[0] == "discovery_done":
+                    _, total, directories, skipped = event
+                    self.access_issues = skipped
+                    self.progress.stop()
+                    self.progress.configure(mode="determinate", maximum=max(total, 1), value=0)
+                    if not self.cancel_scan_event.is_set():
+                        self.status_var.set(
+                            f"Dateisuche abgeschlossen: {directories} Ordner, "
+                            f"{total} TB2-/TBL-Datei(en). Suche läuft …")
+                elif event[0] == "progress":
                     _, current, total, filename = event
                     self.progress.configure(value=current)
                     if not self.cancel_scan_event.is_set():
                         self.status_var.set(f"Datei {current}/{total}: {filename}")
                 elif event[0] == "finished":
                     _, found, total, errors, mode, seconds, processed, cancelled = event
+                    self.progress.stop()
                     self.result_paths = found
                     for path in found:
                         self.tree.insert("", "end", values=(path,))
@@ -879,6 +895,18 @@ class App(tk.Tk):
                         msg += f" {errors} Datei(en) konnten nicht gelesen werden."
                     self.summary_var.set(msg)
                     self.status_var.set("Suche abgebrochen." if cancelled else "Suche abgeschlossen.")
+                    if not cancelled and not total:
+                        self.status_var.set("Keine TB2-/TBL-Dateien gefunden.")
+                    if self.access_issues:
+                        self.issues_button.configure(
+                            text=f"Zugriffsprobleme ({len(self.access_issues)})")
+                        self.issues_button.pack(side="left", padx=(8, 0), after=self.search_button)
+                elif event[0] == "worker_error":
+                    self.progress.stop()
+                    self.scanning = False
+                    self._update_search_button()
+                    self.status_var.set("Suche fehlgeschlagen.")
+                    messagebox.showerror("Suche fehlgeschlagen", event[1])
         except queue.Empty:
             pass
         self.after(100, self._poll_events)
@@ -984,6 +1012,9 @@ class App(tk.Tk):
         if self.scanning:
             return
         self.result_paths = []
+        self.access_issues = []
+        self.issues_button.pack_forget()
+        self.clear_button.configure(state="disabled")
         self.clear_button.configure(state="disabled")
         for item in self.tree.get_children():
             self.tree.delete(item)
