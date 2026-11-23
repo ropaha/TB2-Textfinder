@@ -197,75 +197,67 @@ def has_variable_106_pattern(data: bytes, minimum: int = 3) -> bool:
 
 
 
-# Textcounter: empirisch bestätigte Zeichenfolgen, getrennt von Suchprofilen.
+# Textcounter: strukturell bestaetigte Schrift-Eintraege.
 import re
+from tb2_resource_paths import classify_resource_name
 
-_COUNTER_FONT = re.compile(
-    rb"Signum Standard\\([A-Za-z0-9_. -]{1,64})"
-    rb"|(?<![A-Za-z0-9])([A-Za-z][A-Za-z0-9]{1,30}SK)\x00"
-)
-_FONT_FILE = re.compile(
-    rb"(?i:[A-Za-z0-9_. -]+(?:[\\/][A-Za-z0-9_. -]+)+"
-    rb"(?:\.(?:FN2|FN3|FNT))?)"
-)
+_COUNTER_FONT = re.compile(rb"Signum Standard\\([A-Za-z0-9_. -]{1,64})")
+_LEGACY_TEXT = re.compile(rb"[A-Za-z0-9_ .\\/-]+")
 
 
 def _counter_font_entries(data: bytes):
-    """(Position, Fontname, Zeichenoffset, Datensatzlaenge, Altformat).
+    """(Position, Schrift, erster Glyphenoffset, Abstand, Altformat).
 
-    Alte Signum-Dateien speichern den Schriftnamen oft direkt als
-    laengenpraefixiertes ASCII-Feld. Ein nachgestelltes 'i' ist in
-    beobachteten Dateien eine interne Variante, kein Teil des Fontnamens.
+    Die historischen Felder beginnen mit einem Laengenbyte. Ein Dateipfad
+    ist optional; Ressourcen mit Nicht-Schrift-Endung sind ausgeschlossen.
     """
     entries = []
     for match in _COUNTER_FONT.finditer(data):
-        legacy = match.group(2) is not None
-        raw = match.group(2)[:-2] if legacy else match.group(1)
-        entries.append((match.start(), raw.decode("ascii"),
-                        match.start() + (105 if legacy else 343),
-                        80 if legacy else 106, legacy))
+        entries.append((match.start(), match.group(1).decode("ascii"),
+                        match.start() + 343, 106, False))
 
+    # Bei den alten Formaten kommt der Glyphenbeginn je nach Feldlayout
+    # nach 98 oder 105 Bytes. Nur durch zwei gueltige Glyphen bestaetigen.
     for start in range(1, len(data)):
         length = data[start - 1]
-        if not (3 <= length <= 127 and start + length <= len(data)):
+        if not (3 <= length <= 90 and start + length <= len(data)
+                and 65 <= data[start] <= 122):
             continue
         raw = data[start:start + length]
-        try:
-            value = raw.decode("ascii")
-        except UnicodeDecodeError:
+        if _LEGACY_TEXT.fullmatch(raw) is None:
             continue
-        # Ressourcen (ORN, STN, BAU usw.) niemals als Fonts behandeln.
-        if not re.fullmatch(r"[A-Za-z0-9_. /\\-]+", value):
-            continue
+        value = raw.decode("ascii")
+        resource = classify_resource_name(value)
         leaf = re.split(r"[\\/]", value)[-1]
-        extension = leaf.rsplit(".", 1)[-1].upper() if "." in leaf else ""
-        if extension and extension not in ("FN2", "FN3", "FNT"):
+        if "." in leaf and resource is None:
             continue
-        font = leaf.rsplit(".", 1)[0] if extension else leaf
-        # 'GROTESK3i' kommt in 9500002.TB2 vor.
+        if resource is not None:
+            kind, font, _extension = resource
+            if kind != "Schrift":
+                continue
+        else:
+            font = leaf
+        if re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]{2,30}", font) is None:
+            continue
+        if font.endswith("SK"):
+            font = font[:-2]
         if font.endswith("i") and font[:-1].upper().startswith("GROTESK"):
             font = font[:-1]
-        if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]{1,30}", font):
-            continue
-        pos = start + 105
-        if pos + 10 > len(data):
-            continue
-        if (data[pos + 1] not in (0x80, 0x81, 0x82)
-                or data[pos + 7] not in (0x80, 0x81)):
-            continue
-        # Die ersten Glyphen bestaetigen den Schrifteintrag;
-        # reine Dateinamen/Ornamentpfade werden so ignoriert.
-        entries.append((start, font, pos, 80, True))
-
-    entries.sort(key=lambda item: item[0])
+        for offset in (98, 105):
+            pos = start + offset
+            if pos + 88 > len(data):
+                continue
+            if all(data[q + 1] in (0x80, 0x81, 0x82)
+                   and data[q + 7] in (0x80, 0x81)
+                   for q in (pos, pos + 80)):
+                entries.append((start, font, pos, 80, True))
+                break
+    entries.sort(key=lambda entry: entry[0])
     return entries
 
 
 def extract_counter_lines(data: bytes):
-    """Liefert ([(Schriftsatz, Zeichenbytes)], Warnungen).
-
-    Bei unbekannten Glyphenstrukturen wird gewarnt, nicht still 0 gezaehlt.
-    """
+    """Liefert ([(Schriftsatz, Glyphenbytes)], Warnungen)."""
     entries = _counter_font_entries(data)
     lines = []
     warnings = []
@@ -277,11 +269,13 @@ def extract_counter_lines(data: bytes):
         boundary = entries[i + 1][0] if i + 1 < len(entries) else len(data)
         glyphs = bytearray()
         while pos + 10 <= len(data) and pos < boundary and len(glyphs) < 10000:
-            marker = data[pos + 1]
-            accepted = ((0x80, 0x81, 0x82) if legacy
-                        else (0x7E, 0x80, 0x81, 0x82))
-            if (marker not in accepted
-                    or (data[pos + 7] not in (0x80, 0x81) if legacy\n                     else data[pos + 7:pos + 10] != b"\x81\x00\x00")):
+            if legacy:
+                valid = (data[pos + 1] in (0x80, 0x81, 0x82)
+                         and data[pos + 7] in (0x80, 0x81))
+            else:
+                valid = (data[pos + 1] in (0x7E, 0x80, 0x81, 0x82)
+                         and data[pos + 7:pos + 10] == b"\x81\x00\x00")
+            if not valid:
                 break
             glyphs.append(data[pos])
             pos += stride
@@ -290,7 +284,5 @@ def extract_counter_lines(data: bytes):
             if len(glyphs) == 10000:
                 warnings.append(f"{font}: Sicherheitslimit erreicht; moeglicherweise unvollstaendig.")
         else:
-            warnings.append(
-                f"{font} bei Offset {start}: unbekannte Struktur, nicht gezaehlt."
-            )
+            warnings.append(f"{font} bei Offset {start}: unbekannte Struktur, nicht gezaehlt.")
     return lines, warnings
