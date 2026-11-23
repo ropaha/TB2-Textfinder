@@ -197,48 +197,65 @@ def has_variable_106_pattern(data: bytes, minimum: int = 3) -> bool:
 
 
 
-# Textcounter: strukturierte Textzeilen aus bestätigten Dateiformaten auslesen.
-# Diese Extraktion ist bewusst unabhängig von den booleschen Suchprofilen.
+# Textcounter: empirisch bestätigte Zeichenfolgen, getrennt von Suchprofilen.
 import re
-from collections import Counter
 
 _COUNTER_FONT = re.compile(
     rb"Signum Standard\\([A-Za-z0-9_. -]{1,64})"
     rb"|(?<![A-Za-z0-9])([A-Za-z][A-Za-z0-9]{1,30}SK)\x00"
-    rb"|ABLAGE\\([A-Za-z0-9_. -]{1,64})"
 )
+_FONT_FILE = re.compile(
+    rb"(?i:[A-Za-z0-9_. -]+(?:[\\/][A-Za-z0-9_. -]+)+"
+    rb"(?:\.(?:FN2|FN3|FNT))?)"
+)
+
+
+def _counter_font_entries(data: bytes):
+    """(Position, Fontname, Zeichenoffset, Datensatzlaenge, Altformat)."""
+    entries = []
+    for match in _COUNTER_FONT.finditer(data):
+        legacy = match.group(2) is not None
+        raw = match.group(2)[:-2] if legacy else match.group(1)
+        entries.append((match.start(), raw.decode("ascii"),
+                        match.start() + (105 if legacy else 343),
+                        80 if legacy else 106, legacy))
+    # Alte Schriftpfade sind laengenpraefixiert, z.B. 0E ABLAGE\LAPIDAR.
+    # Verzeichnis und optionale FN2/FN3/FNT-Endung sind keine Schriftart.
+    # Nur exakt durch das Laengenbyte begrenzte Pfade akzeptieren.
+    for start in range(1, len(data)):
+        length = data[start - 1]
+        if not (3 <= length <= 127 and start + length <= len(data)):
+            continue
+        path = data[start:start + length]
+        if not _FONT_FILE.fullmatch(path):
+            continue
+        fontfile = re.split(rb"[\\/]", path)[-1]
+        fontfile = re.sub(rb"(?i)\.(?:FN2|FN3|FNT)$", b"", fontfile)
+        if not fontfile:
+            continue
+        entries.append((start, fontfile.decode("ascii"), start + 105, 80, True))
+    entries.sort(key=lambda item: item[0])
+    return entries
 
 
 def extract_counter_lines(data: bytes):
     """Liefert ([(Schriftsatz, Zeichenbytes)], Warnungen).
 
-    Bekannte Formate:
-    - SignumNext: Schriftname nach 'Signum Standard\\', 106-Byte-Glyphen,
-      erste Glyphe 343 Bytes nach dem Schriftartnamen.
-    - Frühes Signum: Schriftname mit 'SK'-Suffix, 80-Byte-Glyphen,
-      erste Glyphe 105 Bytes nach dem Schriftartnamen.
-
-    Bei unbekannten Strukturen wird gewarnt statt stillschweigend 0 zu melden.
-    Die Glyphenbytes bleiben unverändert; die Zählregel gehört zum Counter.
+    Bei unbekannten Glyphenstrukturen wird gewarnt, nicht still 0 gezaehlt.
     """
-    matches = list(_COUNTER_FONT.finditer(data))
+    entries = _counter_font_entries(data)
     lines = []
     warnings = []
-    if not matches:
+    if not entries:
         warnings.append(
             "Kein bekanntes Schriftformat gefunden: nicht als 0 Zeichen interpretieren."
         )
-    for i, match in enumerate(matches):
-        legacy = match.group(2) is not None\n        ablage = match.group(3) is not None
-        raw_font = (match.group(3)[:max(0, data[match.start() - 1] - len(b"ABLAGE\\\\") )] if ablage and match.start() > 0 else match.group(3) if ablage else\n                    match.group(2)[:-2] if legacy else match.group(1))
-        font = raw_font.decode("ascii")
-        pos = match.start() + (105 if ablage else 105 if legacy else 343)
-        stride = 80 if (legacy or ablage) else 106
-        boundary = matches[i + 1].start() if i + 1 < len(matches) else len(data)
+    for i, (start, font, pos, stride, legacy) in enumerate(entries):
+        boundary = entries[i + 1][0] if i + 1 < len(entries) else len(data)
         glyphs = bytearray()
         while pos + 10 <= len(data) and pos < boundary and len(glyphs) < 10000:
             marker = data[pos + 1]
-            accepted = ((0x80, 0x81, 0x82) if (legacy or ablage)
+            accepted = ((0x80, 0x81, 0x82) if legacy
                         else (0x7E, 0x80, 0x81, 0x82))
             if (marker not in accepted
                     or data[pos + 7:pos + 10] != b"\x81\x00\x00"):
@@ -248,9 +265,9 @@ def extract_counter_lines(data: bytes):
         if glyphs:
             lines.append((font, bytes(glyphs)))
             if len(glyphs) == 10000:
-                warnings.append(f"{font}: Sicherheitslimit erreicht; möglicherweise unvollständig.")
+                warnings.append(f"{font}: Sicherheitslimit erreicht; moeglicherweise unvollstaendig.")
         else:
             warnings.append(
-                f"{font} bei Offset {match.start()}: unbekannte Struktur, nicht gezählt."
+                f"{font} bei Offset {start}: unbekannte Struktur, nicht gezaehlt."
             )
     return lines, warnings
