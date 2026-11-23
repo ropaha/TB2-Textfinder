@@ -204,7 +204,8 @@ from collections import Counter
 
 _COUNTER_FONT = re.compile(
     rb"Signum Standard\\([A-Za-z0-9_. -]{1,64})"
-    rb"|(?<![A-Za-z0-9])([A-Za-z][A-Za-z0-9]{1,30}SK)\x00"\n    rb"|ABLAGE\\\\([A-Za-z0-9_. -]{1,64})"
+    rb"|(?<![A-Za-z0-9])([A-Za-z][A-Za-z0-9]{1,30}SK)\x00"
+    rb"|ABLAGE\\([A-Za-z0-9_. -]{1,64})"
 )
 
 
