@@ -763,30 +763,42 @@ class App(tk.Tk):
             self.status_var.set(f"{len(paths)} Pfad/Pfade kopiert.")
 
     def save_report(self):
-        visible = self.filtered_rows()
-        if not visible:
+        """Exportiert den vollstaendigen Pruefbericht unabhaengig vom GUI-Filter."""
+        if not self.rows and self.scan_totals is None:
             return
         destination = filedialog.asksaveasfilename(
-            title="Prüfbericht speichern", defaultextension=".txt",
+            title="Vollständigen Prüfbericht speichern", defaultextension=".txt",
             filetypes=[("Textdatei", "*.txt"), ("Alle Dateien", "*.*")],
             initialfile="TB2_Negativtester_Bericht.txt")
         if not destination:
             return
-        lines = [f"TB2-Negativtester – Prüfbericht ({self.mode_var.get()})",
-                 "Fragmente: 2 Zeichen in bekannter Datensatzstruktur; manuelle Analyse empfohlen.",
-                 "Vermutlich kein Text: keine bekannten Muster oder 2-Zeichen-Fragmente.",
-                 "Ein Nichttreffer beweist nicht, dass die Datei keinen Text enthält.",
-                 "Counter-Erkannt bedeutet nicht garantierte Vollständigkeit.",
-                 f"Aktiver Filter: {self.filter_var.get()}",
-                 f"Angezeigte Treffer: {len(visible)} von {len(self.rows)}", ""]
-        lines.extend(f"{'Ignoriert' if self.is_ignored(path) else category}\t{path}\t{detail}"
-                     for category, path, detail in visible)
+        mode = self.mode_var.get()
+        lines = [
+            f"TB2-Negativtester – vollständiger Prüfbericht ({mode})",
+            f"Prüfmodus: {mode}",
+            f"Ordner: {self.folder_var.get()}",
+            f"Unterordner einbeziehen: {'Ja' if self.recursive_var.get() else 'Nein'}",
+            f"Gesamtzahl auffälliger Einträge: {len(self.rows)}",
+            f"GUI-Filter (nur Anzeige): {self.filter_var.get()}",
+            f"Zusammenfassung: {self.scan_summary or 'Keine Zusammenfassung verfügbar'}",
+            "Hinweis: 'Erkannt' garantiert keine vollständige Texterkennung.",
+            "Ein Nichttreffer beweist nicht, dass die Datei keinen Text enthält.",
+            "",
+            "Status\tDateipfad\tHinweis",
+        ]
+        lines.extend(
+            f"{'Ignoriert (' + category + ')' if self.is_ignored(path) else category}\t{path}\t{detail}"
+            for category, path, detail in self.rows
+        )
+        if self.access_issues:
+            lines.extend(["", f"Zugriffsprobleme ({len(self.access_issues)}):"])
+            lines.extend(self.access_issues)
         try:
             Path(destination).write_text("\n".join(lines) + "\n", encoding="utf-8")
         except OSError as exc:
             messagebox.showerror("Speichern fehlgeschlagen", str(exc))
             return
-        self.status_var.set(f"Bericht gespeichert: {destination}")
+        self.status_var.set(f"Vollständiger Bericht gespeichert: {len(self.rows)} Einträge – {destination}")
 
     def clear(self):
         if self.scanning or not self.rows:
