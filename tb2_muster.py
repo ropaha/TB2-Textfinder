@@ -223,6 +223,19 @@ def _counter_font_entries(data: bytes):
             entries.append((match.start(), match.group(1).decode("ascii"),
                             pos, 106, False))
 
+    # EVA2NEU V1.1 (Referenz: 2008 00 035.TB2): 98-Byte-Glyphen
+    # mit Steuerbyte 0x7D und festem Abschlussmarker. Der Schriftname
+    # besitzt ein Laengenbyte und darf Leerzeichen/Punkte enthalten.
+    # Nur mit zwei aufeinanderfolgenden strukturell gueltigen Glyphen.
+    for match in re.finditer(rb"\\x0cEVA2NEU V1\\.1", data):
+        start = match.start() + 1
+        pos = start + 343
+        if (pos + 108 <= len(data)
+                and all(data[q + 1] == 0x7D
+                        and data[q + 7:q + 10] == b"\\x81\\x00\\x00"
+                        for q in (pos, pos + 98))):
+            entries.append((start, "EVA2NEU V1.1", pos, 98, False))
+
     # Bei den alten Formaten kommt der Glyphenbeginn je nach Feldlayout
     # nach 98 oder 105 Bytes. Nur durch zwei gueltige Glyphen bestaetigen.
     for start in range(1, len(data)):
@@ -296,7 +309,10 @@ def extract_counter_lines(data: bytes):
         boundary = entries[i + 1][0] if i + 1 < len(entries) else len(data)
         glyphs = bytearray()
         while pos + 10 <= len(data) and pos < boundary and len(glyphs) < 10000:
-            if legacy:
+            if font == "EVA2NEU V1.1" and stride == 98:
+                valid = (data[pos + 1] == 0x7D
+                         and data[pos + 7:pos + 10] == b"\\x81\\x00\\x00")
+            elif legacy:
                 valid = (data[pos + 1] in (0x80, 0x81, 0x82)
                          and data[pos + 7] in (0x80, 0x81))
             else:
