@@ -9,39 +9,17 @@ import re
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
-FONT_PATTERN = re.compile(rb"Signum Standard\\([A-Za-z0-9_. -]{1,64})")
-STRIDE = 106
-FIRST_CHAR_OFFSET = 343
+from tb2_muster import extract_counter_lines
+
 SPACE_CODE = 0xFA
 
-def valid_record(data: bytes, pos: int) -> bool:
-    return (0 <= pos and pos + 8 <= len(data) and
-            (data[pos + 1:pos + 4] == b"\x81\x00\x00" or
-             (data[pos + 1] == 0x80 and data[pos + 7] == 0x81)))
 
 def inspect(data: bytes) -> tuple[Counter[str], int, list[str]]:
+    lines, warnings = extract_counter_lines(data)
     counts: Counter[str] = Counter()
-    warnings: list[str] = []
-    line_count = 0
-    matches = list(FONT_PATTERN.finditer(data))
-    if not matches:
-        warnings.append("Kein bekanntes Schriftformat gefunden: nicht als 0 Zeichen interpretieren.")
-    for match in matches:
-        font = match.group(1).decode("ascii")
-        pos = match.start() + FIRST_CHAR_OFFSET
-        if not valid_record(data, pos):
-            warnings.append(f"{font} bei Offset {match.start()}: unbekannte Struktur, nicht gezählt.")
-            continue
-        n = 0
-        while valid_record(data, pos) and n < 10000:
-            if data[pos] != SPACE_CODE:
-                counts[font] += 1
-            n += 1
-            pos += STRIDE
-        line_count += 1
-        if n == 10000:
-            warnings.append(f"{font}: Sicherheitslimit erreicht; möglicherweise unvollständig.")
-    return counts, line_count, warnings
+    for font, glyphs in lines:
+        counts[font] += sum(code != SPACE_CODE for code in glyphs)
+    return counts, len(lines), warnings
 
 def run_file(path: Path) -> str:
     counts, lines, warnings = inspect(path.read_bytes())
@@ -52,7 +30,7 @@ def run_file(path: Path) -> str:
                    f"Erkannte Textzeilen: {lines}"])
     if warnings:
         result.extend(["", "WARNUNG: Ergebnis möglicherweise unvollständig!"] + warnings)
-    result.extend(["", "Experimentell: nur bestätigte 106-Byte-Strukturen.",
+    result.extend(["", "Experimentell: bekannte 80- und 106-Byte-Textstrukturen.",
                    "Leerzeichen (Byte FA) werden nicht gezählt."])
     return "\n".join(result)
 
