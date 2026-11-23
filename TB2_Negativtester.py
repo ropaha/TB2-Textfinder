@@ -877,13 +877,23 @@ class App(tk.Tk):
                 if row[0] in ("Fehler", "Leer") or self._path_key(Path(row[1])) in self.ignored_paths:
                     continue
                 buckets.setdefault((priority(row), year(row)), []).append(row)
-            ordered = []
+            # Beide Diagnosegruppen abwechselnd berücksichtigen:
+            # Null-Erkennungen und Teilzählungen/Warnungen. Die bisherige
+            # Sortierung exportierte praktisch nur Null-Erkennungen.
+            groups = {}
             for p in (0, 1):
                 keys = sorted(k for k in buckets if k[0] == p)
+                group = []
                 while any(buckets[k] for k in keys):
                     for k in keys:
                         if buckets[k]:
-                            ordered.append(buckets[k].pop(0))
+                            group.append(buckets[k].pop(0))
+                groups[p] = group
+            ordered = []
+            while groups[0] or groups[1]:
+                for p in (0, 1):
+                    if groups[p]:
+                        ordered.append(groups[p].pop(0))
 
             zip_tmp = zip_path.with_name(zip_path.name + ".tmp")
             txt_path.write_text(report, encoding="utf-8")
