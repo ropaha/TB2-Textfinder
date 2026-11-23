@@ -195,3 +195,61 @@ def has_variable_106_pattern(data: bytes, minimum: int = 3) -> bool:
 
 
 
+
+
+# Textcounter: strukturierte Textzeilen aus bestätigten Dateiformaten auslesen.
+# Diese Extraktion ist bewusst unabhängig von den booleschen Suchprofilen.
+import re
+from collections import Counter
+
+_COUNTER_FONT = re.compile(
+    rb"Signum Standard\\([A-Za-z0-9_. -]{1,64})"
+    rb"|(?<![A-Za-z0-9])([A-Za-z][A-Za-z0-9]{1,30}SK)\x00"
+)
+
+
+def extract_counter_lines(data: bytes):
+    """Liefert ([(Schriftsatz, Zeichenbytes)], Warnungen).
+
+    Bekannte Formate:
+    - SignumNext: Schriftname nach 'Signum Standard\\', 106-Byte-Glyphen,
+      erste Glyphe 343 Bytes nach dem Schriftartnamen.
+    - Frühes Signum: Schriftname mit 'SK'-Suffix, 80-Byte-Glyphen,
+      erste Glyphe 105 Bytes nach dem Schriftartnamen.
+
+    Bei unbekannten Strukturen wird gewarnt statt stillschweigend 0 zu melden.
+    Die Glyphenbytes bleiben unverändert; die Zählregel gehört zum Counter.
+    """
+    matches = list(_COUNTER_FONT.finditer(data))
+    lines = []
+    warnings = []
+    if not matches:
+        warnings.append(
+            "Kein bekanntes Schriftformat gefunden: nicht als 0 Zeichen interpretieren."
+        )
+    for i, match in enumerate(matches):
+        legacy = match.group(2) is not None
+        raw_font = match.group(2)[:-2] if legacy else match.group(1)
+        font = raw_font.decode("ascii")
+        pos = match.start() + (105 if legacy else 343)
+        stride = 80 if legacy else 106
+        boundary = matches[i + 1].start() if i + 1 < len(matches) else len(data)
+        glyphs = bytearray()
+        while pos + 10 <= len(data) and pos < boundary and len(glyphs) < 10000:
+            marker = data[pos + 1]
+            accepted = ((0x80, 0x81, 0x82) if legacy
+                        else (0x7E, 0x80, 0x81, 0x82))
+            if (marker not in accepted
+                    or data[pos + 7:pos + 10] != b"\x81\x00\x00"):
+                break
+            glyphs.append(data[pos])
+            pos += stride
+        if glyphs:
+            lines.append((font, bytes(glyphs)))
+            if len(glyphs) == 10000:
+                warnings.append(f"{font}: Sicherheitslimit erreicht; möglicherweise unvollständig.")
+        else:
+            warnings.append(
+                f"{font} bei Offset {match.start()}: unbekannte Struktur, nicht gezählt."
+            )
+    return lines, warnings
