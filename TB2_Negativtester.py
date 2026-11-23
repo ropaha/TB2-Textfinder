@@ -9,13 +9,13 @@ import threading
 import webbrowser
 from pathlib import Path
 from tb2_version import APP_VERSION
+from tb2_project_info import PROJECT_URL, MIT_LICENSE
 from tb2_muster import PROFILES, find_all, has_early_80_pattern, has_variable_80_pattern, has_wide_587_pattern, has_early_82_pattern, has_variable_98_pattern, has_variable_106_pattern
 from tb2_window_position import center_window
 from tb2_changelog import changelog_for_version
 from tb2_app_identity import configure_app_identity, apply_window_icon
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk, font as tkfont
-from TB2_Textfinder import PROJECT_URL, MIT_LICENSE
 
 
 MIN_CHARACTERS = 3
