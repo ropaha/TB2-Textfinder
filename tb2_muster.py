@@ -237,12 +237,6 @@ def _counter_font_entries(data: bytes):
                 continue
         else:
             font = leaf
-        if re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]{2,30}", font) is None:
-            continue
-        if font.endswith("SK"):
-            font = font[:-2]
-        if font.endswith("i") and font[:-1].upper().startswith("GROTESK"):
-            font = font[:-1]
         # SignumNext kann auch einen laengenpraefigierten Schriftnamen
         # ohne "Signum Standard"-Pfad verwenden (z.B. GROTESK3D BT).
         modern_pos = start + 343
@@ -254,6 +248,12 @@ def _counter_font_entries(data: bytes):
             if re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]{2,30}", modern_font):
                 entries.append((start, modern_font, modern_pos, 106, False))
                 continue
+        if re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]{2,30}", font) is None:
+            continue
+        if font.endswith("SK"):
+            font = font[:-2]
+        if font.endswith("i") and font[:-1].upper().startswith("GROTESK"):
+            font = font[:-1]
         for offset in (98, 105):
             pos = start + offset
             if pos + 88 > len(data):
