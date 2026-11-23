@@ -213,8 +213,15 @@ def _counter_font_entries(data: bytes):
     """
     entries = []
     for match in _COUNTER_FONT.finditer(data):
-        entries.append((match.start(), match.group(1).decode("ascii"),
-                        match.start() + 343, 106, False))
+        pos = match.start() + 343
+        # Ressourcen-Strings in eingebetteten Daten sind keine Textzeilen.
+        # Nur Kandidaten mit mindestens zwei echten Glyphen uebernehmen.
+        if (pos + 116 <= len(data)
+                and all(data[q + 1] in (0x7E, 0x80, 0x81, 0x82)
+                        and data[q + 7:q + 10] == b"\x81\x00\x00"
+                        for q in (pos, pos + 106))):
+            entries.append((match.start(), match.group(1).decode("ascii"),
+                            pos, 106, False))
 
     # Bei den alten Formaten kommt der Glyphenbeginn je nach Feldlayout
     # nach 98 oder 105 Bytes. Nur durch zwei gueltige Glyphen bestaetigen.
