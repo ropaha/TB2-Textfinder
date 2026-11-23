@@ -10,7 +10,7 @@ import webbrowser
 from pathlib import Path
 from tb2_version import APP_VERSION
 from tb2_project_info import PROJECT_URL, MIT_LICENSE
-from tb2_muster import PROFILES, find_all, has_early_80_pattern, has_variable_80_pattern, has_wide_587_pattern, has_early_82_pattern, has_variable_98_pattern, has_variable_106_pattern
+from tb2_muster import PROFILES, find_all, has_early_80_pattern, has_variable_80_pattern, has_wide_587_pattern, has_early_82_pattern, has_variable_98_pattern, has_variable_106_pattern, extract_counter_lines
 from tb2_window_position import center_window
 from tb2_changelog import changelog_for_version
 from tb2_app_identity import configure_app_identity, apply_window_icon
@@ -75,6 +75,25 @@ def has_known_glyph_pattern(data: bytes, minimum: int = MIN_CHARACTERS) -> bool:
             or has_variable_106_pattern(data, minimum))
 
 
+def inspect_counter_file(path: Path) -> tuple[str, str]:
+    """Separate Counter-Diagnose; keine Aussage über garantierte Vollständigkeit."""
+    try:
+        data = path.read_bytes()
+    except OSError as exc:
+        return "Fehler", str(exc)
+    if not data:
+        return "Leer", "Datei enthält 0 Bytes"
+    lines, warnings = extract_counter_lines(data)
+    count = sum(sum(code != 0xFA for code in glyphs) for _, glyphs in lines)
+    if warnings:
+        return "Prüfen", f"{len(lines)} Zeile(n), {count} Zeichen; " + "; ".join(warnings[:3])
+    if lines:
+        return "Erkannt", f"{len(lines)} Zeile(n), {count} Zeichen (Vollständigkeit nicht garantiert)"
+    if has_known_glyph_pattern(data, minimum=2):
+        return "Prüfen", "Bekannte Textmuster, aber keine zählbaren Textzeilen"
+    return "Kein Text erkannt", "Keine bekannten Textmuster; Textfreiheit nicht bewiesen"
+
+
 def inspect_file(path: Path) -> tuple[str, str]:
     try:
         data = path.read_bytes()
@@ -126,9 +145,15 @@ class App(tk.Tk):
         self.folder_var = tk.StringVar()
         ttk.Entry(frame, textvariable=self.folder_var).grid(row=0, column=1, sticky="ew", padx=10)
         ttk.Button(frame, text="Ordner wählen …", command=self.choose_folder).grid(row=0, column=2)
+        self.mode_var = tk.StringVar(value="Textfinder-Prüfung")
+        ttk.Label(frame, text="Prüfmodus:").grid(row=1, column=0, sticky="w")
+        self.mode_box = ttk.Combobox(frame, textvariable=self.mode_var,
+                                     state="readonly", width=27,
+                                     values=("Textfinder-Prüfung", "Textcounter-Prüfung"))
+        self.mode_box.grid(row=1, column=1, sticky="w", padx=10)
         self.recursive_var = tk.BooleanVar(value=True)
         ttk.Checkbutton(frame, text="Unterordner einbeziehen", variable=self.recursive_var).grid(
-            row=1, column=1, sticky="w", pady=(9, 2))
+            row=1, column=2, sticky="w", pady=(9, 2))
         actions = ttk.Frame(frame)
         actions.grid(row=2, column=0, columnspan=3, sticky="w", pady=(12, 10))
         self.scan_button = ttk.Button(actions, text="Ordner prüfen", command=self.scan_or_cancel, state="disabled")
@@ -159,6 +184,7 @@ class App(tk.Tk):
         self.filter_box = ttk.Combobox(filters, textvariable=self.filter_var, state="readonly",
                                        values=list(self.filter_options), width=42)
         self.filter_box.pack(side="left")
+        self.mode_var.trace_add("write", self._on_mode_change)
         self.filter_box.bind("<<ComboboxSelected>>", self.apply_filter)
         self.visible_count_var = tk.StringVar(value="Noch keine Ergebnisse")
         ttk.Label(filters, textvariable=self.visible_count_var).pack(side="left", padx=(14, 0))
@@ -192,6 +218,31 @@ class App(tk.Tk):
 
         frame.columnconfigure(1, weight=1)
         frame.rowconfigure(6, weight=1)
+
+    def _on_mode_change(self, *_args):
+        if self.scanning:
+            return
+        counter = self.mode_var.get() == "Textcounter-Prüfung"
+        self.filter_options = (
+            {"Alle auffälligen Dateien": None,
+             "Prüfen (Textcounter)": {"Prüfen"},
+             "Kein Text erkannt": {"Kein Text erkannt"},
+             "Lesefehler / Leere Dateien": {"Fehler", "Leer"},
+             "Ignoriert": {"Ignoriert"}}
+            if counter else
+            {"Alle auffälligen Dateien": None,
+             "Könnte Text enthalten, muss analysiert werden": {"Fragment"},
+             "Enthält vermutlich keinen Text": {"Vermutlich kein Text"},
+             "Lesefehler / Leere Dateien": {"Fehler", "Leer"},
+             "Ignoriert": {"Ignoriert"}}
+        )
+        self.filter_box.configure(values=list(self.filter_options))
+        self.filter_var.set("Alle auffälligen Dateien")
+        self.rows = []
+        self.scan_totals = None
+        self.scan_summary = ""
+        self.apply_filter()
+        self.status_var.set("Prüfmodus gewechselt. Bitte Ordner erneut prüfen.")
 
     def show_info(self):
         """Show application details and the former footer help text."""
@@ -346,6 +397,7 @@ class App(tk.Tk):
             return
         self.cancel_scan_event.clear()
         self.scanning = True
+        self.mode_box.configure(state="disabled")
         self.rows = []
         self.ignored_paths = set()
         self.scan_summary = ""
@@ -362,10 +414,11 @@ class App(tk.Tk):
         self.progress.configure(mode="indeterminate", value=0)
         self.progress.start(12)
         self.status_var.set("Durchsuche Verzeichnisstruktur nach TB2-/TBL-Dateien …")
-        threading.Thread(target=self._worker, args=(Path(folder_text), self.recursive_var.get()),
+        threading.Thread(target=self._worker, args=(Path(folder_text), self.recursive_var.get(),
+                                                    self.mode_var.get()),
                          daemon=True).start()
 
-    def _worker(self, root: Path, recursive: bool):
+    def _worker(self, root: Path, recursive: bool, mode: str):
         """Dateisuche, Ignorierlisten und Prüfung vollständig außerhalb der GUI."""
         files = []
         ignored = set()
@@ -423,7 +476,8 @@ class App(tk.Tk):
             for index, path in enumerate(files, start=1):
                 if self.cancel_scan_event.is_set():
                     break
-                category, detail = inspect_file(path)
+                category, detail = (inspect_counter_file(path) if mode == "Textcounter-Prüfung"
+                                    else inspect_file(path))
                 processed = index
                 if category == "Erkannt":
                     recognized += 1
@@ -433,9 +487,9 @@ class App(tk.Tk):
                         errors += 1
                     elif category == "Leer":
                         empty += 1
-                    elif category == "Fragment":
+                    elif category in ("Fragment", "Prüfen"):
                         fragments += 1
-                    elif category == "Vermutlich kein Text":
+                    elif category in ("Vermutlich kein Text", "Kein Text erkannt"):
                         probably_no_text += 1
                 self.events.put(("progress", index, len(files), path.name))
             self.events.put(("finished", flagged, processed, len(files), recognized,
@@ -478,6 +532,7 @@ class App(tk.Tk):
                     self.ignored_paths = ignored
                     self.rows = flagged
                     self.scanning = False
+                    self.mode_box.configure(state="readonly")
                     self.apply_filter()
                     self._update_scan_button()
                     self.scan_totals = (processed, recognized, fragments,
@@ -501,6 +556,7 @@ class App(tk.Tk):
                         return
                     self.progress.stop()
                     self.scanning = False
+                    self.mode_box.configure(state="readonly")
                     self.apply_filter()
                     self._update_scan_button()
                     messagebox.showerror("Prüfung fehlgeschlagen", event[1])
@@ -514,10 +570,20 @@ class App(tk.Tk):
             return
         total, recognized, fragments, probably_no_text, empty, errors = self.scan_totals
         ignored = {"Fragment": 0, "Vermutlich kein Text": 0,
+                   "Prüfen": 0, "Kein Text erkannt": 0,
                    "Leer": 0, "Fehler": 0}
         for category, path, _ in self.rows:
             if category in ignored and self.is_ignored(path):
                 ignored[category] += 1
+        if self.mode_var.get() == "Textcounter-Prüfung":
+            self.scan_summary = (
+                f"Fertig: {total} Datei(en) geprüft | {recognized} gezählt | "
+                f"{fragments} prüfen ({ignored['Prüfen']} ignoriert) | "
+                f"{probably_no_text} kein Text erkannt "
+                f"({ignored['Kein Text erkannt']} ignoriert) | "
+                f"{empty} leer | {errors} Lesefehler.")
+            self.status_var.set(self.scan_summary)
+            return
         self.scan_summary = (
             f"Fertig: {total} Datei(en) geprüft | {recognized} erkannt | "
             f"{fragments} Fragmente ({ignored['Fragment']} ignoriert) | "
@@ -688,10 +754,11 @@ class App(tk.Tk):
             initialfile="TB2_Negativtester_Bericht.txt")
         if not destination:
             return
-        lines = ["TB2-Negativtester – Prüfbericht",
+        lines = [f"TB2-Negativtester – Prüfbericht ({self.mode_var.get()})",
                  "Fragmente: 2 Zeichen in bekannter Datensatzstruktur; manuelle Analyse empfohlen.",
                  "Vermutlich kein Text: keine bekannten Muster oder 2-Zeichen-Fragmente.",
                  "Ein Nichttreffer beweist nicht, dass die Datei keinen Text enthält.",
+                 "Counter-Erkannt bedeutet nicht garantierte Vollständigkeit.",
                  f"Aktiver Filter: {self.filter_var.get()}",
                  f"Angezeigte Treffer: {len(visible)} von {len(self.rows)}", ""]
         lines.extend(f"{'Ignoriert' if self.is_ignored(path) else category}\t{path}\t{detail}"
