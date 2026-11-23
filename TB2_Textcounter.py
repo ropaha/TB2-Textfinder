@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Experimenteller TB2-Textcounter: zunächst nur bekannte 106-Byte-Textzeilen."""
+"""Experimenteller TB2-Textcounter für erkannte historische Glyphenprofile."""
 from __future__ import annotations
 import argparse
 from collections import Counter
 from pathlib import Path
-import re
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
@@ -30,13 +29,13 @@ def run_file(path: Path) -> str:
                    f"Erkannte Textzeilen: {lines}"])
     if warnings:
         result.extend(["", "WARNUNG: Ergebnis möglicherweise unvollständig!"] + warnings)
-    result.extend(["", "Experimentell: bekannte 80- und 106-Byte-Textstrukturen.",
+    result.extend(["", "Experimentell: nur erkannte Glyphenprofile; nicht alle Schriften unterstützt.",
                    "Leerzeichen (Byte FA) werden nicht gezählt."])
     return "\n".join(result)
 
 def gui() -> None:
     root = tk.Tk()
-    root.title("TB2-Textcounter – Prototyp")
+    root.title("Signum Textcounter – Testversion")
     root.geometry("690x460")
     frame = ttk.Frame(root, padding=12)
     frame.pack(fill="both", expand=True)
