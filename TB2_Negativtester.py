@@ -6,6 +6,8 @@ from __future__ import annotations
 import os
 import queue
 import threading
+import zipfile
+import re
 import webbrowser
 from pathlib import Path
 from tb2_version import APP_VERSION
@@ -118,6 +120,7 @@ class App(tk.Tk):
         self.minsize(800, 480)
         self.events: queue.Queue = queue.Queue()
         self.scanning = False
+        self.exporting = False
         self.cancel_scan_event = threading.Event()
         self.exit_after_scan = False
         self.protocol("WM_DELETE_WINDOW", self.request_exit)
@@ -169,7 +172,7 @@ class App(tk.Tk):
         self.copy_button.pack(side="left", padx=(8, 0))
         self.copy_row_button = ttk.Button(actions, text="Zeile kopieren", command=self.copy_selected_rows, state="disabled")
         self.copy_row_button.pack(side="left", padx=(8, 0))
-        self.save_button = ttk.Button(actions, text="TXT speichern …", command=self.save_report, state="disabled")
+        self.save_button = ttk.Button(actions, text="TXT und ZIP speichern …", command=self.save_report, state="disabled")
         self.save_button.pack(side="left", padx=(8, 0))
         self.clear_button = ttk.Button(actions, text="Leeren", command=self.clear, state="disabled")
         self.clear_button.pack(side="left", padx=(8, 0))
@@ -223,7 +226,7 @@ class App(tk.Tk):
         frame.rowconfigure(6, weight=1)
 
     def _on_mode_change(self, *_args):
-        if self.scanning:
+        if self.scanning or self.exporting:
             return
         counter = self.mode_var.get() == "Textcounter-Prüfung"
         self.filter_options = (
@@ -354,7 +357,10 @@ class App(tk.Tk):
 
     def _update_scan_button(self, *_args):
         """Ordner prüfen anbieten oder laufende Prüfung abbrechbar halten."""
-        if self.scanning:
+        if self.scanning or self.exporting:
+            if self.exporting:
+                self.scan_button.configure(state="disabled")
+                return
             if self.cancel_scan_event.is_set():
                 self.scan_button.configure(state="disabled", text="Abbruch läuft …")
             else:
@@ -366,6 +372,9 @@ class App(tk.Tk):
 
     def request_exit(self):
         """Während einer Prüfung Rückfrage stellen und kontrolliert beenden."""
+        if self.exporting:
+            messagebox.showinfo("Export läuft", "Bitte warten, bis TXT und ZIP gespeichert sind.")
+            return
         if not self.scanning:
             self.destroy()
             return
@@ -554,6 +563,20 @@ class App(tk.Tk):
                         self.issues_button.configure(
                             text=f"Zugriffsprobleme ({len(skipped)})")
                         self.issues_button.pack(side="left", padx=(8, 0), after=self.scan_button)
+                elif event[0] == "export_progress":
+                    _, current, total = event
+                    self.status_var.set(f"Diagnose-ZIP: {current}/{total} Dateien verarbeitet …")
+                elif event[0] == "export_done":
+                    _, result, error = event
+                    self.exporting = False
+                    self.mode_box.configure(state="readonly")
+                    self._update_scan_button()
+                    self.apply_filter()
+                    if error:
+                        messagebox.showerror("Export fehlgeschlagen", error)
+                    else:
+                        self.status_var.set(result)
+                        messagebox.showinfo("Export abgeschlossen", result)
                 elif event[0] == "worker_error":
                     if self.exit_after_scan:
                         self.destroy()
@@ -627,9 +650,9 @@ class App(tk.Tk):
             if path in selected_paths:
                 self.tree.selection_add(iid)
         self.visible_count_var.set(f"{len(visible)} von {len(self.rows)} angezeigt")
-        self.clear_button.configure(state="normal" if self.rows and not self.scanning else "disabled")
+        self.clear_button.configure(state="normal" if self.rows and not self.scanning and not self.exporting else "disabled")
         self._fit_result_columns(visible)
-        state = "normal" if visible and not self.scanning else "disabled"
+        state = "normal" if self.rows and not self.scanning and not self.exporting else "disabled"
         self.copy_button.configure(state=state)
         self.save_button.configure(state=state)
         self.update_buttons()
@@ -762,16 +785,8 @@ class App(tk.Tk):
             self.clipboard_append("\n".join(paths))
             self.status_var.set(f"{len(paths)} Pfad/Pfade kopiert.")
 
-    def save_report(self):
-        """Exportiert den vollstaendigen Pruefbericht unabhaengig vom GUI-Filter."""
-        if not self.rows and self.scan_totals is None:
-            return
-        destination = filedialog.asksaveasfilename(
-            title="Vollständigen Prüfbericht speichern", defaultextension=".txt",
-            filetypes=[("Textdatei", "*.txt"), ("Alle Dateien", "*.*")],
-            initialfile="TB2_Negativtester_Bericht.txt")
-        if not destination:
-            return
+    def _report_text(self):
+        """Der vollständige Bericht bleibt unabhängig von Filter und ZIP-Limit."""
         mode = self.mode_var.get()
         lines = [
             f"TB2-Negativtester – vollständiger Prüfbericht ({mode})",
@@ -793,12 +808,135 @@ class App(tk.Tk):
         if self.access_issues:
             lines.extend(["", f"Zugriffsprobleme ({len(self.access_issues)}):"])
             lines.extend(self.access_issues)
-        try:
-            Path(destination).write_text("\n".join(lines) + "\n", encoding="utf-8")
-        except OSError as exc:
-            messagebox.showerror("Speichern fehlgeschlagen", str(exc))
+        return "\n".join(lines) + "\n"
+
+    def save_report(self):
+        """Speichert TXT und eine größenbegrenzte Diagnose-ZIP nach DSGVO-Hinweis."""
+        if self.scanning or self.exporting or self.scan_totals is None:
             return
-        self.status_var.set(f"Vollständiger Bericht gespeichert: {len(self.rows)} Einträge – {destination}")
+        consent = messagebox.askyesno(
+            "Datenschutzhinweis – Export",
+            "Die von Ihnen exportierten Daten könnten personenbezogene Daten "
+            "enthalten.\n\nSind Sie sicher, dass Sie die Funktion ausführen "
+            "möchten?\n\nEine unzulässige Verarbeitung oder Weitergabe "
+            "könnte gegen die Datenschutz-Grundverordnung (DSGVO) verstoßen.",
+            icon="warning", default="no", parent=self)
+        if not consent:
+            return
+        destination = filedialog.asksaveasfilename(
+            title="TXT und Diagnose-ZIP speichern", defaultextension=".txt",
+            filetypes=[("Textdatei", "*.txt")],
+            initialfile="TB2_Negativtester_Bericht.txt", parent=self)
+        if not destination:
+            return
+        txt_path = Path(destination).with_suffix(".txt")
+        zip_path = txt_path.with_suffix(".zip")
+        if zip_path.exists() and not messagebox.askyesno(
+                "ZIP überschreiben?",
+                f"Die ZIP-Datei existiert bereits:\n{zip_path}\n\nÜberschreiben?",
+                icon="warning", default="no", parent=self):
+            return
+        report = self._report_text()
+        rows = list(self.rows)
+        root = Path(self.folder_var.get()).resolve()
+        self.exporting = True
+        self.mode_box.configure(state="disabled")
+        self._update_scan_button()
+        self.apply_filter()
+        self.status_var.set("TXT und Diagnose-ZIP werden erstellt …")
+        threading.Thread(
+            target=self._export_worker,
+            args=(txt_path, zip_path, report, rows, root),
+            daemon=True).start()
+
+    def _export_worker(self, txt_path, zip_path, report, rows, root):
+        """ZIP mit max. 100 Dateien / 100 MiB Originaldaten, ohne erneuten Scan."""
+        max_files = 100
+        max_bytes = 100 * 1024 * 1024
+        selected = []
+        skipped = []
+        used_bytes = 0
+        try:
+            # Null-Erkennungen priorisieren, dann andere Prüffälle.
+            # Innerhalb einer Gruppe Jahrgänge mischen, statt einen Jahrgang
+            # vollständig vor dem nächsten zu exportieren.
+            def priority(row):
+                detail = row[2]
+                return 0 if ("0 Zeile(n), 0 Zeichen" in detail or
+                             row[0] in ("Kein Text erkannt", "Vermutlich kein Text")) else 1
+
+            def year(row):
+                parts = Path(row[1]).parts
+                for part in parts:
+                    if re.fullmatch(r"(19|20)\d{2}", part):
+                        return part
+                return "Sonstige"
+
+            buckets = {}
+            for row in rows:
+                if row[0] in ("Fehler", "Leer") or self._path_key(Path(row[1])) in self.ignored_paths:
+                    continue
+                buckets.setdefault((priority(row), year(row)), []).append(row)
+            ordered = []
+            for p in (0, 1):
+                keys = sorted(k for k in buckets if k[0] == p)
+                while any(buckets[k] for k in keys):
+                    for k in keys:
+                        if buckets[k]:
+                            ordered.append(buckets[k].pop(0))
+
+            zip_tmp = zip_path.with_name(zip_path.name + ".tmp")
+            txt_path.write_text(report, encoding="utf-8")
+            try:
+                with zipfile.ZipFile(zip_tmp, "w", compression=zipfile.ZIP_DEFLATED,
+                                     compresslevel=6, allowZip64=True) as archive:
+                    archive.writestr("Pruefbericht.txt", report)
+                    for index, (category, filename, detail) in enumerate(ordered, 1):
+                        path = Path(filename)
+                        try:
+                            relative = path.resolve().relative_to(root)
+                            if not path.is_file() or path.is_symlink():
+                                raise OSError("Datei fehlt oder ist ein symbolischer Link")
+                            size = path.stat().st_size
+                            if len(selected) >= max_files:
+                                skipped.append((filename, "Dateianzahl-Limit erreicht"))
+                            elif size > max_bytes - used_bytes:
+                                skipped.append((filename, "Größenlimit erreicht"))
+                            else:
+                                arcname = "Dateien/" + relative.as_posix()
+                                archive.write(path, arcname)
+                                selected.append((filename, arcname, size))
+                                used_bytes += size
+                        except (OSError, ValueError) as exc:
+                            skipped.append((filename, str(exc)))
+                        if index % 10 == 0 or index == len(ordered):
+                            self.events.put(("export_progress", index, len(ordered)))
+                    manifest = [
+                        "TB2-Negativtester – Diagnosepaket",
+                        f"Enthaltene TB2/TBL-Dateien: {len(selected)} (maximal {max_files})",
+                        f"Originaldaten: {used_bytes} Byte (Limit {max_bytes} Byte)",
+                        f"Nicht enthalten: {len(skipped)}",
+                        "Vollständiger Prüfbericht: Pruefbericht.txt",
+                        "",
+                        "ENTHALTEN\tZIP-Pfad\tOriginalpfad\tBytes",
+                    ]
+                    manifest.extend(f"ENTHALTEN\t{arc}\t{src}\t{size}"
+                                    for src, arc, size in selected)
+                    manifest.append("")
+                    manifest.append("NICHT ENTHALTEN\tOriginalpfad\tGrund")
+                    manifest.extend(f"NICHT ENTHALTEN\t{src}\t{reason}"
+                                    for src, reason in skipped)
+                    archive.writestr("ZIP_Inhalt.txt", "\n".join(manifest) + "\n")
+                zip_tmp.replace(zip_path)
+            finally:
+                if zip_tmp.exists():
+                    zip_tmp.unlink()
+            result = (f"TXT und ZIP gespeichert: {len(rows)} Berichtszeilen, "
+                      f"{len(selected)} Dateien im ZIP, {len(skipped)} nicht aufgenommen.\n"
+                      f"TXT: {txt_path}\nZIP: {zip_path}")
+            self.events.put(("export_done", result, None))
+        except (OSError, ValueError, zipfile.BadZipFile) as exc:
+            self.events.put(("export_done", None, str(exc)))
 
     def clear(self):
         if self.scanning or not self.rows:
