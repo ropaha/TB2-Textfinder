@@ -292,8 +292,19 @@ def _counter_font_entries(data: bytes):
                    for q in (pos, pos + 80)):
                 entries.append((start, font, pos, 80, True))
                 break
+    # Derselbe Schriftsatz kann sowohl vom Pfad- als auch vom
+    # Laengenfeld-Detektor erkannt werden. Doppelte Eintraege haben
+    # sonst dieselbe Startposition und erzeugen durch die Grenzbildung
+    # eine falsche Warnung (beobachtet bei Eva4 im Jahrgang 2025).
     entries.sort(key=lambda entry: entry[0])
-    return entries
+    unique = []
+    seen = set()
+    for entry in entries:
+        signature = (entry[0], entry[2], entry[3], entry[4])
+        if signature not in seen:
+            seen.add(signature)
+            unique.append(entry)
+    return unique
 
 
 def extract_counter_lines(data: bytes):
