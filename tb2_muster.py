@@ -255,6 +255,15 @@ def _counter_font_entries(data: bytes):
             if re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]{2,30}", modern_font):
                 entries.append((start, modern_font, modern_pos, 106, False))
                 continue
+        # Altformat mit 98-Byte-Glyphen und 343-Byte-Vorspann,
+        # bestaetigt an 9000009.TB2 (1990).
+        if (modern_pos + 108 <= len(data)
+                and all(data[q + 1] in (0x80, 0x81, 0x82)
+                        and data[q + 7:q + 10] == b"\x81\x00\x00"
+                        for q in (modern_pos, modern_pos + 98))):
+            if re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]{2,30}", font):
+                entries.append((start, font, modern_pos, 98, False))
+                continue
         if re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]{2,30}", font) is None:
             continue
         if font.endswith("SK"):
