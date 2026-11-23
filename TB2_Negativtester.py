@@ -8,7 +8,7 @@ import queue
 import threading
 import webbrowser
 from pathlib import Path
-from tb2_muster import PROFILES, find_all
+from tb2_muster import PROFILES, find_all, has_early_80_pattern, has_variable_80_pattern, has_wide_587_pattern, has_early_82_pattern, has_variable_98_pattern, has_variable_106_pattern
 from tb2_window_position import center_window
 from tb2_changelog import changelog_for_version
 from tb2_app_identity import configure_app_identity, apply_window_icon
