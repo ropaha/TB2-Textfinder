@@ -167,6 +167,8 @@ class App(tk.Tk):
         self.ignore_button.pack(side="left", padx=(8, 0))
         self.copy_button = ttk.Button(actions, text="Pfade kopieren", command=self.copy_paths, state="disabled")
         self.copy_button.pack(side="left", padx=(8, 0))
+        self.copy_row_button = ttk.Button(actions, text="Zeile kopieren", command=self.copy_selected_rows, state="disabled")
+        self.copy_row_button.pack(side="left", padx=(8, 0))
         self.save_button = ttk.Button(actions, text="TXT speichern …", command=self.save_report, state="disabled")
         self.save_button.pack(side="left", padx=(8, 0))
         self.clear_button = ttk.Button(actions, text="Leeren", command=self.clear, state="disabled")
@@ -210,6 +212,7 @@ class App(tk.Tk):
         self.tree.after_idle(self._fit_result_columns)
         self.tree.bind("<Double-1>", self.open_result)
         self.tree.bind("<<TreeviewSelect>>", self.update_buttons)
+        self.tree.bind("<Control-c>", self.copy_selected_rows)
 
         footer = ttk.Frame(frame)
         footer.grid(row=7, column=0, columnspan=3, sticky="ew", pady=(10, 0))
@@ -408,6 +411,7 @@ class App(tk.Tk):
         self.apply_filter()
         self._update_scan_button()
         self.copy_button.configure(state="disabled")
+        self.copy_row_button.configure(state="disabled")
         self.save_button.configure(state="disabled")
         self.open_button.configure(state="disabled")
         self.ignore_button.configure(state="disabled")
@@ -668,9 +672,23 @@ class App(tk.Tk):
             state="normal" if len(paths) == 1 and not self.scanning else "disabled")
         states = {self.is_ignored(path) for path in paths}
         uniform = bool(paths) and len(states) == 1 and not self.scanning
+        self.copy_row_button.configure(state="normal" if paths and not self.scanning else "disabled")
         self.ignore_button.configure(
             state="normal" if uniform else "disabled",
             text="Ignorieren aufheben" if uniform and True in states else "Ignorieren")
+
+    def copy_selected_rows(self, _event=None):
+        """Vollstaendige Ergebniszeilen einschliesslich ungekürztem Hinweis kopieren."""
+        selected = self.tree.selection()
+        lines = []
+        for item in selected:
+            values = self.tree.item(item, "values")
+            if len(values) == 3:
+                lines.append("\t".join(map(str, values)))
+        if lines:
+            self.clipboard_clear()
+            self.clipboard_append("\n".join(lines))
+            self.status_var.set(f"{len(lines)} vollständige Ergebniszeile(n) kopiert.")
 
     def toggle_ignore(self):
         paths = self.selected_paths()
