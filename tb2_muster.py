@@ -211,7 +211,12 @@ _FONT_FILE = re.compile(
 
 
 def _counter_font_entries(data: bytes):
-    """(Position, Fontname, Zeichenoffset, Datensatzlaenge, Altformat)."""
+    """(Position, Fontname, Zeichenoffset, Datensatzlaenge, Altformat).
+
+    Alte Signum-Dateien speichern den Schriftnamen oft direkt als
+    laengenpraefixiertes ASCII-Feld. Ein nachgestelltes 'i' ist in
+    beobachteten Dateien eine interne Variante, kein Teil des Fontnamens.
+    """
     entries = []
     for match in _COUNTER_FONT.finditer(data):
         legacy = match.group(2) is not None
@@ -219,21 +224,39 @@ def _counter_font_entries(data: bytes):
         entries.append((match.start(), raw.decode("ascii"),
                         match.start() + (105 if legacy else 343),
                         80 if legacy else 106, legacy))
-    # Alte Schriftpfade sind laengenpraefixiert, z.B. 0E ABLAGE\LAPIDAR.
-    # Verzeichnis und optionale FN2/FN3/FNT-Endung sind keine Schriftart.
-    # Nur exakt durch das Laengenbyte begrenzte Pfade akzeptieren.
+
     for start in range(1, len(data)):
         length = data[start - 1]
         if not (3 <= length <= 127 and start + length <= len(data)):
             continue
-        path = data[start:start + length]
-        if not _FONT_FILE.fullmatch(path):
+        raw = data[start:start + length]
+        try:
+            value = raw.decode("ascii")
+        except UnicodeDecodeError:
             continue
-        fontfile = re.split(rb"[\\/]", path)[-1]
-        fontfile = re.sub(rb"(?i)\.(?:FN2|FN3|FNT)$", b"", fontfile)
-        if not fontfile:
+        # Ressourcen (ORN, STN, BAU usw.) niemals als Fonts behandeln.
+        if not re.fullmatch(r"[A-Za-z0-9_. /\\-]+", value):
             continue
-        entries.append((start, fontfile.decode("ascii"), start + 105, 80, True))
+        leaf = re.split(r"[\\/]", value)[-1]
+        extension = leaf.rsplit(".", 1)[-1].upper() if "." in leaf else ""
+        if extension and extension not in ("FN2", "FN3", "FNT"):
+            continue
+        font = leaf.rsplit(".", 1)[0] if extension else leaf
+        # 'GROTESK3i' kommt in 9500002.TB2 vor.
+        if font.endswith("i") and font[:-1].upper().startswith("GROTESK"):
+            font = font[:-1]
+        if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]{1,30}", font):
+            continue
+        pos = start + 105
+        if pos + 10 > len(data):
+            continue
+        if (data[pos + 1] not in (0x80, 0x81, 0x82)
+                or data[pos + 7] not in (0x80, 0x81)):
+            continue
+        # Die ersten Glyphen bestaetigen den Schrifteintrag;
+        # reine Dateinamen/Ornamentpfade werden so ignoriert.
+        entries.append((start, font, pos, 80, True))
+
     entries.sort(key=lambda item: item[0])
     return entries
 
@@ -258,7 +281,7 @@ def extract_counter_lines(data: bytes):
             accepted = ((0x80, 0x81, 0x82) if legacy
                         else (0x7E, 0x80, 0x81, 0x82))
             if (marker not in accepted
-                    or data[pos + 7:pos + 10] != b"\x81\x00\x00"):
+                    or (data[pos + 7] not in (0x80, 0x81) if legacy\n                     else data[pos + 7:pos + 10] != b"\x81\x00\x00")):
                 break
             glyphs.append(data[pos])
             pos += stride
