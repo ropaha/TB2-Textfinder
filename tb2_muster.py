@@ -230,7 +230,7 @@ def extract_counter_lines(data: bytes):
         )
     for i, match in enumerate(matches):
         legacy = match.group(2) is not None\n        ablage = match.group(3) is not None
-        raw_font = (match.group(3) if ablage else\n                    match.group(2)[:-2] if legacy else match.group(1))
+        raw_font = (match.group(3)[:max(0, data[match.start() - 1] - len(b"ABLAGE\\\\") )] if ablage and match.start() > 0 else match.group(3) if ablage else\n                    match.group(2)[:-2] if legacy else match.group(1))
         font = raw_font.decode("ascii")
         pos = match.start() + (98 if ablage else 105 if legacy else 343)
         stride = 80 if (legacy or ablage) else 106
