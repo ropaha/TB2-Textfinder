@@ -204,7 +204,7 @@ from collections import Counter
 
 _COUNTER_FONT = re.compile(
     rb"Signum Standard\\([A-Za-z0-9_. -]{1,64})"
-    rb"|(?<![A-Za-z0-9])([A-Za-z][A-Za-z0-9]{1,30}SK)\x00"
+    rb"|(?<![A-Za-z0-9])([A-Za-z][A-Za-z0-9]{1,30}SK)\x00"\n    rb"|ABLAGE\\\\([A-Za-z0-9_. -]{1,64})"
 )
 
 
@@ -228,16 +228,16 @@ def extract_counter_lines(data: bytes):
             "Kein bekanntes Schriftformat gefunden: nicht als 0 Zeichen interpretieren."
         )
     for i, match in enumerate(matches):
-        legacy = match.group(2) is not None
-        raw_font = match.group(2)[:-2] if legacy else match.group(1)
+        legacy = match.group(2) is not None\n        ablage = match.group(3) is not None
+        raw_font = (match.group(3) if ablage else\n                    match.group(2)[:-2] if legacy else match.group(1))
         font = raw_font.decode("ascii")
-        pos = match.start() + (105 if legacy else 343)
-        stride = 80 if legacy else 106
+        pos = match.start() + (98 if ablage else 105 if legacy else 343)
+        stride = 80 if (legacy or ablage) else 106
         boundary = matches[i + 1].start() if i + 1 < len(matches) else len(data)
         glyphs = bytearray()
         while pos + 10 <= len(data) and pos < boundary and len(glyphs) < 10000:
             marker = data[pos + 1]
-            accepted = ((0x80, 0x81, 0x82) if legacy
+            accepted = ((0x80, 0x81, 0x82) if (legacy or ablage)
                         else (0x7E, 0x80, 0x81, 0x82))
             if (marker not in accepted
                     or data[pos + 7:pos + 10] != b"\x81\x00\x00"):
