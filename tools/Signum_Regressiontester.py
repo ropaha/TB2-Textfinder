@@ -12,7 +12,11 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from TB2_Textcounter import counter_lines, SPACE_CODE
+from TB2_Textcounter import counter_lines, SPACE_CODE, format_number, App as CounterApp
+from tb2_window_position import center_window
+from tb2_app_identity import configure_app_identity, apply_window_icon
+from tb2_project_info import PROJECT_URL
+import webbrowser
 from tb2_muster import historical_resource_document
 from tb2_version import APP_VERSION
 
@@ -88,9 +92,12 @@ def save_new(path, root, payload):
 
 class App(tk.Tk):
     def __init__(self):
+        configure_app_identity("ropaha.SignumRegressiontester")
         super().__init__()
+        apply_window_icon(self)
         self.title("Signum Regressionstester – " + APP_VERSION)
-        self.geometry("950x600")
+        center_window(self, 950, 600)
+        self.minsize(720, 480)
         self.rootdir = tk.StringVar()
         self.mode = tk.StringVar(value="fast")
         self.status = tk.StringVar(value="Quellordner wählen.")
@@ -100,35 +107,104 @@ class App(tk.Tk):
         self.result = None
         frame = ttk.Frame(self, padding=14)
         frame.pack(fill="both", expand=True)
-        ttk.Entry(frame, textvariable=self.rootdir).pack(fill="x")
-        self.choose = ttk.Button(frame, text="Ordner wählen", command=self.pick)
-        self.choose.pack(anchor="w")
-        self.controls = [self.choose]
-        for label, value in [("Schnell (JPEG überspringen)", "fast"), ("Vollständig", "full")]:
-            w = ttk.Radiobutton(frame, text=label, variable=self.mode, value=value)
-            w.pack(anchor="w")
+        folder = ttk.Frame(frame)
+        folder.pack(fill="x")
+        ttk.Label(folder, text="Ordner:").pack(side="left")
+        self.entry = ttk.Entry(folder, textvariable=self.rootdir)
+        self.entry.pack(side="left", fill="x", expand=True, padx=10)
+        self.choose = ttk.Button(folder, text="Ordner wählen …", command=self.pick)
+        self.choose.pack(side="right")
+        self.controls = [self.choose, self.entry]
+        modes = ttk.Frame(frame)
+        modes.pack(fill="x", pady=(10, 2))
+        ttk.Label(modes, text="Suchmodus:").pack(side="left", padx=(0,10))
+        for label, value in [("Schnell (JPEG überspringen)", "fast"), ("Vollständig (alle Bytes)", "full")]:
+            w = ttk.Radiobutton(modes, text=label, variable=self.mode, value=value)
+            w.pack(side="left", padx=(0,14))
             self.controls.append(w)
         bar = ttk.Frame(frame)
-        bar.pack(fill="x", pady=8)
+        bar.pack(fill="x", pady=(12,10))
         for label, cmd in [("Referenz erstellen", lambda: self.start(False)), ("Vergleichen", lambda: self.start(True))]:
             w = ttk.Button(bar, text=label, command=cmd)
-            w.pack(side="left", padx=4)
+            w.pack(side="left", padx=(0,8))
             self.controls.append(w)
-        ttk.Button(bar, text="Abbrechen", command=self.stop.set).pack(side="left")
+        self.open_button = ttk.Button(bar, text="Öffnen", command=self.open_selected, state="disabled")
+        self.open_button.pack(side="left", padx=(0,8))
+        self.cancel = ttk.Button(bar, text="Abbrechen", command=self.stop.set, state="disabled")
+        self.cancel.pack(side="left", padx=(0,8))
         self.save = ttk.Button(bar, text="JSON speichern", command=self.export, state="disabled")
         self.save.pack(side="left")
-        self.progress = ttk.Progressbar(frame)
-        self.progress.pack(fill="x")
+        self.progress = ttk.Progressbar(frame, mode="determinate")
+        self.progress.pack(fill="x", pady=(0,7))
         ttk.Label(frame, textvariable=self.status, wraplength=880).pack(fill="x")
-        self.tree = ttk.Treeview(frame, columns=("category","path","old","new"), show="headings")
+        filters = ttk.Frame(frame)
+        filters.pack(fill="x", pady=(4,8))
+        ttk.Label(filters, text="Filter:").pack(side="left")
+        self.filter = ttk.Combobox(filters, state="readonly", values=("Alle",), width=32)
+        self.filter.set("Alle")
+        self.filter.pack(side="left", padx=8)
+        self.filter.bind("<<ComboboxSelected>>", lambda _: self.render_results())
+        footer = ttk.Frame(frame)
+        footer.pack(side="bottom", fill="x", pady=(10,0))
+        ttk.Button(footer, text="Programm beenden", command=self.close).pack(side="right")
+        ttk.Button(footer, text="Info", command=self.show_info).pack(side="right", padx=(0,8))
+        results = ttk.Frame(frame)
+        results.pack(fill="both", expand=True)
+        self.tree = ttk.Treeview(results, columns=("category","path","old","new"), show="headings")
         for k, label, width in [("category","Kategorie",180),("path","Datei",420),("old","Vorher",90),("new","Nachher",90)]:
             self.tree.heading(k,text=label)
-            self.tree.column(k,width=width)
+            self.tree.column(k,width=width, anchor="e" if k in ("old","new") else "w")
+        scrollbar = ttk.Scrollbar(results, orient="vertical", command=self.tree.yview)
+        scrollbar.pack(side="right", fill="y")
+        self.tree.configure(yscrollcommand=scrollbar.set)
         self.tree.pack(fill="both", expand=True)
+        self.tree.bind("<<TreeviewSelect>>", lambda _: self.open_button.configure(state="normal" if self.tree.selection() and not self.running else "disabled"))
+        self.tree.bind("<Double-1>", lambda _: self.open_selected())
         self.protocol("WM_DELETE_WINDOW", self.close)
         self.after(100,self.poll)
+    show_license = CounterApp.show_license
+    show_changelog = CounterApp.show_changelog
+
+    def show_info(self):
+        dialog = tk.Toplevel(self)
+        dialog.title("Info – Signum Regressionstester")
+        center_window(dialog, 650, 380, parent=self)
+        dialog.transient(self)
+        body = ttk.Frame(dialog, padding=18)
+        body.pack(fill="both", expand=True)
+        ttk.Label(body, text="Signum Regressionstester – Version " + APP_VERSION,
+                  font=("TkDefaultFont", 13, "bold")).pack(anchor="w", pady=(0,12))
+        ttk.Label(body, text="Vergleicht die Erkennung von TB2- und TBL-Dateien mit einer gespeicherten Referenz. Unterordner werden immer einbezogen. Quelldateien werden ausschließlich gelesen. JSON-Berichte werden außerhalb des Quellordners gespeichert.", wraplength=590).pack(anchor="w")
+        buttons = ttk.Frame(body)
+        buttons.pack(side="bottom", fill="x")
+        ttk.Button(buttons, text="GitHub", command=lambda: webbrowser.open(PROJECT_URL)).pack(side="left")
+        ttk.Button(buttons, text="MIT-Lizenz", command=lambda: self.show_license(dialog)).pack(side="left", padx=8)
+        ttk.Button(buttons, text="Schließen", command=dialog.destroy).pack(side="right")
+
+    def open_selected(self):
+        if self.running or not self.result or not self.tree.selection():
+            return
+        rel = self.tree.item(self.tree.selection()[0], "values")[1]
+        path = (self.source / rel).resolve()
+        if self.source not in path.parents or not path.is_file():
+            messagebox.showwarning("Öffnen", "Datei nicht vorhanden oder außerhalb des Quellordners.", parent=self)
+            return
+        try:
+            os.startfile(str(path))
+        except (OSError, AttributeError) as exc:
+            messagebox.showerror("Öffnen", str(exc), parent=self)
+
+    def render_results(self):
+        self.tree.delete(*self.tree.get_children())
+        self.open_button.configure(state="disabled")
+        for c in (self.result or {}).get("changes", []):
+            if self.filter.get() not in ("Alle", c["category"]):
+                continue
+            total = lambda r: format_number(sum((r or {}).get("fonts", {}).values()))
+            self.tree.insert("", "end", values=(c["category"], c["path"], total(c["before"]), total(c["after"])))
+
     def pick(self):
-        p = filedialog.askdirectory()
+        p = filedialog.askdirectory(title="Ordner mit TB2-/TBL-Dateien auswählen", initialdir=self.rootdir.get() or None)
         if p: self.rootdir.set(p)
     def close(self):
         if self.running:
@@ -155,6 +231,10 @@ class App(tk.Tk):
                 messagebox.showerror("Referenz",str(e))
                 return
         self.running = True
+        self.cancel.configure(state="normal")
+        self.open_button.configure(state="disabled")
+        self.filter.configure(values=("Alle",))
+        self.filter.set("Alle")
         self.stop.clear()
         self.result = None
         self.save.configure(state="disabled")
@@ -179,9 +259,10 @@ class App(tk.Tk):
                 e = self.events.get_nowait()
                 if e[0] == "progress":
                     self.progress.configure(maximum=max(1,e[2]),value=e[1])
-                    self.status.set(f"{e[1]} / {e[2]} Dateien")
+                    self.status.set(f"{format_number(e[1])} von {format_number(e[2])} Dateien analysiert ({format_number(100 * e[1] / e[2], 1)} %)")
                 else:
                     self.running = False
+                    self.cancel.configure(state="disabled")
                     for w in self.controls: w.configure(state="normal")
                     if e[0] == "error":
                         self.status.set(e[1])
@@ -195,9 +276,8 @@ class App(tk.Tk):
                     changes = self.result.get("changes",[])
                     counts = Counter(c["category"] for c in changes)
                     self.status.set(f'{len(current["files"])} Dateien | {current["seconds"]:.2f} s | {len(current["walk_errors"])} Ordnerfehler | ' + (str(dict(counts)) if "changes" in self.result else "Referenz bereit"))
-                    for c in changes:
-                        total = lambda r: sum((r or {}).get("fonts",{}).values())
-                        self.tree.insert("","end",values=(c["category"],c["path"],total(c["before"]),total(c["after"])))
+                    self.filter.configure(values=("Alle", *sorted(counts)))
+                    self.render_results()
         except queue.Empty:
             pass
         self.after(100,self.poll)
