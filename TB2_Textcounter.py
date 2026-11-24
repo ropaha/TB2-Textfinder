@@ -96,7 +96,7 @@ class App(tk.Tk):
         self.clear_button = ttk.Button(actions, text="Leeren", command=self.clear, state="disabled")
         self.clear_button.pack(side="left", padx=8)
         self.issues_button = ttk.Button(actions, text="Zugriffsprobleme", command=self.show_access_issues, state="disabled")
-        self.issues_button.pack(side="left")
+        
         self.progress = ttk.Progressbar(frame, mode="determinate")
         self.progress.grid(row=3, column=0, columnspan=3, sticky="ew", pady=(0,7))
         ttk.Label(frame, textvariable=self.status).grid(row=4, column=0, columnspan=3, sticky="w")
@@ -140,7 +140,7 @@ class App(tk.Tk):
         self.status.set("Bereit. Ordner auswählen und Zählung starten.")
         self.access_issues.clear()
         self.clear_button.configure(state="disabled")
-        self.issues_button.configure(state="disabled")
+        self.issues_button.pack_forget()
 
     def start(self):
         if self.running:
@@ -201,7 +201,11 @@ class App(tk.Tk):
                     self.progress.configure(mode="determinate", value=files)
                     self.button.configure(text="Zählen")
                     self.clear_button.configure(state="normal")
-                    self.issues_button.configure(state="normal" if self.access_issues else "disabled")
+                    if self.access_issues:
+                        self.issues_button.configure(state="normal")
+                        self.issues_button.pack(side="left")
+                    else:
+                        self.issues_button.pack_forget()
                     for widget in (self.entry, self.choose_button, self.check):
                         widget.configure(state="normal")
                     self.update_button()
