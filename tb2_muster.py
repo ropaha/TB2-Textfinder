@@ -359,8 +359,31 @@ def _counter_font_entries(data: bytes):
     return filtered
 
 
+def historical_resource_339(data):
+    if len(data) < 375 or data[:4] not in (b'\x00\x05\xcd\xab', b'\x25\x07\xcd\xab'):
+        return None
+    count = data[35]
+    if not count or len(data) != 36 + count * 339:
+        return None
+    types = {1: 'STN', 2: 'ORN', 3: 'BAU'}
+    result = []
+    for p in range(36, len(data), 339):
+        ext = types.get(data[p+40])
+        n = data[p+57]
+        if ext is None or data[p+41:p+57] != bytes(16) or not 5 <= n <= 56:
+            return None
+        path = data[p+58:p+58+n].decode('latin-1').upper()
+        prefix = 'F:\\STEIN\\SIGNUM\\' + ext + '\\'
+        if not path.startswith(prefix) or not re.fullmatch(r'(?:[A-ZÄÖÜ0-9_ .-]+\\)*[A-ZÄÖÜ0-9_ .-]+\.' + ext, path[len(prefix):]):
+            return None
+        result.append(ext)
+    return tuple(result)
+
+
 def historical_resource_document(data):
     """Return resource types for a fully matched historical document, else None."""
+    if data[:4] in (b'\x00\x05\xcd\xab', b'\x25\x07\xcd\xab'):
+        return historical_resource_339(data)
     if len(data) < 150 or data[:4] != bytes.fromhex('5003cdab'):
         return None
     count = data[35]
