@@ -359,8 +359,31 @@ def _counter_font_entries(data: bytes):
     return filtered
 
 
+def historical_resource_document(data):
+    """Return resource types for a fully matched historical document, else None."""
+    if len(data) < 150 or data[:4] != bytes.fromhex('5003cdab'):
+        return None
+    count = data[35]
+    if not count or len(data) != 36 + count * 114:
+        return None
+    types = {1: b'STN', 2: b'ORN', 3: b'BAU'}
+    result = []
+    for p in range(36, len(data), 114):
+        ext = types.get(data[p+40])
+        n = data[p+57]
+        if ext is None or data[p+41:p+57] != bytes(16) or not 5 <= n <= 56:
+            return None
+        path = data[p+58:p+58+n].upper()
+        if not re.fullmatch(rb'[A-Z0-9_ .\\-]+\.' + ext, path) or not path.startswith(ext + b'\\'):
+            return None
+        result.append(ext.decode('ascii'))
+    return tuple(result)
+
+
 def extract_counter_lines(data: bytes):
     """Liefert ([(Schriftsatz, Glyphenbytes)], Warnungen)."""
+    if historical_resource_document(data) is not None:
+        return [], []
     entries = _counter_font_entries(data)
     lines = []
     warnings = []
