@@ -44,6 +44,11 @@ INFO_TEXT = (
 _find_all = find_all
 
 
+def format_number(value, decimals=0):
+    """German display formatting, independent of the system locale."""
+    return format(value, f",.{decimals}f").translate(str.maketrans(",.", ".,"))
+
+
 def _plain_needles(term: str, case_sensitive: bool) -> list[bytes]:
     variants = [term]
     if not case_sensitive:
@@ -523,7 +528,7 @@ class App(tk.Tk):
         dialog.transient(self)
         body = ttk.Frame(dialog, padding=14)
         body.pack(fill="both", expand=True)
-        ttk.Label(body, text=f"{len(self.access_issues)} übersprungene Verzeichnisse",
+        ttk.Label(body, text=f"{format_number(len(self.access_issues))} übersprungene Verzeichnisse",
                   font=("TkDefaultFont", 12, "bold")).pack(anchor="w", pady=(0, 10))
         text_frame = ttk.Frame(body)
         text_frame.pack(fill="both", expand=True)
@@ -711,8 +716,8 @@ class App(tk.Tk):
                     _, directories, found = event
                     if not self.cancel_scan_event.is_set():
                         self.status_var.set(
-                            f"Durchsuche Verzeichnisse: {directories} Ordner, "
-                            f"{found} TB2-/TBL-Datei(en) gefunden …")
+                            f"Durchsuche Verzeichnisse: {format_number(directories)} Ordner, "
+                            f"{format_number(found)} TB2-/TBL-Datei(en) gefunden …")
                 elif event[0] == "discovery_done":
                     _, total, directories, skipped = event
                     self.access_issues = skipped
@@ -720,13 +725,13 @@ class App(tk.Tk):
                     self.progress.configure(mode="determinate", maximum=max(total, 1), value=0)
                     if not self.cancel_scan_event.is_set():
                         self.status_var.set(
-                            f"Dateisuche abgeschlossen: {directories} Ordner, "
-                            f"{total} TB2-/TBL-Datei(en). Suche läuft …")
+                            f"Dateisuche abgeschlossen: {format_number(directories)} Ordner, "
+                            f"{format_number(total)} TB2-/TBL-Datei(en). Suche läuft …")
                 elif event[0] == "progress":
                     _, current, total, filename = event
                     self.progress.configure(value=current)
                     if not self.cancel_scan_event.is_set():
-                        self.status_var.set(f"Datei {current}/{total}: {filename}")
+                        self.status_var.set(f"Datei {format_number(current)}/{format_number(total)}: {filename}")
                 elif event[0] == "finished":
                     if self.exit_after_scan:
                         self.destroy()
@@ -748,18 +753,18 @@ class App(tk.Tk):
                     self.open_button.configure(state="disabled")
                     if cancelled:
                         msg = (f"Abgebrochen ({'Schnell' if mode == 'fast' else 'Vollständig'}): "
-                               f"{processed}/{total} Dateien geprüft, {len(found)} Treffer – {seconds:.2f} s.")
+                               f"{format_number(processed)}/{format_number(total)} Dateien geprüft, {format_number(len(found))} Treffer – {format_number(seconds, 2)} s.")
                     else:
-                        msg = f"Fertig ({'Schnell' if mode == 'fast' else 'Vollständig'}): {len(found)} Treffer in {total} Datei(en) – {seconds:.2f} s."
+                        msg = f"Fertig ({'Schnell' if mode == 'fast' else 'Vollständig'}): {format_number(len(found))} Treffer in {format_number(total)} Datei(en) – {format_number(seconds, 2)} s."
                     if errors:
-                        msg += f" {errors} Datei(en) konnten nicht gelesen werden."
+                        msg += f" {format_number(errors)} Datei(en) konnten nicht gelesen werden."
                     self.summary_var.set(msg)
                     self.status_var.set("Suche abgebrochen." if cancelled else "Suche abgeschlossen.")
                     if not cancelled and not total:
                         self.status_var.set("Keine TB2-/TBL-Dateien gefunden.")
                     if self.access_issues:
                         self.issues_button.configure(
-                            text=f"Zugriffsprobleme ({len(self.access_issues)})")
+                            text=f"Zugriffsprobleme ({format_number(len(self.access_issues))})")
                         self.issues_button.pack(side="left", padx=(8, 0), after=self.search_button)
                 elif event[0] == "worker_error":
                     if self.exit_after_scan:
@@ -852,7 +857,7 @@ class App(tk.Tk):
             return
         self.clipboard_clear()
         self.clipboard_append("\n".join(self.result_paths))
-        self.status_var.set(f"{len(self.result_paths)} Pfad/Pfade in die Zwischenablage kopiert.")
+        self.status_var.set(f"{format_number(len(self.result_paths))} Pfad/Pfade in die Zwischenablage kopiert.")
 
     def save_paths(self):
         if not self.result_paths:
