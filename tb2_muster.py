@@ -236,23 +236,6 @@ def _counter_font_entries(data: bytes):
                         for q in (pos, pos + 98))):
             entries.append((start, "EVA2NEU V1.1", pos, 98, False))
 
-    # Historisches 587-Byte-Raster: laengenpraefigierter Schriftname,
-    # Zeilenlaenge an +285 und Glyphenbeginn an +343.
-    # Zunaechst nur fuer die binaer bestaetigte Schrift EVA2NEU V1.1.
-    for match in re.finditer(rb"\x0cEVA2NEU V1\.1", data):
-        start = match.start() + 1
-        pos = start + 343
-        if pos > len(data):
-            continue
-        count = data[start + 285]
-        if count < 3 or pos + (count - 1) * 587 + 8 > len(data):
-            continue
-        if all(_wide_587_record(data, q)
-               and (32 <= data[q] <= 126 or data[q] >= 128)
-               for q in range(pos, pos + count * 587, 587)):
-            entries = [entry for entry in entries if entry[0] != start]
-            entries.append((start, "EVA2NEU V1.1", pos, 587, True))
-
     # Bei den alten Formaten kommt der Glyphenbeginn je nach Feldlayout
     # nach 98 oder 105 Bytes. Nur durch zwei gueltige Glyphen bestaetigen.
     for start in range(1, len(data)):
@@ -264,6 +247,23 @@ def _counter_font_entries(data: bytes):
         if _LEGACY_TEXT.fullmatch(raw) is None:
             continue
         value = raw.decode("ascii")
+        # Historisches 587-Byte-Raster (z.B. GROTESK1, GROTESK3,
+        # EVA2NEU V1.1): kein Schluss vom Schriftnamen auf den Stride.
+        # Die gespeicherte Zeilenlaenge bei +285 und *alle* Glyphen
+        # muessen die erwartete Struktur bestaetigen.
+        if re.fullmatch(r"[A-Za-z][A-Za-z0-9_. -]{2,40}", value):
+            pos = start + 343
+            if start + 285 < len(data):
+                count = data[start + 285]
+                if (2 <= count <= 255
+                        and pos + (count - 1) * 587 + 10 <= len(data)
+                        and all(_wide_587_record(data, pos + k * 587)
+                                and (32 <= data[pos + k * 587] <= 126
+                                     or data[pos + k * 587] >= 0x80)
+                                for k in range(count))):
+                    entries = [e for e in entries if e[0] != start]
+                    entries.append((start, value, pos, 587, True))
+                    continue
         resource = classify_resource_name(value)
         leaf = re.split(r"[\\/]", value)[-1]
         if "." in leaf and resource is None:
