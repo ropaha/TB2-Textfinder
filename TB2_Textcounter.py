@@ -20,6 +20,11 @@ from tb2_muster import extract_counter_lines
 
 SPACE_CODE = 0xFA
 
+def format_number(value, decimals=0):
+    """German display formatting, independent of the system locale."""
+    return format(value, f",.{decimals}f").translate(str.maketrans(",.", ".,"))
+
+
 def counter_lines(data, mode):
     if mode != "fast":
         return extract_counter_lines(data)
@@ -206,12 +211,12 @@ class App(tk.Tk):
                     self.progress.stop()
                     self.progress.configure(mode="determinate", maximum=max(total, 1), value=0)
                     if not self.stop.is_set():
-                        self.status.set(f"{total} Dateien ermittelt. Zählung läuft …")
+                        self.status.set(f"{format_number(total)} Dateien ermittelt. Zählung läuft …")
                 elif event[0] == "progress":
                     _, current, total = event
                     self.progress.configure(value=current)
                     if not self.stop.is_set():
-                        self.status.set(f"{current} von {total} Dateien analysiert ({100 * current / total:.1f} %)")
+                        self.status.set(f"{format_number(current)} von {format_number(total)} Dateien analysiert ({format_number(100 * current / total, 1)} %)")
                 elif event[0] == "error":
                     self.access_issues.append(event[1])
                 elif event[0] == "done":
@@ -220,13 +225,13 @@ class App(tk.Tk):
                         self.destroy()
                         return
                     elapsed = perf_counter() - self.started_at
-                    duration = f"{elapsed:.2f}".replace(".", ",")
+                    duration = format_number(elapsed, 2)
                     total = sum(counts.values())
                     for font, count in sorted(counts.items(), key=lambda x:x[0].casefold()):
-                        self.tree.insert("", "end", values=(font, count))
-                    self.tree.insert("", "end", values=("GESAMT (erkannte Zeichen)", total))
-                    self.status.set(f"{'Abgebrochen' if cancelled else 'Fertig'}: {files} Dateien | {len(counts)} Schriftarten | {total} Zeichen | Dauer: {duration} s")
-                    self.summary.set(f"{lines} erkannte Zeilen | {uncertain} unsichere Dateien | {errors} Dateifehler | {len(self.access_issues)} Fehlermeldungen. Ergebnis möglicherweise unvollständig.")
+                        self.tree.insert("", "end", values=(font, format_number(count)))
+                    self.tree.insert("", "end", values=("GESAMT (erkannte Zeichen)", format_number(total)))
+                    self.status.set(f"{'Abgebrochen' if cancelled else 'Fertig'}: {format_number(files)} Dateien | {format_number(len(counts))} Schriftarten | {format_number(total)} Zeichen | Dauer: {duration} s")
+                    self.summary.set(f"{format_number(lines)} erkannte Zeilen | {format_number(uncertain)} unsichere Dateien | {format_number(errors)} Dateifehler | {format_number(len(self.access_issues))} Fehlermeldungen. Ergebnis möglicherweise unvollständig.")
                     self.running = False
                     self.progress.stop()
                     self.progress.configure(mode="determinate", value=files)
@@ -328,7 +333,7 @@ class App(tk.Tk):
         dialog.transient(self)
         body = ttk.Frame(dialog, padding=14)
         body.pack(fill="both", expand=True)
-        ttk.Label(body, text=f"{len(self.access_issues)} Zugriffs- und Lesefehler",
+        ttk.Label(body, text=f"{format_number(len(self.access_issues))} Zugriffs- und Lesefehler",
                   font=("TkDefaultFont", 12, "bold")).pack(anchor="w", pady=(0, 10))
         text_frame = ttk.Frame(body)
         text_frame.pack(fill="both", expand=True)
