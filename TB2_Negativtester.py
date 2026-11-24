@@ -84,6 +84,16 @@ def has_known_glyph_pattern(data: bytes, minimum: int = MIN_CHARACTERS) -> bool:
             or has_variable_106_pattern(data, minimum))
 
 
+COUNTER_REVIEW = {"Prüfen", "Unbekanntes Schriftformat", "Unbekannte Struktur"}
+
+def counter_warning_category(warnings):
+    if any("unbekannte struktur" in w.casefold() for w in warnings):
+        return "Unbekannte Struktur"
+    if any(w.startswith("Kein bekanntes Schriftformat gefunden:") for w in warnings):
+        return "Unbekanntes Schriftformat"
+    return "Prüfen"
+
+
 def inspect_counter_file(path: Path, search_mode: str = "full") -> tuple[str, str]:
     """Separate Counter-Diagnose; keine Aussage über garantierte Vollständigkeit."""
     try:
@@ -96,7 +106,7 @@ def inspect_counter_file(path: Path, search_mode: str = "full") -> tuple[str, st
     lines, warnings = counter_lines(data, search_mode)
     count = sum(sum(code != 0xFA for code in glyphs) for _, glyphs in lines)
     if warnings:
-        return "Prüfen", f"{format_number(len(lines))} Zeile(n), {format_number(count)} Zeichen; " + "; ".join(warnings[:3])
+        return counter_warning_category(warnings), f"{format_number(len(lines))} Zeile(n), {format_number(count)} Zeichen; " + "; ".join(warnings[:3])
     if lines:
         return "Erkannt", f"{format_number(len(lines))} Zeile(n), {format_number(count)} Zeichen (Vollständigkeit nicht garantiert)"
     if has_pattern_in_mode(data, search_mode, minimum=2):
@@ -264,7 +274,9 @@ class App(tk.Tk):
         counter = self.mode_var.get() == "Textcounter-Prüfung"
         self.filter_options = (
             {"Alle auffälligen Dateien": None,
-             "Prüfen (Textcounter)": {"Prüfen"},
+             "Prüfen (Textcounter)": COUNTER_REVIEW,
+             "Unbekanntes Schriftformat (Textcounter)": {"Unbekanntes Schriftformat"},
+             "Unbekannte Struktur (Textcounter)": {"Unbekannte Struktur"},
              "Kein Text erkannt": {"Kein Text erkannt"},
              "Lesefehler / Leere Dateien": {"Fehler", "Leer"},
              "Ignoriert": {"Ignoriert"}}
@@ -541,7 +553,7 @@ class App(tk.Tk):
                         errors += 1
                     elif category == "Leer":
                         empty += 1
-                    elif category in ("Fragment", "Prüfen"):
+                    elif category == "Fragment" or category in COUNTER_REVIEW:
                         fragments += 1
                     elif category in ("Vermutlich kein Text", "Kein Text erkannt"):
                         probably_no_text += 1
@@ -641,18 +653,25 @@ class App(tk.Tk):
                   if self.scan_cancelled else f"Fertig: {format_number(total)}")
         duration = f" | Dauer: {format_number(self.scan_elapsed, 2)} s"
         ignored = {"Fragment": 0, "Vermutlich kein Text": 0,
-                   "Prüfen": 0, "Kein Text erkannt": 0,
+                   "Prüfen": 0, "Unbekanntes Schriftformat": 0, "Unbekannte Struktur": 0,
+                   "Kein Text erkannt": 0,
                    "Leer": 0, "Fehler": 0}
         for category, path, _ in self.rows:
             if category in ignored and self.is_ignored(path):
                 ignored[category] += 1
         if self.mode_var.get() == "Textcounter-Prüfung":
+            review_counts = {category: sum(row[0] == category for row in self.rows)
+                             for category in COUNTER_REVIEW}
+            review_ignored = sum(ignored[category] for category in COUNTER_REVIEW)
             self.scan_summary = (
                 f"{prefix} Datei(en) geprüft | {format_number(recognized)} gezählt" + duration + "\n" +
-                f"{format_number(fragments)} prüfen ({format_number(ignored['Prüfen'])} ignoriert) | "
+                f"{format_number(fragments)} prüfen ({format_number(review_ignored)} ignoriert) | "
                 f"{format_number(probably_no_text)} kein Text erkannt "
                 f"({format_number(ignored['Kein Text erkannt'])} ignoriert) | "
-                f"{format_number(empty)} leer | {format_number(errors)} Lesefehler")
+                f"{format_number(empty)} leer | {format_number(errors)} Lesefehler\n" +
+                " | ".join(f"{format_number(review_counts[category])} {category} "
+                           f"({format_number(ignored[category])} ignoriert)"
+                           for category in ("Unbekanntes Schriftformat", "Unbekannte Struktur", "Prüfen")))
             self.status_var.set(self.scan_summary)
             return
         self.scan_summary = (
