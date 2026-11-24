@@ -3,7 +3,15 @@ from __future__ import annotations
 import os
 import queue
 import threading
-from collections import Counter, defaultdict
+from collections import Counter
+import webbrowser
+from tb2_version import APP_VERSION
+from tb2_project_info import PROJECT_URL, MIT_LICENSE
+from tb2_window_position import center_window
+from tb2_changelog import changelog_for_version
+from tb2_app_identity import configure_app_identity, apply_window_icon
+APP_TITLE = 'Signum Textcounter'
+INFO_TEXT = 'Zählt erkannte Schriftzeichen je Schriftart in TB2- und TBL-Dateien. Leerzeichen werden nicht gezählt. Die Erkennung ist noch nicht vollständig. Quelldateien werden ausschließlich binär gelesen.'
 from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog, ttk, messagebox
@@ -12,7 +20,7 @@ from tb2_muster import extract_counter_lines
 SPACE_CODE = 0xFA
 
 def scan(root, recursive, stop, events):
-    counts = defaultdict(Counter)
+    counts = Counter()
     files = lines_total = uncertain = errors = 0
     def walk_error(exc):
         events.put(("error", str(exc)))
@@ -34,7 +42,7 @@ def scan(root, recursive, stop, events):
                     if warnings or not lines:
                         uncertain += 1
                     for font, glyphs in lines:
-                        counts[font].update(c for c in glyphs if c != SPACE_CODE)
+                        counts[font] += sum(c != SPACE_CODE for c in glyphs)
                 except Exception as exc:
                     errors += 1
                     events.put(("error", f"{path}: {exc}"))
@@ -43,91 +51,239 @@ def scan(root, recursive, stop, events):
     finally:
         events.put(("done", dict(counts), files, lines_total, uncertain, errors, stop.is_set()))
 
-def glyph_label(code):
-    if 32 <= code <= 126:
-        return chr(code)
-    return f"0x{code:02X} (Kodierung ungeklärt)"
+class App(tk.Tk):
+    def __init__(self):
+        configure_app_identity("ropaha.SignumTextcounter")
+        super().__init__()
+        apply_window_icon(self)
+        self.title(f"{APP_TITLE} – {APP_VERSION}")
+        center_window(self, 900, 560)
+        self.minsize(720, 480)
+        self.folder = tk.StringVar()
+        self.recursive = tk.BooleanVar(value=True)
+        self.status = tk.StringVar(value="Bereit. Ordner auswählen und Zählung starten.")
+        self.summary = tk.StringVar(value="Noch keine Ergebnisse.")
+        self.events = queue.Queue()
+        self.stop = threading.Event()
+        self.running = False
+        self.access_issues = []
+        self.exit_after_scan = False
+        self.protocol("WM_DELETE_WINDOW", self.request_exit)
+        frame = ttk.Frame(self, padding=14)
+        frame.pack(fill="both", expand=True)
+        ttk.Label(frame, text="Ordner:").grid(row=0, column=0, sticky="w")
+        self.entry = ttk.Entry(frame, textvariable=self.folder)
+        self.entry.grid(row=0, column=1, sticky="ew", padx=10)
+        self.choose_button = ttk.Button(frame, text="Ordner wählen …", command=self.choose)
+        self.choose_button.grid(row=0, column=2)
+        self.check = ttk.Checkbutton(frame, text="Unterordner einbeziehen", variable=self.recursive)
+        self.check.grid(row=1, column=1, sticky="w", pady=(10,2))
+        actions = ttk.Frame(frame)
+        actions.grid(row=2, column=0, columnspan=3, sticky="w", pady=(12,10))
+        self.button = ttk.Button(actions, text="Zählen", command=self.start, state="disabled")
+        self.button.pack(side="left")
+        self.clear_button = ttk.Button(actions, text="Leeren", command=self.clear, state="disabled")
+        self.clear_button.pack(side="left", padx=8)
+        self.issues_button = ttk.Button(actions, text="Zugriffsprobleme", command=self.show_access_issues, state="disabled")
+        self.issues_button.pack(side="left")
+        self.progress = ttk.Progressbar(frame, mode="indeterminate")
+        self.progress.grid(row=3, column=0, columnspan=3, sticky="ew", pady=(0,7))
+        ttk.Label(frame, textvariable=self.status).grid(row=4, column=0, columnspan=3, sticky="w")
+        ttk.Label(frame, textvariable=self.summary, wraplength=680).grid(row=5, column=0, columnspan=3, sticky="w", pady=(4,8))
+        results = ttk.Frame(frame)
+        results.grid(row=6, column=0, columnspan=3, sticky="nsew")
+        results.columnconfigure(0, weight=1)
+        results.rowconfigure(0, weight=1)
+        self.tree = ttk.Treeview(results, columns=("font","count"), show="headings")
+        self.tree.heading("font", text="Schriftart")
+        self.tree.heading("count", text="Zeichenanzahl")
+        self.tree.column("font", width=450, anchor="w")
+        self.tree.column("count", width=150, anchor="e", stretch=False)
+        self.tree.grid(row=0, column=0, sticky="nsew")
+        scrollbar = ttk.Scrollbar(results, orient="vertical", command=self.tree.yview)
+        scrollbar.grid(row=0, column=1, sticky="ns")
+        self.tree.configure(yscrollcommand=scrollbar.set)
+        footer = ttk.Frame(frame)
+        footer.grid(row=7, column=0, columnspan=3, sticky="ew", pady=(10,0))
+        ttk.Button(footer, text="Programm beenden", command=self.request_exit).pack(side="right")
+        ttk.Button(footer, text="Info", command=self.show_info).pack(side="right", padx=(0,8))
+        frame.columnconfigure(1, weight=1)
+        frame.rowconfigure(6, weight=1)
+        self.folder.trace_add("write", self.update_button)
+        self.after(100, self.poll)
 
-def gui():
-    root = tk.Tk()
-    root.title("Signum Textcounter – Bestandsauswertung (RO, experimentell)")
-    root.geometry("900x650")
-    folder = tk.StringVar()
-    recursive = tk.BooleanVar(value=True)
-    status = tk.StringVar(value="Bitte einen separaten Testordner mit Kopien auswählen.")
-    events = queue.Queue()
-    stop = threading.Event()
-    running = False
-    top = ttk.Frame(root, padding=12)
-    top.pack(fill="x")
-    ttk.Entry(top, textvariable=folder).pack(side="left", fill="x", expand=True)
-    def choose():
-        selected = filedialog.askdirectory()
+    def choose(self):
+        selected = filedialog.askdirectory(title="Ordner mit TB2-/TBL-Dateien auswählen")
         if selected:
-            folder.set(selected)
-    choose_button = ttk.Button(top, text="Ordner wählen …", command=choose)
-    choose_button.pack(side="left", padx=8)
-    bar = ttk.Frame(root, padding=(12,0))
-    bar.pack(fill="x")
-    check = ttk.Checkbutton(bar, text="Unterordner einbeziehen", variable=recursive)
-    check.pack(side="left")
-    tree = ttk.Treeview(root, columns=("count",), show="tree headings")
-    tree.heading("#0", text="Schriftart / Zeichen")
-    tree.heading("count", text="Anzahl")
-    tree.column("count", width=120, anchor="e")
-    tree.pack(fill="both", expand=True, padx=12, pady=8)
-    ttk.Label(root, textvariable=status, wraplength=850, padding=12).pack(fill="x")
-    def start():
-        nonlocal running
-        if running:
-            stop.set()
-            status.set("Abbruch angefordert …")
+            self.folder.set(selected)
+
+    def update_button(self, *_):
+        if not self.running:
+            self.button.configure(state="normal" if self.folder.get().strip() else "disabled")
+
+    def clear(self):
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+        self.summary.set("Noch keine Ergebnisse.")
+        self.status.set("Bereit. Ordner auswählen und Zählung starten.")
+        self.access_issues.clear()
+        self.clear_button.configure(state="disabled")
+        self.issues_button.configure(state="disabled")
+
+    def start(self):
+        if self.running:
+            self.stop.set()
+            self.status.set("Abbruch angefordert …")
             return
-        if not folder.get().strip() or not Path(folder.get()).is_dir():
-            messagebox.showwarning("Ordner fehlt", "Bitte einen gültigen Testordner auswählen.")
+        if not self.folder.get().strip() or not Path(self.folder.get()).is_dir():
+            messagebox.showwarning("Ordner fehlt", "Bitte einen gültigen Ordner auswählen.", parent=self)
             return
-        if not messagebox.askyesno("Testversion", "Nur mit isolierten Kopien testen. Ist dies ein separater Testordner?", default="no"):
-            return
-        running = True
-        stop.clear()
-        for item in tree.get_children():
-            tree.delete(item)
-        button.configure(text="Abbrechen")
-        choose_button.configure(state="disabled")
-        check.configure(state="disabled")
-        status.set("Prüfung läuft …")
-        threading.Thread(target=scan, args=(Path(folder.get()), recursive.get(), stop, events), daemon=True).start()
-    button = ttk.Button(bar, text="Zählen", command=start)
-    button.pack(side="left", padx=8)
-    issues = []
-    def poll():
-        nonlocal running
+        self.clear()
+        self.running = True
+        self.stop.clear()
+        self.button.configure(text="Abbrechen")
+        for widget in (self.entry, self.choose_button, self.check):
+            widget.configure(state="disabled")
+        self.status.set("Zählung läuft …")
+        self.progress.start(15)
+        threading.Thread(target=scan, args=(Path(self.folder.get()), self.recursive.get(), self.stop, self.events), daemon=True).start()
+
+    def request_exit(self):
+        if not self.running:
+            self.destroy()
+        elif messagebox.askyesno("Programm beenden", "Zählung abbrechen und Programm beenden?", parent=self):
+            self.exit_after_scan = True
+            self.stop.set()
+
+    def poll(self):
         try:
             while True:
-                event = events.get_nowait()
+                event = self.events.get_nowait()
                 if event[0] == "progress":
-                    status.set(f"{event[1]} Dateien untersucht …")
+                    self.status.set(f"{event[1]} Dateien untersucht …")
                 elif event[0] == "error":
-                    issues.append(event[1])
+                    self.access_issues.append(event[1])
                 elif event[0] == "done":
                     _, counts, files, lines, uncertain, errors, cancelled = event
-                    total = sum(sum(c.values()) for c in counts.values())
-                    tree.insert("", "end", text="GESAMT (erkannte Zeichen)", values=(total,))
-                    for font, chars in sorted(counts.items(), key=lambda x:x[0].casefold()):
-                        node = tree.insert("", "end", text=font, values=(sum(chars.values()),))
-                        for code, count in sorted(chars.items()):
-                            tree.insert(node, "end", text=glyph_label(code), values=(count,))
-                    status.set(f"{'Abgebrochen' if cancelled else 'Fertig'}: {files} Dateien | {len(counts)} Schriftbezeichnungen | {lines} Zeilen | {total} Zeichen ohne Leerzeichen | {uncertain} unsichere Dateien | {errors} Dateifehler | {len(issues)} Fehlermeldungen. Ergebnis möglicherweise unvollständig.")
-                    issues.clear()
-                    running = False
-                    button.configure(text="Zählen")
-                    choose_button.configure(state="normal")
-                    check.configure(state="normal")
+                    if self.exit_after_scan:
+                        self.destroy()
+                        return
+                    total = sum(counts.values())
+                    for font, count in sorted(counts.items(), key=lambda x:x[0].casefold()):
+                        self.tree.insert("", "end", values=(font, count))
+                    self.tree.insert("", "end", values=("GESAMT (erkannte Zeichen)", total))
+                    self.status.set(f"{'Abgebrochen' if cancelled else 'Fertig'}: {files} Dateien | {len(counts)} Schriftarten | {total} Zeichen")
+                    self.summary.set(f"{lines} erkannte Zeilen | {uncertain} unsichere Dateien | {errors} Dateifehler | {len(self.access_issues)} Fehlermeldungen. Ergebnis möglicherweise unvollständig.")
+                    self.running = False
+                    self.progress.stop()
+                    self.progress.configure(value=0)
+                    self.button.configure(text="Zählen")
+                    self.clear_button.configure(state="normal")
+                    self.issues_button.configure(state="normal" if self.access_issues else "disabled")
+                    for widget in (self.entry, self.choose_button, self.check):
+                        widget.configure(state="normal")
+                    self.update_button()
         except queue.Empty:
             pass
-        root.after(100, poll)
-    root.after(100, poll)
-    root.mainloop()
+        self.after(100, self.poll)
+
+    def show_info(self):
+        """Show application details and the former footer help text."""
+        dialog = tk.Toplevel(self)
+        dialog.title("Info – Signum Textcounter")
+        center_window(dialog, 650, 380, parent=self)
+        dialog.minsize(480, 300)
+        dialog.transient(self)
+        body = ttk.Frame(dialog, padding=18)
+        body.pack(fill="both", expand=True)
+        ttk.Label(body, text=f"{APP_TITLE} – Version {APP_VERSION}",
+                  font=("TkDefaultFont", 13, "bold")).pack(anchor="w", pady=(0, 12))
+        help_frame = ttk.Frame(body)
+        help_frame.pack(fill="both", expand=True)
+        help_text = tk.Text(help_frame, wrap="word", height=9, relief="flat",
+                            font=("TkDefaultFont", 10),
+                            background=dialog.cget("background"), padx=2, pady=2)
+        help_text.insert("1.0", INFO_TEXT)
+        help_text.configure(state="disabled")
+        help_text.pack(side="left", fill="both", expand=True)
+        scrollbar = ttk.Scrollbar(help_frame, orient="vertical", command=help_text.yview)
+        scrollbar.pack(side="right", fill="y")
+        help_text.configure(yscrollcommand=scrollbar.set)
+        buttons = ttk.Frame(body)
+        buttons.pack(fill="x", pady=(14, 0))
+        ttk.Button(buttons, text="Was ist neu?",
+                   command=lambda: self.show_changelog(dialog)).pack(side="left")
+        ttk.Button(buttons, text="GitHub",
+                   command=lambda: webbrowser.open(PROJECT_URL)).pack(side="left", padx=(8, 0))
+        ttk.Button(buttons, text="MIT-Lizenz",
+                   command=lambda: self.show_license(dialog)).pack(side="left", padx=(8, 0))
+        ttk.Button(buttons, text="Schließen", command=dialog.destroy).pack(side="right")
+
+    def show_changelog(self, parent):
+        """Display the bundled version history, including this installed version."""
+        dialog = tk.Toplevel(parent)
+        dialog.title(f"Was ist neu? – Signum Textcounter {APP_VERSION}")
+        center_window(dialog, 720, 500, parent=parent)
+        dialog.minsize(450, 320)
+        dialog.transient(parent)
+        body = ttk.Frame(dialog, padding=14)
+        body.pack(fill="both", expand=True)
+        ttk.Label(body, text=f"Versionsverlauf bis {APP_VERSION}",
+                  font=("TkDefaultFont", 12, "bold")).pack(anchor="w", pady=(0, 10))
+        text_frame = ttk.Frame(body)
+        text_frame.pack(fill="both", expand=True)
+        history = tk.Text(text_frame, wrap="word", font=("TkDefaultFont", 10), padx=8, pady=8)
+        history.insert("1.0", changelog_for_version(APP_VERSION))
+        history.configure(state="disabled")
+        history.pack(side="left", fill="both", expand=True)
+        scrollbar = ttk.Scrollbar(text_frame, orient="vertical", command=history.yview)
+        scrollbar.pack(side="right", fill="y")
+        history.configure(yscrollcommand=scrollbar.set)
+        ttk.Button(body, text="Schließen", command=dialog.destroy).pack(anchor="e", pady=(10, 0))
+
+    def show_license(self, parent):
+        """Display the complete license bundled with this program."""
+        dialog = tk.Toplevel(parent)
+        dialog.title("MIT-Lizenz – Signum Textcounter")
+        center_window(dialog, 720, 450, parent=parent)
+        dialog.minsize(450, 300)
+        dialog.transient(parent)
+        body = ttk.Frame(dialog, padding=14)
+        body.pack(fill="both", expand=True)
+        text_frame = ttk.Frame(body)
+        text_frame.pack(fill="both", expand=True)
+        license_text = tk.Text(text_frame, wrap="word", font=("TkDefaultFont", 10))
+        license_text.insert("1.0", MIT_LICENSE)
+        license_text.configure(state="disabled")
+        license_text.pack(side="left", fill="both", expand=True)
+        scrollbar = ttk.Scrollbar(text_frame, orient="vertical", command=license_text.yview)
+        scrollbar.pack(side="right", fill="y")
+        license_text.configure(yscrollcommand=scrollbar.set)
+        ttk.Button(body, text="Schließen", command=dialog.destroy).pack(anchor="e", pady=(10, 0))
+
+    def show_access_issues(self):
+        if not self.access_issues:
+            return
+        dialog = tk.Toplevel(self)
+        dialog.title("Zugriffsprobleme – Signum Textcounter")
+        center_window(dialog, 780, 500, parent=self)
+        dialog.minsize(480, 300)
+        dialog.transient(self)
+        body = ttk.Frame(dialog, padding=14)
+        body.pack(fill="both", expand=True)
+        ttk.Label(body, text=f"{len(self.access_issues)} Zugriffs- und Lesefehler",
+                  font=("TkDefaultFont", 12, "bold")).pack(anchor="w", pady=(0, 10))
+        text_frame = ttk.Frame(body)
+        text_frame.pack(fill="both", expand=True)
+        details = tk.Text(text_frame, wrap="word", font=("TkDefaultFont", 10), padx=8, pady=8)
+        details.insert("1.0", "\n\n".join(self.access_issues))
+        details.configure(state="disabled")
+        details.pack(side="left", fill="both", expand=True)
+        scrollbar = ttk.Scrollbar(text_frame, orient="vertical", command=details.yview)
+        scrollbar.pack(side="right", fill="y")
+        details.configure(yscrollcommand=scrollbar.set)
+        ttk.Button(body, text="Schließen", command=dialog.destroy).pack(anchor="e", pady=(10, 0))
+
 
 if __name__ == "__main__":
-    gui()
+    App().mainloop()
