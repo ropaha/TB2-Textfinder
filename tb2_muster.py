@@ -219,6 +219,21 @@ def _grotesk1_number_glyph(data, q):
             and data[q + 7:q + 10] == b"\x81\x00\x00")
 
 
+def _single_glyph(raw, data, pos):
+    if pos + 10 > len(data) or data[pos + 7:pos + 10] != b"\x81\x00\x00":
+        return False
+    char, marker = data[pos:pos + 2]
+    if raw == b"GROTESK1":
+        return 65 <= char <= 90 and (marker == 0x7D or data[pos + 1:pos + 10] == bytes.fromhex("810000000020810000"))
+    if raw == b"BERENTZ1":
+        return 48 <= char <= 57 and data[pos + 1:pos + 10] == bytes.fromhex("830000000020810000")
+    if raw == b"Signum Standard\\ANTIQUA1":
+        return char == 46 and marker in (0x80, 0x81)
+    if raw == b"Signum Standard\\EVA12":
+        return 65 <= char <= 90 and marker == 0x7F
+    return False
+
+
 def _counter_font_entries(data: bytes):
     """(Position, Schrift, erster Glyphenoffset, Abstand, Altformat).
 
@@ -261,14 +276,12 @@ def _counter_font_entries(data: bytes):
         if _LEGACY_TEXT.fullmatch(raw) is None:
             continue
         value = raw.decode("ascii")
-        if raw == b"GROTESK1":
-            pos = start + 343
-            if (pos + 10 <= len(data) and data[start + 285] == 1
-                    and 65 <= data[pos] <= 90
-                    and data[pos + 1:pos + 10] == bytes.fromhex("810000000020810000")
-                    and not any(e[0] == start for e in entries)):
-                entries.append((start, "GROTESK1", pos, 98, "grotesk1_single"))
-                continue
+        pos = start + 343
+        if (pos + 10 <= len(data) and data[start + 285] == 1
+                and _single_glyph(raw, data, pos)
+                and not any(e[0] == start for e in entries)):
+            entries.append((start, value.rsplit("\\", 1)[-1], pos, 98, "grotesk1_single"))
+            continue
         if raw == b"GROTESK1":
             pos = start + 343
             if (pos + 206 <= len(data) and data[start + 285] == 3
@@ -457,8 +470,7 @@ def extract_counter_lines(data: bytes):
         limit = data[start + 285] if stride == 587 or legacy in ('eva2p12', 'grotesk1_number', 'grotesk1_single') else 10000
         while pos + 10 <= len(data) and pos < boundary and len(glyphs) < limit:
             if legacy == 'grotesk1_single':
-                valid = (65 <= data[pos] <= 90
-                         and data[pos + 1:pos + 10] == bytes.fromhex("810000000020810000"))
+                valid = _single_glyph(data[start:start + data[start - 1]], data, pos)
             elif legacy == 'grotesk1_number':
                 valid = _grotesk1_number_glyph(data, pos)
             elif legacy == 'eva2p12':
