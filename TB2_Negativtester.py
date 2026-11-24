@@ -6,6 +6,7 @@ from __future__ import annotations
 import os
 import queue
 import threading
+from time import perf_counter
 import zipfile
 import re
 import webbrowser
@@ -444,6 +445,7 @@ class App(tk.Tk):
         if self.scanning:
             return
         self.cancel_scan_event.clear()
+        self.scan_started_at = perf_counter()
         self.scanning = True
         self._set_inputs_locked(True)
         self.rows = []
@@ -544,7 +546,8 @@ class App(tk.Tk):
                 self.events.put(("progress", index, len(files), path.name))
             self.events.put(("finished", flagged, processed, len(files), recognized,
                              fragments, probably_no_text, empty, errors,
-                             self.cancel_scan_event.is_set(), ignored, skipped, checked_dirs))
+                             self.cancel_scan_event.is_set(), ignored, skipped, checked_dirs,
+                             perf_counter() - self.scan_started_at))
         except Exception as exc:
             self.events.put(("worker_error", str(exc)))
 
@@ -577,7 +580,9 @@ class App(tk.Tk):
                         return
                     (_, flagged, processed, total, recognized, fragments,
                      probably_no_text, empty, errors, cancelled,
-                     ignored, skipped, checked_dirs) = event
+                     ignored, skipped, checked_dirs, self.scan_elapsed) = event
+                    self.scan_cancelled = cancelled
+                    self.scan_discovered = total
                     self.progress.stop()
                     self.ignored_paths = ignored
                     self.rows = flagged
@@ -588,13 +593,10 @@ class App(tk.Tk):
                     self.scan_totals = (processed, recognized, fragments,
                                         probably_no_text, empty, errors)
                     self._refresh_scan_summary()
-                    if cancelled:
-                        self.status_var.set(
-                            f"Abgebrochen: {format_number(processed)}/{format_number(total)} gefundene Datei(en) geprüft | "
-                            + self.scan_summary.removeprefix("Fertig: "))
-                    elif not total:
-                        self.status_var.set(
-                            f"Keine TB2-/TBL-Dateien gefunden ({format_number(checked_dirs)} Ordner durchsucht).")
+                    if not cancelled and not total:
+                        self.scan_summary = (f"Keine TB2-/TBL-Dateien gefunden ({format_number(checked_dirs)} Ordner durchsucht)."
+                                             f" | Dauer: {format_number(self.scan_elapsed, 2)} s")
+                        self.status_var.set(self.scan_summary)
                     self.access_issues = skipped
                     if skipped:
                         self.issues_button.configure(
@@ -633,6 +635,9 @@ class App(tk.Tk):
         if self.scan_totals is None:
             return
         total, recognized, fragments, probably_no_text, empty, errors = self.scan_totals
+        prefix = (f"Abgebrochen: {format_number(total)}/{format_number(self.scan_discovered)}"
+                  if self.scan_cancelled else f"Fertig: {format_number(total)}")
+        duration = f" | Dauer: {format_number(self.scan_elapsed, 2)} s"
         ignored = {"Fragment": 0, "Vermutlich kein Text": 0,
                    "Prüfen": 0, "Kein Text erkannt": 0,
                    "Leer": 0, "Fehler": 0}
@@ -641,20 +646,20 @@ class App(tk.Tk):
                 ignored[category] += 1
         if self.mode_var.get() == "Textcounter-Prüfung":
             self.scan_summary = (
-                f"Fertig: {format_number(total)} Datei(en) geprüft | {format_number(recognized)} gezählt | "
+                f"{prefix} Datei(en) geprüft | {format_number(recognized)} gezählt | "
                 f"{format_number(fragments)} prüfen ({format_number(ignored['Prüfen'])} ignoriert) | "
                 f"{format_number(probably_no_text)} kein Text erkannt "
                 f"({format_number(ignored['Kein Text erkannt'])} ignoriert) | "
-                f"{format_number(empty)} leer | {format_number(errors)} Lesefehler.")
+                f"{format_number(empty)} leer | {format_number(errors)} Lesefehler" + duration)
             self.status_var.set(self.scan_summary)
             return
         self.scan_summary = (
-            f"Fertig: {format_number(total)} Datei(en) geprüft | {format_number(recognized)} erkannt | "
+            f"{prefix} Datei(en) geprüft | {format_number(recognized)} erkannt | "
             f"{format_number(fragments)} Fragmente ({format_number(ignored['Fragment'])} ignoriert) | "
             f"{format_number(probably_no_text)} vermutlich ohne Text "
             f"({format_number(ignored['Vermutlich kein Text'])} ignoriert) | "
             f"{format_number(empty)} leer ({format_number(ignored['Leer'])} ignoriert) | "
-            f"{format_number(errors)} Lesefehler ({format_number(ignored['Fehler'])} ignoriert).")
+            f"{format_number(errors)} Lesefehler ({format_number(ignored['Fehler'])} ignoriert)" + duration)
         self.status_var.set(self.scan_summary)
 
     @staticmethod
