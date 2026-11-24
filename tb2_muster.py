@@ -325,7 +325,38 @@ def _counter_font_entries(data: bytes):
         if signature not in seen:
             seen.add(signature)
             unique.append(entry)
-    return unique
+    # Embedded header strings can align with later glyphs of a real line.
+    # Suppress only zero-count candidates aligned within a fully validated
+    # 80/98-byte line with the same header layout.
+    filtered = []
+    for entry in unique:
+        start, font, pos, stride, legacy = entry
+        if (stride in (80, 98) and pos == start + 343
+                and data[start + 285] == 0):
+            overlap = False
+            for s, f, p, t, l in reversed(filtered):
+                if t != stride or l != legacy or p != s + 343:
+                    continue
+                count = data[s + 285]
+                delta = start - s
+                if not (2 <= count <= 255 and 0 < delta < count * t
+                        and delta % t == 0 and p + (count - 1) * t + 10 <= len(data)):
+                    continue
+                def valid(q):
+                    if not (32 <= data[q] <= 126 or data[q] >= 128):
+                        return False
+                    if l:
+                        return ((data[q + 1] in (0x80, 0x81, 0x82) and data[q + 7] in (0x80, 0x81))
+                                or (data[q + 1] in (0x7E, 0x7F) and data[q + 7] == 0x81))
+                    return (data[q + 1] in (0x7D, 0x7F, 0x80, 0x81, 0x82)
+                            and data[q + 7:q + 10] == b"\x81\x00\x00")
+                if all(valid(p + k * t) for k in range(count)):
+                    overlap = True
+                    break
+            if overlap:
+                continue
+        filtered.append(entry)
+    return filtered
 
 
 def extract_counter_lines(data: bytes):
