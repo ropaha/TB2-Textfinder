@@ -212,7 +212,9 @@ class App(tk.Tk):
         self.status_var = tk.StringVar(value="Bereit. Ordner auswählen und Prüfung starten.")
         status_frame = ttk.Frame(frame)
         status_frame.grid(row=5, column=0, columnspan=3, sticky="ew", pady=(0, 8))
-        ttk.Label(status_frame, textvariable=self.status_var).pack(side="left")
+        status_label = ttk.Label(status_frame, textvariable=self.status_var, justify="left", anchor="w")
+        status_label.pack(fill="x", expand=True)
+        status_frame.bind("<Configure>", lambda event: status_label.configure(wraplength=max(100, event.width - 8)))
 
         filters = ttk.Frame(frame)
         filters.grid(row=6, column=0, columnspan=3, sticky="ew", pady=(3, 7))
@@ -646,20 +648,20 @@ class App(tk.Tk):
                 ignored[category] += 1
         if self.mode_var.get() == "Textcounter-Prüfung":
             self.scan_summary = (
-                f"{prefix} Datei(en) geprüft | {format_number(recognized)} gezählt | "
+                f"{prefix} Datei(en) geprüft | {format_number(recognized)} gezählt" + duration + "\n" +
                 f"{format_number(fragments)} prüfen ({format_number(ignored['Prüfen'])} ignoriert) | "
                 f"{format_number(probably_no_text)} kein Text erkannt "
                 f"({format_number(ignored['Kein Text erkannt'])} ignoriert) | "
-                f"{format_number(empty)} leer | {format_number(errors)} Lesefehler" + duration)
+                f"{format_number(empty)} leer | {format_number(errors)} Lesefehler")
             self.status_var.set(self.scan_summary)
             return
         self.scan_summary = (
-            f"{prefix} Datei(en) geprüft | {format_number(recognized)} erkannt | "
+            f"{prefix} Datei(en) geprüft | {format_number(recognized)} erkannt" + duration + "\n" +
             f"{format_number(fragments)} Fragmente ({format_number(ignored['Fragment'])} ignoriert) | "
             f"{format_number(probably_no_text)} vermutlich ohne Text "
             f"({format_number(ignored['Vermutlich kein Text'])} ignoriert) | "
             f"{format_number(empty)} leer ({format_number(ignored['Leer'])} ignoriert) | "
-            f"{format_number(errors)} Lesefehler ({format_number(ignored['Fehler'])} ignoriert)" + duration)
+            f"{format_number(errors)} Lesefehler ({format_number(ignored['Fehler'])} ignoriert)")
         self.status_var.set(self.scan_summary)
 
     @staticmethod
