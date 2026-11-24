@@ -50,7 +50,7 @@ def scan(root, recursive, stop, events):
                 if warnings or not lines:
                     uncertain += 1
                 for font, glyphs in lines:
-                    counts[font] += sum(c != SPACE_CODE for c in glyphs)
+                    counts[font.upper()] += sum(c != SPACE_CODE for c in glyphs)
             except Exception as exc:
                 errors += 1
                 events.put(("error", f"{path}: {exc}"))
