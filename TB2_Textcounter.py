@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import queue
 import threading
+from time import perf_counter
 from collections import Counter
 import webbrowser
 from tb2_version import APP_VERSION
@@ -178,6 +179,7 @@ class App(tk.Tk):
             messagebox.showwarning("Ordner fehlt", "Bitte einen gültigen Ordner auswählen.", parent=self)
             return
         self.clear()
+        self.started_at = perf_counter()
         self.running = True
         self.stop.clear()
         self.button.configure(text="Abbrechen")
@@ -217,11 +219,13 @@ class App(tk.Tk):
                     if self.exit_after_scan:
                         self.destroy()
                         return
+                    elapsed = perf_counter() - self.started_at
+                    duration = f"{elapsed:.2f}".replace(".", ",")
                     total = sum(counts.values())
                     for font, count in sorted(counts.items(), key=lambda x:x[0].casefold()):
                         self.tree.insert("", "end", values=(font, count))
                     self.tree.insert("", "end", values=("GESAMT (erkannte Zeichen)", total))
-                    self.status.set(f"{'Abgebrochen' if cancelled else 'Fertig'}: {files} Dateien | {len(counts)} Schriftarten | {total} Zeichen")
+                    self.status.set(f"{'Abgebrochen' if cancelled else 'Fertig'}: {files} Dateien | {len(counts)} Schriftarten | {total} Zeichen | Dauer: {duration} s")
                     self.summary.set(f"{lines} erkannte Zeilen | {uncertain} unsichere Dateien | {errors} Dateifehler | {len(self.access_issues)} Fehlermeldungen. Ergebnis möglicherweise unvollständig.")
                     self.running = False
                     self.progress.stop()
