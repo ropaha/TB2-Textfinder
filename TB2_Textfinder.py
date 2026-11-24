@@ -354,10 +354,12 @@ class App(tk.Tk):
 
         ttk.Label(frame, text="Ordner:").grid(row=1, column=0, sticky="w", pady=(12, 0))
         self.folder_var = tk.StringVar()
-        ttk.Entry(frame, textvariable=self.folder_var).grid(
+        self.folder_entry = ttk.Entry(frame, textvariable=self.folder_var)
+        self.folder_entry.grid(
             row=1, column=1, sticky="ew", padx=(10, 10), pady=(12, 0)
         )
-        ttk.Button(frame, text="Ordner wählen …", command=self.choose_folder).grid(
+        self.folder_button = ttk.Button(frame, text="Ordner wählen …", command=self.choose_folder)
+        self.folder_button.grid(
             row=1, column=2, pady=(12, 0)
         )
 
@@ -367,17 +369,22 @@ class App(tk.Tk):
         self.case_var = tk.BooleanVar(value=False)
         self.whole_word_var = tk.BooleanVar(value=True)
         self.search_mode_var = tk.StringVar(value="fast")
-        ttk.Checkbutton(options, text="Unterordner einbeziehen", variable=self.recursive_var).pack(side="left", padx=(0, 20))
-        ttk.Checkbutton(options, text="Nur ganze Wörter", variable=self.whole_word_var).pack(side="left", padx=(0, 20))
-        ttk.Checkbutton(options, text="Groß-/Kleinschreibung beachten", variable=self.case_var).pack(side="left")
+        self.recursive_check = ttk.Checkbutton(options, text="Unterordner einbeziehen", variable=self.recursive_var)
+        self.recursive_check.pack(side="left", padx=(0, 20))
+        self.whole_check = ttk.Checkbutton(options, text="Nur ganze Wörter", variable=self.whole_word_var)
+        self.whole_check.pack(side="left", padx=(0, 20))
+        self.case_check = ttk.Checkbutton(options, text="Groß-/Kleinschreibung beachten", variable=self.case_var)
+        self.case_check.pack(side="left")
 
         mode_options = ttk.Frame(frame)
         mode_options.grid(row=3, column=1, columnspan=2, sticky="w", pady=(4, 2))
         ttk.Label(mode_options, text="Suchmodus:").pack(side="left", padx=(0, 10))
-        ttk.Radiobutton(mode_options, text="Schnell (JPEG überspringen)",
-                        variable=self.search_mode_var, value="fast").pack(side="left", padx=(0, 14))
-        ttk.Radiobutton(mode_options, text="Vollständig (alle Bytes)", variable=self.search_mode_var,
-                        value="full").pack(side="left")
+        self.fast_radio = ttk.Radiobutton(mode_options, text="Schnell (JPEG überspringen)",
+                        variable=self.search_mode_var, value="fast")
+        self.fast_radio.pack(side="left", padx=(0, 14))
+        self.full_radio = ttk.Radiobutton(mode_options, text="Vollständig (alle Bytes)", variable=self.search_mode_var,
+                        value="full")
+        self.full_radio.pack(side="left")
 
         actions = ttk.Frame(frame)
         actions.grid(row=4, column=0, columnspan=3, sticky="w", pady=(12, 10))
@@ -568,6 +575,10 @@ class App(tk.Tk):
             return
         self.start_scan()
 
+    def _set_inputs_locked(self, locked):
+        for widget in (self.term_entry, self.folder_entry, self.folder_button, self.recursive_check, self.whole_check, self.case_check, self.fast_radio, self.full_radio):
+            widget.configure(state="disabled" if locked else "normal")
+
     def start_scan(self):
         folder_text = self.folder_var.get().strip()
         term = self.term_var.get().strip()
@@ -581,6 +592,7 @@ class App(tk.Tk):
             return
         self.cancel_scan_event.clear()
         self.scanning = True
+        self._set_inputs_locked(True)
         self.result_paths = []
         self.access_issues = []
         self.issues_button.pack_forget()
@@ -726,6 +738,7 @@ class App(tk.Tk):
                         self.tree.insert("", "end", values=(path,))
                     self._fit_path_column(found)
                     self.scanning = False
+                    self._set_inputs_locked(False)
                     self._update_search_button()
                     self.clear_button.configure(state="normal" if found else "disabled")
                     state = "normal" if found else "disabled"
@@ -754,6 +767,7 @@ class App(tk.Tk):
                         return
                     self.progress.stop()
                     self.scanning = False
+                    self._set_inputs_locked(False)
                     self._update_search_button()
                     self.status_var.set("Suche fehlgeschlagen.")
                     messagebox.showerror("Suche fehlgeschlagen", event[1])
