@@ -146,8 +146,10 @@ class App(tk.Tk):
         frame.pack(fill="both", expand=True)
         ttk.Label(frame, text="Zu prüfender Ordner:").grid(row=0, column=0, sticky="w")
         self.folder_var = tk.StringVar()
-        ttk.Entry(frame, textvariable=self.folder_var).grid(row=0, column=1, sticky="ew", padx=10)
-        ttk.Button(frame, text="Ordner wählen …", command=self.choose_folder).grid(row=0, column=2)
+        self.folder_entry = ttk.Entry(frame, textvariable=self.folder_var)
+        self.folder_entry.grid(row=0, column=1, sticky="ew", padx=10)
+        self.folder_button = ttk.Button(frame, text="Ordner wählen …", command=self.choose_folder)
+        self.folder_button.grid(row=0, column=2)
         self.mode_var = tk.StringVar(value="Textfinder-Prüfung")
         ttk.Label(frame, text="Prüfmodus:").grid(row=1, column=0, sticky="w")
         self.mode_box = ttk.Combobox(frame, textvariable=self.mode_var,
@@ -155,7 +157,8 @@ class App(tk.Tk):
                                      values=("Textfinder-Prüfung", "Textcounter-Prüfung"))
         self.mode_box.grid(row=1, column=1, sticky="w", padx=10)
         self.recursive_var = tk.BooleanVar(value=True)
-        ttk.Checkbutton(frame, text="Unterordner einbeziehen", variable=self.recursive_var).grid(
+        self.recursive_check = ttk.Checkbutton(frame, text="Unterordner einbeziehen", variable=self.recursive_var)
+        self.recursive_check.grid(
             row=1, column=2, sticky="w", pady=(9, 2))
         actions = ttk.Frame(frame)
         actions.grid(row=2, column=0, columnspan=3, sticky="w", pady=(12, 10))
@@ -400,6 +403,12 @@ class App(tk.Tk):
             return
         self.start_scan()
 
+    def _set_inputs_locked(self, locked):
+        for widget in (self.folder_entry, self.folder_button, self.recursive_check):
+            widget.configure(state="disabled" if locked else "normal")
+        for widget in (self.mode_box, self.filter_box):
+            widget.configure(state="disabled" if locked else "readonly")
+
     def start_scan(self):
         folder_text = self.folder_var.get().strip()
         if not folder_text or not Path(folder_text).is_dir():
@@ -409,7 +418,7 @@ class App(tk.Tk):
             return
         self.cancel_scan_event.clear()
         self.scanning = True
-        self.mode_box.configure(state="disabled")
+        self._set_inputs_locked(True)
         self.rows = []
         self.ignored_paths = set()
         self.scan_summary = ""
@@ -545,7 +554,7 @@ class App(tk.Tk):
                     self.ignored_paths = ignored
                     self.rows = flagged
                     self.scanning = False
-                    self.mode_box.configure(state="readonly")
+                    self._set_inputs_locked(False)
                     self.apply_filter()
                     self._update_scan_button()
                     self.scan_totals = (processed, recognized, fragments,
@@ -569,7 +578,7 @@ class App(tk.Tk):
                 elif event[0] == "export_done":
                     _, result, error = event
                     self.exporting = False
-                    self.mode_box.configure(state="readonly")
+                    self._set_inputs_locked(False)
                     self._update_scan_button()
                     self.apply_filter()
                     if error:
@@ -583,7 +592,7 @@ class App(tk.Tk):
                         return
                     self.progress.stop()
                     self.scanning = False
-                    self.mode_box.configure(state="readonly")
+                    self._set_inputs_locked(False)
                     self.apply_filter()
                     self._update_scan_button()
                     messagebox.showerror("Prüfung fehlgeschlagen", event[1])
@@ -840,7 +849,7 @@ class App(tk.Tk):
         rows = list(self.rows)
         root = Path(self.folder_var.get()).resolve()
         self.exporting = True
-        self.mode_box.configure(state="disabled")
+        self._set_inputs_locked(True)
         self._update_scan_button()
         self.apply_filter()
         self.status_var.set("TXT und Diagnose-ZIP werden erstellt …")
