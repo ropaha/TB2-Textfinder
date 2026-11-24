@@ -229,7 +229,7 @@ class App(tk.Tk):
         filters = ttk.Frame(frame)
         filters.grid(row=6, column=0, columnspan=3, sticky="ew", pady=(3, 7))
         ttk.Label(filters, text="Trefferliste filtern:").pack(side="left", padx=(0, 9))
-        self.filter_box = ttk.Combobox(filters, textvariable=self.filter_var, state="readonly",
+        self.filter_box = ttk.Combobox(filters, textvariable=self.filter_var, state="disabled",
                                        values=list(self.filter_options), width=42)
         self.filter_box.pack(side="left")
         self.mode_var.trace_add("write", self._on_mode_change)
@@ -448,8 +448,8 @@ class App(tk.Tk):
     def _set_inputs_locked(self, locked):
         for widget in (self.folder_entry, self.folder_button, self.recursive_check, self.fast_radio, self.full_radio):
             widget.configure(state="disabled" if locked else "normal")
-        for widget in (self.mode_box, self.filter_box):
-            widget.configure(state="disabled" if locked else "readonly")
+        self.mode_box.configure(state="disabled" if locked else "readonly")
+        self.filter_box.configure(state="disabled" if locked or not self.rows else "readonly")
 
     def start_scan(self):
         folder_text = self.folder_var.get().strip()
@@ -704,6 +704,7 @@ class App(tk.Tk):
             return
         for item in self.tree.get_children():
             self.tree.delete(item)
+        self.filter_box.configure(state="readonly" if self.rows and not self.scanning and not self.exporting else "disabled")
         visible = self.filtered_rows()
         for category, path, detail in visible:
             ignored = self.is_ignored(path)
