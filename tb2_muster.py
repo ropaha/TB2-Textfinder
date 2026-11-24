@@ -253,7 +253,7 @@ def _counter_font_entries(data: bytes):
             entries = [entry for entry in entries if entry[0] != start]
             entries.append((start, "EVA2NEU V1.1", pos, 587, True))
 
- je nach Feldlayout
+    # Bei den alten Formaten kommt der Glyphenbeginn je nach Feldlayout
     # nach 98 oder 105 Bytes. Nur durch zwei gueltige Glyphen bestaetigen.
     for start in range(1, len(data)):
         length = data[start - 1]
