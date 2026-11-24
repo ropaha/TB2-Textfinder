@@ -22,32 +22,43 @@ SPACE_CODE = 0xFA
 def scan(root, recursive, stop, events):
     counts = Counter()
     files = lines_total = uncertain = errors = 0
+    paths = []
     def walk_error(exc):
         events.put(("error", str(exc)))
     try:
         for base, dirs, names in os.walk(root, followlinks=False, onerror=walk_error):
+            if stop.is_set():
+                return
             dirs[:] = [d for d in dirs if recursive and not os.path.islink(os.path.join(base,d))
                        and not getattr(os.path, "isjunction", lambda p: False)(os.path.join(base,d))]
             for name in names:
                 if stop.is_set():
                     return
                 path = Path(base) / name
-                if path.suffix.lower() not in (".tb2", ".tbl") or path.is_symlink():
-                    continue
-                files += 1
-                try:
-                    with path.open("rb") as source:
-                        lines, warnings = extract_counter_lines(source.read())
-                    lines_total += len(lines)
-                    if warnings or not lines:
-                        uncertain += 1
-                    for font, glyphs in lines:
-                        counts[font] += sum(c != SPACE_CODE for c in glyphs)
-                except Exception as exc:
-                    errors += 1
-                    events.put(("error", f"{path}: {exc}"))
-                if files % 10 == 0:
-                    events.put(("progress", files))
+                if path.suffix.lower() in (".tb2", ".tbl") and not path.is_symlink():
+                    paths.append(path)
+        total = len(paths)
+        events.put(("discovered", total))
+        for path in paths:
+            if stop.is_set():
+                return
+            files += 1
+            try:
+                with path.open("rb") as source:
+                    lines, warnings = extract_counter_lines(source.read())
+                lines_total += len(lines)
+                if warnings or not lines:
+                    uncertain += 1
+                for font, glyphs in lines:
+                    counts[font] += sum(c != SPACE_CODE for c in glyphs)
+            except Exception as exc:
+                errors += 1
+                events.put(("error", f"{path}: {exc}"))
+            if files == 1 or files % 10 == 0 or files == total:
+                events.put(("progress", files, total))
+    except Exception as exc:
+        errors += 1
+        events.put(("error", str(exc)))
     finally:
         events.put(("done", dict(counts), files, lines_total, uncertain, errors, stop.is_set()))
 
@@ -86,7 +97,7 @@ class App(tk.Tk):
         self.clear_button.pack(side="left", padx=8)
         self.issues_button = ttk.Button(actions, text="Zugriffsprobleme", command=self.show_access_issues, state="disabled")
         self.issues_button.pack(side="left")
-        self.progress = ttk.Progressbar(frame, mode="indeterminate")
+        self.progress = ttk.Progressbar(frame, mode="determinate")
         self.progress.grid(row=3, column=0, columnspan=3, sticky="ew", pady=(0,7))
         ttk.Label(frame, textvariable=self.status).grid(row=4, column=0, columnspan=3, sticky="w")
         ttk.Label(frame, textvariable=self.summary, wraplength=680).grid(row=5, column=0, columnspan=3, sticky="w", pady=(4,8))
@@ -124,6 +135,7 @@ class App(tk.Tk):
     def clear(self):
         for item in self.tree.get_children():
             self.tree.delete(item)
+        self.progress.configure(mode="determinate", value=0)
         self.summary.set("Noch keine Ergebnisse.")
         self.status.set("Bereit. Ordner auswählen und Zählung starten.")
         self.access_issues.clear()
@@ -144,8 +156,9 @@ class App(tk.Tk):
         self.button.configure(text="Abbrechen")
         for widget in (self.entry, self.choose_button, self.check):
             widget.configure(state="disabled")
-        self.status.set("Zählung läuft …")
-        self.progress.start(15)
+        self.status.set("Dateien werden ermittelt …")
+        self.progress.configure(mode="indeterminate", value=0)
+        self.progress.start(12)
         threading.Thread(target=scan, args=(Path(self.folder.get()), self.recursive.get(), self.stop, self.events), daemon=True).start()
 
     def request_exit(self):
@@ -159,8 +172,17 @@ class App(tk.Tk):
         try:
             while True:
                 event = self.events.get_nowait()
-                if event[0] == "progress":
-                    self.status.set(f"{event[1]} Dateien untersucht …")
+                if event[0] == "discovered":
+                    total = event[1]
+                    self.progress.stop()
+                    self.progress.configure(mode="determinate", maximum=max(total, 1), value=0)
+                    if not self.stop.is_set():
+                        self.status.set(f"{total} Dateien ermittelt. Zählung läuft …")
+                elif event[0] == "progress":
+                    _, current, total = event
+                    self.progress.configure(value=current)
+                    if not self.stop.is_set():
+                        self.status.set(f"{current} von {total} Dateien analysiert ({100 * current / total:.1f} %)")
                 elif event[0] == "error":
                     self.access_issues.append(event[1])
                 elif event[0] == "done":
@@ -176,7 +198,7 @@ class App(tk.Tk):
                     self.summary.set(f"{lines} erkannte Zeilen | {uncertain} unsichere Dateien | {errors} Dateifehler | {len(self.access_issues)} Fehlermeldungen. Ergebnis möglicherweise unvollständig.")
                     self.running = False
                     self.progress.stop()
-                    self.progress.configure(value=0)
+                    self.progress.configure(mode="determinate", value=files)
                     self.button.configure(text="Zählen")
                     self.clear_button.configure(state="normal")
                     self.issues_button.configure(state="normal" if self.access_issues else "disabled")
