@@ -11,7 +11,7 @@ from tb2_window_position import center_window
 from tb2_changelog import changelog_for_version
 from tb2_app_identity import configure_app_identity, apply_window_icon
 APP_TITLE = 'Signum Textcounter'
-INFO_TEXT = 'Zählt erkannte Schriftzeichen je Schriftart in TB2- und TBL-Dateien. Leerzeichen werden nicht gezählt. Die Erkennung ist noch nicht vollständig. Quelldateien werden ausschließlich binär gelesen.'
+INFO_TEXT = 'Zählt erkannte Schriftzeichen je Schriftart in TB2- und TBL-Dateien. Leerzeichen werden nicht gezählt. Schnell überspringt erkannte JPEG-Bereiche und kann Zeichen übersehen. Vollständig analysiert alle Bytes. Die Erkennung ist noch nicht vollständig. Quelldateien werden ausschließlich binär gelesen.'
 from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog, ttk, messagebox
@@ -19,7 +19,26 @@ from tb2_muster import extract_counter_lines
 
 SPACE_CODE = 0xFA
 
-def scan(root, recursive, stop, events):
+def counter_lines(data, mode):
+    if mode != "fast":
+        return extract_counter_lines(data)
+    from tb2_jpeg_fast import jpeg_ranges
+    spans = jpeg_ranges(data)
+    if not spans:
+        return extract_counter_lines(data)
+    lines, warnings = [], []
+    previous = 0
+    for begin, end in spans + [(len(data), len(data))]:
+        if begin > previous:
+            part_lines, part_warnings = extract_counter_lines(data[previous:begin])
+            lines.extend(part_lines)
+            warnings.extend(w for w in part_warnings if not w.startswith("Kein bekanntes Schriftformat gefunden:"))
+        previous = max(previous, end)
+    if not lines:
+        warnings.append("Kein bekanntes Schriftformat gefunden: nicht als 0 Zeichen interpretieren.")
+    return lines, warnings
+
+def scan(root, recursive, stop, events, mode="fast"):
     counts = Counter()
     files = lines_total = uncertain = errors = 0
     paths = []
@@ -45,7 +64,7 @@ def scan(root, recursive, stop, events):
             files += 1
             try:
                 with path.open("rb") as source:
-                    lines, warnings = extract_counter_lines(source.read())
+                    lines, warnings = counter_lines(source.read(), mode)
                 lines_total += len(lines)
                 if warnings or not lines:
                     uncertain += 1
@@ -89,8 +108,16 @@ class App(tk.Tk):
         self.choose_button.grid(row=0, column=2)
         self.check = ttk.Checkbutton(frame, text="Unterordner einbeziehen", variable=self.recursive)
         self.check.grid(row=1, column=1, sticky="w", pady=(10,2))
+        self.search_mode_var = tk.StringVar(value="fast")
+        mode_options = ttk.Frame(frame)
+        mode_options.grid(row=2, column=1, columnspan=2, sticky="w", pady=(4,2))
+        ttk.Label(mode_options, text="Suchmodus:").pack(side="left", padx=(0,10))
+        self.fast_radio = ttk.Radiobutton(mode_options, text="Schnell (JPEG überspringen)", variable=self.search_mode_var, value="fast")
+        self.fast_radio.pack(side="left", padx=(0,14))
+        self.full_radio = ttk.Radiobutton(mode_options, text="Vollständig (alle Bytes)", variable=self.search_mode_var, value="full")
+        self.full_radio.pack(side="left")
         actions = ttk.Frame(frame)
-        actions.grid(row=2, column=0, columnspan=3, sticky="w", pady=(12,10))
+        actions.grid(row=3, column=0, columnspan=3, sticky="w", pady=(12,10))
         self.button = ttk.Button(actions, text="Zählen", command=self.start, state="disabled")
         self.button.pack(side="left")
         self.clear_button = ttk.Button(actions, text="Leeren", command=self.clear, state="disabled")
@@ -98,11 +125,11 @@ class App(tk.Tk):
         self.issues_button = ttk.Button(actions, text="Zugriffsprobleme", command=self.show_access_issues, state="disabled")
         
         self.progress = ttk.Progressbar(frame, mode="determinate")
-        self.progress.grid(row=3, column=0, columnspan=3, sticky="ew", pady=(0,7))
-        ttk.Label(frame, textvariable=self.status).grid(row=4, column=0, columnspan=3, sticky="w")
-        ttk.Label(frame, textvariable=self.summary, wraplength=680).grid(row=5, column=0, columnspan=3, sticky="w", pady=(4,8))
+        self.progress.grid(row=4, column=0, columnspan=3, sticky="ew", pady=(0,7))
+        ttk.Label(frame, textvariable=self.status).grid(row=5, column=0, columnspan=3, sticky="w")
+        ttk.Label(frame, textvariable=self.summary, wraplength=680).grid(row=6, column=0, columnspan=3, sticky="w", pady=(4,8))
         results = ttk.Frame(frame)
-        results.grid(row=6, column=0, columnspan=3, sticky="nsew")
+        results.grid(row=7, column=0, columnspan=3, sticky="nsew")
         results.columnconfigure(0, weight=1)
         results.rowconfigure(0, weight=1)
         self.tree = ttk.Treeview(results, columns=("font","count"), show="headings")
@@ -115,11 +142,11 @@ class App(tk.Tk):
         scrollbar.grid(row=0, column=1, sticky="ns")
         self.tree.configure(yscrollcommand=scrollbar.set)
         footer = ttk.Frame(frame)
-        footer.grid(row=7, column=0, columnspan=3, sticky="ew", pady=(10,0))
+        footer.grid(row=8, column=0, columnspan=3, sticky="ew", pady=(10,0))
         ttk.Button(footer, text="Programm beenden", command=self.request_exit).pack(side="right")
         ttk.Button(footer, text="Info", command=self.show_info).pack(side="right", padx=(0,8))
         frame.columnconfigure(1, weight=1)
-        frame.rowconfigure(6, weight=1)
+        frame.rowconfigure(7, weight=1)
         self.folder.trace_add("write", self.update_button)
         self.after(100, self.poll)
 
@@ -154,12 +181,12 @@ class App(tk.Tk):
         self.running = True
         self.stop.clear()
         self.button.configure(text="Abbrechen")
-        for widget in (self.entry, self.choose_button, self.check):
+        for widget in (self.entry, self.choose_button, self.check, self.fast_radio, self.full_radio):
             widget.configure(state="disabled")
         self.status.set("Dateien werden ermittelt …")
         self.progress.configure(mode="indeterminate", value=0)
         self.progress.start(12)
-        threading.Thread(target=scan, args=(Path(self.folder.get()), self.recursive.get(), self.stop, self.events), daemon=True).start()
+        threading.Thread(target=scan, args=(Path(self.folder.get()), self.recursive.get(), self.stop, self.events, self.search_mode_var.get()), daemon=True).start()
 
     def request_exit(self):
         if not self.running:
@@ -206,7 +233,7 @@ class App(tk.Tk):
                         self.issues_button.pack(side="left")
                     else:
                         self.issues_button.pack_forget()
-                    for widget in (self.entry, self.choose_button, self.check):
+                    for widget in (self.entry, self.choose_button, self.check, self.fast_radio, self.full_radio):
                         widget.configure(state="normal")
                     self.update_button()
         except queue.Empty:
