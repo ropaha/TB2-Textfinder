@@ -205,6 +205,14 @@ _COUNTER_FONT = re.compile(rb"Signum Standard\\([A-Za-z0-9_. -]{1,64})")
 _LEGACY_TEXT = re.compile(rb"[A-Za-z0-9_ .\\/-]+")
 
 
+def _eva2p12_glyph(data, q):
+    g = data[q:q+10]
+    return (len(g) == 10 and (32 <= g[0] <= 126 or g[0] >= 128)
+            and g[1] in (0x83, 0x84)
+            and (g[7:] == b'\x81\x00\x00'
+                 or (g[0] == 46 and g[7:] == b'\x81\x49\x92')))
+
+
 def _counter_font_entries(data: bytes):
     """(Position, Schrift, erster Glyphenoffset, Abstand, Altformat).
 
@@ -247,6 +255,14 @@ def _counter_font_entries(data: bytes):
         if _LEGACY_TEXT.fullmatch(raw) is None:
             continue
         value = raw.decode("ascii")
+        if value == "ABLAGE\\EVA2P12" and start + 343 <= len(data):
+            pos = start + 343
+            count = data[start + 285]
+            if (count and pos + (count - 1) * 80 + 10 <= len(data)
+                    and all(_eva2p12_glyph(data, pos + k * 80) for k in range(count))):
+                entries = [e for e in entries if e[0] != start]
+                entries.append((start, "EVA2P12", pos, 80, "eva2p12"))
+                continue
         # Historisches 587-Byte-Raster (z.B. GROTESK1, GROTESK3,
         # EVA2NEU V1.1): kein Schluss vom Schriftnamen auf den Stride.
         # Die gespeicherte Zeilenlaenge bei +285 und *alle* Glyphen
@@ -417,9 +433,11 @@ def extract_counter_lines(data: bytes):
     for i, (start, font, pos, stride, legacy) in enumerate(entries):
         boundary = entries[i + 1][0] if i + 1 < len(entries) else len(data)
         glyphs = bytearray()
-        limit = data[start + 285] if stride == 587 else 10000
+        limit = data[start + 285] if stride == 587 or legacy == 'eva2p12' else 10000
         while pos + 10 <= len(data) and pos < boundary and len(glyphs) < limit:
-            if stride == 587:
+            if legacy == 'eva2p12':
+                valid = _eva2p12_glyph(data, pos)
+            elif stride == 587:
                 valid = _wide_587_record(data, pos)
             elif font == "EVA2NEU V1.1" and stride == 98:
                 valid = (data[pos + 1] in (0x7D, 0x80, 0x81)
@@ -438,7 +456,7 @@ def extract_counter_lines(data: bytes):
             pos += stride
         if glyphs:
             lines.append((font, bytes(glyphs)))
-            if stride == 587 and len(glyphs) != limit:
+            if (stride == 587 or legacy == 'eva2p12') and len(glyphs) != limit:
                 warnings.append(f"{font}: historische Zeile unvollstaendig.")
             if len(glyphs) == 10000:
                 warnings.append(f"{font}: Sicherheitslimit erreicht; moeglicherweise unvollstaendig.")
