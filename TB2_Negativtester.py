@@ -895,8 +895,8 @@ class App(tk.Tk):
             daemon=True).start()
 
     def _export_worker(self, txt_path, zip_path, report, rows, root):
-        """ZIP mit max. 100 Dateien / 100 MiB Originaldaten, ohne erneuten Scan."""
-        max_files = 100
+        """ZIP mit max. 300 Dateien / 100 MiB Originaldaten, ohne erneuten Scan."""
+        max_files = 300
         max_bytes = 100 * 1024 * 1024
         selected = []
         skipped = []
