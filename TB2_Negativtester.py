@@ -102,6 +102,12 @@ def inspect_counter_file(path: Path, search_mode: str = "full") -> tuple[str, st
         return "Fehler", str(exc)
     if not data:
         return "Leer", "Datei enthält 0 Bytes"
+    from tb2_muster import historical_resource_document
+    resources = historical_resource_document(data)
+    if resources is not None:
+        detail = ", ".join(f"{resources.count(kind)} {kind}"
+                           for kind in ("STN", "ORN", "BAU") if kind in resources)
+        return "Kein Text erkannt", f"Historisches Ressourcendokument: {detail}; keine Schriftobjekte."
     from TB2_Textcounter import counter_lines
     lines, warnings = counter_lines(data, search_mode)
     count = sum(sum(code != 0xFA for code in glyphs) for _, glyphs in lines)
