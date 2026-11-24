@@ -139,8 +139,11 @@ class App(tk.Tk):
         results.columnconfigure(0, weight=1)
         results.rowconfigure(0, weight=1)
         self.tree = ttk.Treeview(results, columns=("font","count"), show="headings")
-        self.tree.heading("font", text="Schriftart")
-        self.tree.heading("count", text="Zeichenanzahl")
+        self.result_counts = {}
+        self.has_results = False
+        self.sort_column = "count"
+        self.sort_descending = True
+        self.update_sort_headings()
         self.tree.column("font", width=450, anchor="w")
         self.tree.column("count", width=150, anchor="e", stretch=False)
         self.tree.grid(row=0, column=0, sticky="nsew")
@@ -165,7 +168,44 @@ class App(tk.Tk):
         if not self.running:
             self.button.configure(state="normal" if self.folder.get().strip() else "disabled")
 
+    def update_sort_headings(self):
+        for column, label in (("font", "Schriftart"), ("count", "Zeichenanzahl")):
+            arrow = (" ▼" if self.sort_descending else " ▲") if column == self.sort_column else ""
+            self.tree.heading(column, text=label + arrow,
+                              command=lambda col=column: self.sort_results(col))
+
+    def sort_results(self, column):
+        if self.running:
+            return
+        if column == self.sort_column:
+            self.sort_descending = not self.sort_descending
+        else:
+            self.sort_column = column
+            self.sort_descending = column == "count"
+        self.update_sort_headings()
+        self.render_results()
+
+    def render_results(self):
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+        if not self.has_results:
+            return
+        rows = sorted(self.result_counts.items(), key=lambda x: x[0].casefold())
+        if self.sort_column == "count":
+            rows.sort(key=lambda x: x[1], reverse=self.sort_descending)
+        elif self.sort_descending:
+            rows.reverse()
+        for font, count in rows:
+            self.tree.insert("", "end", values=(font, format_number(count)))
+        self.tree.insert("", "end", values=("GESAMT (erkannte Zeichen)",
+                                             format_number(sum(self.result_counts.values()))))
+
     def clear(self):
+        self.result_counts = {}
+        self.has_results = False
+        self.sort_column = "count"
+        self.sort_descending = True
+        self.update_sort_headings()
         for item in self.tree.get_children():
             self.tree.delete(item)
         self.progress.configure(mode="determinate", value=0)
@@ -227,9 +267,9 @@ class App(tk.Tk):
                     elapsed = perf_counter() - self.started_at
                     duration = format_number(elapsed, 2)
                     total = sum(counts.values())
-                    for font, count in sorted(counts.items(), key=lambda x:x[0].casefold()):
-                        self.tree.insert("", "end", values=(font, format_number(count)))
-                    self.tree.insert("", "end", values=("GESAMT (erkannte Zeichen)", format_number(total)))
+                    self.result_counts = counts
+                    self.has_results = True
+                    self.render_results()
                     self.status.set(f"{'Abgebrochen' if cancelled else 'Fertig'}: {format_number(files)} Dateien | {format_number(len(counts))} Schriftarten | {format_number(total)} Zeichen | Dauer: {duration} s")
                     self.summary.set(f"{format_number(lines)} erkannte Zeilen | {format_number(uncertain)} unsichere Dateien | {format_number(errors)} Dateifehler | {format_number(len(self.access_issues))} Fehlermeldungen. Ergebnis möglicherweise unvollständig.")
                     self.running = False
