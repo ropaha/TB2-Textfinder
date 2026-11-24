@@ -21,7 +21,8 @@ from tkinter import filedialog, messagebox, ttk, font as tkfont
 
 
 MIN_CHARACTERS = 3
-INFO_TEXT = ("Erkannt: mindestens 3 zusammenhängende Zeichen im bekannten TB2-Muster. "
+INFO_TEXT = ("Schnell überspringt erkannte JPEG-Daten und kann Textmuster übersehen. Vollständig prüft alle Bytes. "
+             "Erkannt: mindestens 3 zusammenhängende Zeichen im bekannten TB2-Muster. "
              "Fragment: 2 Zeichen in passender Struktur – könnte Text enthalten, muss analysiert werden. "
              "Ohne Treffer: enthält vermutlich keinen Text. Dies ist keine sichere Aussage; "
              "unbekannte Kodierungen können übersehen werden. Leer und Fehler werden separat gemeldet.")
@@ -82,7 +83,7 @@ def has_known_glyph_pattern(data: bytes, minimum: int = MIN_CHARACTERS) -> bool:
             or has_variable_106_pattern(data, minimum))
 
 
-def inspect_counter_file(path: Path) -> tuple[str, str]:
+def inspect_counter_file(path: Path, search_mode: str = "full") -> tuple[str, str]:
     """Separate Counter-Diagnose; keine Aussage über garantierte Vollständigkeit."""
     try:
         data = path.read_bytes()
@@ -90,27 +91,40 @@ def inspect_counter_file(path: Path) -> tuple[str, str]:
         return "Fehler", str(exc)
     if not data:
         return "Leer", "Datei enthält 0 Bytes"
-    lines, warnings = extract_counter_lines(data)
+    from TB2_Textcounter import counter_lines
+    lines, warnings = counter_lines(data, search_mode)
     count = sum(sum(code != 0xFA for code in glyphs) for _, glyphs in lines)
     if warnings:
         return "Prüfen", f"{format_number(len(lines))} Zeile(n), {format_number(count)} Zeichen; " + "; ".join(warnings[:3])
     if lines:
         return "Erkannt", f"{format_number(len(lines))} Zeile(n), {format_number(count)} Zeichen (Vollständigkeit nicht garantiert)"
-    if has_known_glyph_pattern(data, minimum=2):
+    if has_pattern_in_mode(data, search_mode, minimum=2):
         return "Prüfen", "Bekannte Textmuster, aber keine zählbaren Textzeilen"
     return "Kein Text erkannt", "Keine bekannten Textmuster; Textfreiheit nicht bewiesen"
 
 
-def inspect_file(path: Path) -> tuple[str, str]:
+def has_pattern_in_mode(data, search_mode, minimum=MIN_CHARACTERS):
+    if search_mode != "fast":
+        return has_known_glyph_pattern(data, minimum)
+    from tb2_jpeg_fast import jpeg_ranges
+    previous = 0
+    for start, end in jpeg_ranges(data):
+        if start > previous and has_known_glyph_pattern(data[previous:start], minimum):
+            return True
+        previous = end
+    return previous < len(data) and has_known_glyph_pattern(data[previous:], minimum)
+
+
+def inspect_file(path: Path, search_mode: str = "full") -> tuple[str, str]:
     try:
         data = path.read_bytes()
     except OSError as exc:
         return "Fehler", str(exc)
     if not data:
         return "Leer", "Datei enthält 0 Bytes"
-    if has_known_glyph_pattern(data):
+    if has_pattern_in_mode(data, search_mode):
         return "Erkannt", "Bekanntes Muster (mindestens 3 Zeichen)"
-    if has_known_glyph_pattern(data, minimum=2):
+    if has_pattern_in_mode(data, search_mode, minimum=2):
         return "Fragment", "Könnte Text enthalten, muss analysiert werden"
     return "Vermutlich kein Text", "Enthält vermutlich keinen Text"
 
@@ -165,8 +179,16 @@ class App(tk.Tk):
         self.recursive_check = ttk.Checkbutton(frame, text="Unterordner einbeziehen", variable=self.recursive_var)
         self.recursive_check.grid(
             row=1, column=2, sticky="w", pady=(9, 2))
+        self.search_mode_var = tk.StringVar(value="fast")
+        ttk.Label(frame, text="Suchmodus:").grid(row=2, column=0, sticky="w")
+        mode_options = ttk.Frame(frame)
+        mode_options.grid(row=2, column=1, columnspan=2, sticky="w", padx=10, pady=(6, 2))
+        self.fast_radio = ttk.Radiobutton(mode_options, text="Schnell (JPEG überspringen)", variable=self.search_mode_var, value="fast")
+        self.fast_radio.pack(side="left", padx=(0, 14))
+        self.full_radio = ttk.Radiobutton(mode_options, text="Vollständig (alle Bytes)", variable=self.search_mode_var, value="full")
+        self.full_radio.pack(side="left")
         actions = ttk.Frame(frame)
-        actions.grid(row=2, column=0, columnspan=3, sticky="w", pady=(12, 10))
+        actions.grid(row=3, column=0, columnspan=3, sticky="w", pady=(12, 10))
         self.scan_button = ttk.Button(actions, text="Ordner prüfen", command=self.scan_or_cancel, state="disabled")
         self.scan_button.pack(side="left")
         self.issues_button = ttk.Button(
@@ -185,14 +207,14 @@ class App(tk.Tk):
         self.clear_button = ttk.Button(actions, text="Leeren", command=self.clear, state="disabled")
         self.clear_button.pack(side="left", padx=(8, 0))
         self.progress = ttk.Progressbar(frame, mode="determinate")
-        self.progress.grid(row=3, column=0, columnspan=3, sticky="ew", pady=(0, 7))
+        self.progress.grid(row=4, column=0, columnspan=3, sticky="ew", pady=(0, 7))
         self.status_var = tk.StringVar(value="Bereit. Ordner auswählen und Prüfung starten.")
         status_frame = ttk.Frame(frame)
-        status_frame.grid(row=4, column=0, columnspan=3, sticky="ew", pady=(0, 8))
+        status_frame.grid(row=5, column=0, columnspan=3, sticky="ew", pady=(0, 8))
         ttk.Label(status_frame, textvariable=self.status_var).pack(side="left")
 
         filters = ttk.Frame(frame)
-        filters.grid(row=5, column=0, columnspan=3, sticky="ew", pady=(3, 7))
+        filters.grid(row=6, column=0, columnspan=3, sticky="ew", pady=(3, 7))
         ttk.Label(filters, text="Trefferliste filtern:").pack(side="left", padx=(0, 9))
         self.filter_box = ttk.Combobox(filters, textvariable=self.filter_var, state="readonly",
                                        values=list(self.filter_options), width=42)
@@ -202,7 +224,7 @@ class App(tk.Tk):
         self.visible_count_var = tk.StringVar(value="Noch keine Ergebnisse")
         ttk.Label(filters, textvariable=self.visible_count_var).pack(side="left", padx=(14, 0))
         results_frame = ttk.Frame(frame)
-        results_frame.grid(row=6, column=0, columnspan=3, sticky="nsew")
+        results_frame.grid(row=7, column=0, columnspan=3, sticky="nsew")
         results_frame.columnconfigure(0, weight=1)
         results_frame.rowconfigure(0, weight=1)
         self.tree = ttk.Treeview(results_frame, columns=("category", "path", "detail"), show="headings")
@@ -226,12 +248,12 @@ class App(tk.Tk):
         self.tree.bind("<Control-c>", self.copy_selected_rows)
 
         footer = ttk.Frame(frame)
-        footer.grid(row=7, column=0, columnspan=3, sticky="ew", pady=(10, 0))
+        footer.grid(row=8, column=0, columnspan=3, sticky="ew", pady=(10, 0))
         ttk.Button(footer, text="Programm beenden", command=self.request_exit).pack(side="right")
         ttk.Button(footer, text="Info", command=self.show_info).pack(side="right", padx=(0, 8))
 
         frame.columnconfigure(1, weight=1)
-        frame.rowconfigure(6, weight=1)
+        frame.rowconfigure(7, weight=1)
 
     def _on_mode_change(self, *_args):
         if self.scanning or self.exporting:
@@ -409,7 +431,7 @@ class App(tk.Tk):
         self.start_scan()
 
     def _set_inputs_locked(self, locked):
-        for widget in (self.folder_entry, self.folder_button, self.recursive_check):
+        for widget in (self.folder_entry, self.folder_button, self.recursive_check, self.fast_radio, self.full_radio):
             widget.configure(state="disabled" if locked else "normal")
         for widget in (self.mode_box, self.filter_box):
             widget.configure(state="disabled" if locked else "readonly")
@@ -428,6 +450,7 @@ class App(tk.Tk):
         self.ignored_paths = set()
         self.scan_summary = ""
         self.scan_totals = None
+        self.scan_search_mode = self.search_mode_var.get()
         self.access_issues = []
         self.issues_button.pack_forget()
         self.clear_button.configure(state="disabled")
@@ -442,10 +465,10 @@ class App(tk.Tk):
         self.progress.start(12)
         self.status_var.set("Durchsuche Verzeichnisstruktur nach TB2-/TBL-Dateien …")
         threading.Thread(target=self._worker, args=(Path(folder_text), self.recursive_var.get(),
-                                                    self.mode_var.get()),
+                                                    self.mode_var.get(), self.search_mode_var.get()),
                          daemon=True).start()
 
-    def _worker(self, root: Path, recursive: bool, mode: str):
+    def _worker(self, root: Path, recursive: bool, mode: str, search_mode: str):
         """Dateisuche, Ignorierlisten und Prüfung vollständig außerhalb der GUI."""
         files = []
         ignored = set()
@@ -503,8 +526,8 @@ class App(tk.Tk):
             for index, path in enumerate(files, start=1):
                 if self.cancel_scan_event.is_set():
                     break
-                category, detail = (inspect_counter_file(path) if mode == "Textcounter-Prüfung"
-                                    else inspect_file(path))
+                category, detail = (inspect_counter_file(path, search_mode) if mode == "Textcounter-Prüfung"
+                                    else inspect_file(path, search_mode))
                 processed = index
                 if category == "Erkannt":
                     recognized += 1
@@ -805,6 +828,7 @@ class App(tk.Tk):
         lines = [
             f"TB2-Negativtester – vollständiger Prüfbericht ({mode})",
             f"Prüfmodus: {mode}",
+            "Suchmodus: " + ("Schnell (JPEG überspringen)" if self.scan_search_mode == "fast" else "Vollständig (alle Bytes)"),
             f"Ordner: {self.folder_var.get()}",
             f"Unterordner einbeziehen: {'Ja' if self.recursive_var.get() else 'Nein'}",
             f"Gesamtzahl auffälliger Einträge: {format_number(len(self.rows))}",
