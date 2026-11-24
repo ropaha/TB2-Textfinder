@@ -236,7 +236,24 @@ def _counter_font_entries(data: bytes):
                         for q in (pos, pos + 98))):
             entries.append((start, "EVA2NEU V1.1", pos, 98, False))
 
-    # Bei den alten Formaten kommt der Glyphenbeginn je nach Feldlayout
+    # Historisches 587-Byte-Raster: laengenpraefigierter Schriftname,
+    # Zeilenlaenge an +285 und Glyphenbeginn an +343.
+    # Zunaechst nur fuer die binaer bestaetigte Schrift EVA2NEU V1.1.
+    for match in re.finditer(rb"\x0cEVA2NEU V1\.1", data):
+        start = match.start() + 1
+        pos = start + 343
+        if pos > len(data):
+            continue
+        count = data[start + 285]
+        if count < 3 or pos + (count - 1) * 587 + 8 > len(data):
+            continue
+        if all(_wide_587_record(data, q)
+               and (32 <= data[q] <= 126 or data[q] >= 128)
+               for q in range(pos, pos + count * 587, 587)):
+            entries = [entry for entry in entries if entry[0] != start]
+            entries.append((start, "EVA2NEU V1.1", pos, 587, True))
+
+ je nach Feldlayout
     # nach 98 oder 105 Bytes. Nur durch zwei gueltige Glyphen bestaetigen.
     for start in range(1, len(data)):
         length = data[start - 1]
@@ -322,8 +339,11 @@ def extract_counter_lines(data: bytes):
     for i, (start, font, pos, stride, legacy) in enumerate(entries):
         boundary = entries[i + 1][0] if i + 1 < len(entries) else len(data)
         glyphs = bytearray()
-        while pos + 10 <= len(data) and pos < boundary and len(glyphs) < 10000:
-            if font == "EVA2NEU V1.1" and stride == 98:
+        limit = data[start + 285] if stride == 587 else 10000
+        while pos + 10 <= len(data) and pos < boundary and len(glyphs) < limit:
+            if stride == 587:
+                valid = _wide_587_record(data, pos)
+            elif font == "EVA2NEU V1.1" and stride == 98:
                 valid = (data[pos + 1] in (0x7D, 0x80, 0x81)
                          and data[pos + 7:pos + 10] == b"\x81\x00\x00")
             elif legacy:
@@ -340,6 +360,8 @@ def extract_counter_lines(data: bytes):
             pos += stride
         if glyphs:
             lines.append((font, bytes(glyphs)))
+            if stride == 587 and len(glyphs) != limit:
+                warnings.append(f"{font}: historische Zeile unvollstaendig.")
             if len(glyphs) == 10000:
                 warnings.append(f"{font}: Sicherheitslimit erreicht; moeglicherweise unvollstaendig.")
         else:
