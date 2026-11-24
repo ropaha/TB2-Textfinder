@@ -231,7 +231,7 @@ def _counter_font_entries(data: bytes):
         start = match.start() + 1
         pos = start + 343
         if (pos + 108 <= len(data)
-                and all(data[q + 1] == 0x7D
+                and all(data[q + 1] in (0x7D, 0x80, 0x81)
                         and data[q + 7:q + 10] == b"\x81\x00\x00"
                         for q in (pos, pos + 98))):
             entries.append((start, "EVA2NEU V1.1", pos, 98, False))
@@ -271,7 +271,7 @@ def _counter_font_entries(data: bytes):
         # Altformat mit 98-Byte-Glyphen und 343-Byte-Vorspann,
         # bestaetigt an 9000009.TB2 (1990).
         if (modern_pos + 108 <= len(data)
-                and all(data[q + 1] in (0x80, 0x81, 0x82)
+                and all(data[q + 1] in (0x7D, 0x7F, 0x80, 0x81, 0x82)
                         and data[q + 7:q + 10] == b"\x81\x00\x00"
                         for q in (modern_pos, modern_pos + 98))):
             if re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]{2,30}", font):
@@ -283,12 +283,15 @@ def _counter_font_entries(data: bytes):
             font = font[:-2]
         if font.endswith("i") and font[:-1].upper().startswith("GROTESK"):
             font = font[:-1]
-        for offset in (98, 105):
+        for offset in (98, 105, 343):
             pos = start + offset
             if pos + 88 > len(data):
                 continue
-            if all(data[q + 1] in (0x80, 0x81, 0x82)
-                   and data[q + 7] in (0x80, 0x81)
+            if all((data[q + 1] in (0x80, 0x81, 0x82)
+                    and data[q + 7] in (0x80, 0x81))
+                   or (data[q + 1] in (0x7E, 0x7F)
+                       and data[q + 7] == 0x81)
+                   
                    for q in (pos, pos + 80)):
                 entries.append((start, font, pos, 80, True))
                 break
@@ -321,13 +324,15 @@ def extract_counter_lines(data: bytes):
         glyphs = bytearray()
         while pos + 10 <= len(data) and pos < boundary and len(glyphs) < 10000:
             if font == "EVA2NEU V1.1" and stride == 98:
-                valid = (data[pos + 1] == 0x7D
+                valid = (data[pos + 1] in (0x7D, 0x80, 0x81)
                          and data[pos + 7:pos + 10] == b"\x81\x00\x00")
             elif legacy:
-                valid = (data[pos + 1] in (0x80, 0x81, 0x82)
-                         and data[pos + 7] in (0x80, 0x81))
+                valid = ((data[pos + 1] in (0x80, 0x81, 0x82)
+                          and data[pos + 7] in (0x80, 0x81))
+                         or (data[pos + 1] in (0x7E, 0x7F)
+                             and data[pos + 7] == 0x81))
             else:
-                valid = (data[pos + 1] in (0x7E, 0x80, 0x81, 0x82)
+                valid = (data[pos + 1] in ((0x7D, 0x7F, 0x80, 0x81, 0x82) if stride == 98 else (0x7E, 0x80, 0x81, 0x82))
                          and data[pos + 7:pos + 10] == b"\x81\x00\x00")
             if not valid:
                 break
