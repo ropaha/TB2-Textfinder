@@ -251,7 +251,8 @@ def _counter_font_entries(data: bytes):
         # EVA2NEU V1.1): kein Schluss vom Schriftnamen auf den Stride.
         # Die gespeicherte Zeilenlaenge bei +285 und *alle* Glyphen
         # muessen die erwartete Struktur bestaetigen.
-        if re.fullmatch(r"[A-Za-z][A-Za-z0-9_. -]{2,40}", value):
+        wide_font = value[7:] if value.upper().startswith("ABLAGE\\") else value
+        if re.fullmatch(r"[A-Za-z][A-Za-z0-9_. -]{2,40}", wide_font):
             pos = start + 343
             if start + 285 < len(data):
                 count = data[start + 285]
@@ -262,7 +263,7 @@ def _counter_font_entries(data: bytes):
                                      or data[pos + k * 587] >= 0x80)
                                 for k in range(count))):
                     entries = [e for e in entries if e[0] != start]
-                    entries.append((start, value, pos, 587, True))
+                    entries.append((start, wide_font, pos, 587, True))
                     continue
         resource = classify_resource_name(value)
         leaf = re.split(r"[\\/]", value)[-1]
