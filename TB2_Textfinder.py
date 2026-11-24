@@ -16,6 +16,7 @@ from time import perf_counter
 from tb2_version import APP_VERSION
 from tb2_project_info import PROJECT_URL, MIT_LICENSE
 from tb2_muster import PROFILES, find_all, has_early_80_pattern, has_variable_80_pattern, has_wide_587_pattern, has_early_82_pattern, has_variable_98_pattern, has_variable_106_pattern
+from tb2_muster import (_early_80_record, _variable_marker_record, _wide_587_record, _early_82_record, _variable_98_record, _variable_106_record)
 from tb2_resource_paths import mask_resource_paths
 from tb2_whole_words import contains_whole_word
 from pathlib import Path
@@ -775,6 +776,7 @@ class App(tk.Tk):
                     self._set_inputs_locked(False)
                     self._update_search_button()
                     self.status_var.set("Suche fehlgeschlagen.")
+                    self.summary_var.set("Keine Ergebnisse – Suche fehlgeschlagen.")
                     messagebox.showerror("Suche fehlgeschlagen", event[1])
         except queue.Empty:
             pass
