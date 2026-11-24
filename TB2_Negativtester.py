@@ -29,6 +29,11 @@ INFO_TEXT = ("Erkannt: mindestens 3 zusammenhängende Zeichen im bekannten TB2-M
 _find_all = find_all
 
 
+def format_number(value, decimals=0):
+    """German display formatting, independent of the system locale."""
+    return format(value, f",.{decimals}f").translate(str.maketrans(",.", ".,"))
+
+
 def _printable_codes() -> set[int]:
     result: set[int] = set()
     for encoding in ("cp850", "cp437", "cp1252", "latin-1"):
@@ -88,9 +93,9 @@ def inspect_counter_file(path: Path) -> tuple[str, str]:
     lines, warnings = extract_counter_lines(data)
     count = sum(sum(code != 0xFA for code in glyphs) for _, glyphs in lines)
     if warnings:
-        return "Prüfen", f"{len(lines)} Zeile(n), {count} Zeichen; " + "; ".join(warnings[:3])
+        return "Prüfen", f"{format_number(len(lines))} Zeile(n), {format_number(count)} Zeichen; " + "; ".join(warnings[:3])
     if lines:
-        return "Erkannt", f"{len(lines)} Zeile(n), {count} Zeichen (Vollständigkeit nicht garantiert)"
+        return "Erkannt", f"{format_number(len(lines))} Zeile(n), {format_number(count)} Zeichen (Vollständigkeit nicht garantiert)"
     if has_known_glyph_pattern(data, minimum=2):
         return "Prüfen", "Bekannte Textmuster, aber keine zählbaren Textzeilen"
     return "Kein Text erkannt", "Keine bekannten Textmuster; Textfreiheit nicht bewiesen"
@@ -338,7 +343,7 @@ class App(tk.Tk):
         dialog.transient(self)
         body = ttk.Frame(dialog, padding=14)
         body.pack(fill="both", expand=True)
-        ttk.Label(body, text=f"{len(self.access_issues)} übersprungene Verzeichnisse/Listen",
+        ttk.Label(body, text=f"{format_number(len(self.access_issues))} übersprungene Verzeichnisse/Listen",
                   font=("TkDefaultFont", 12, "bold")).pack(anchor="w", pady=(0, 10))
         text_frame = ttk.Frame(body)
         text_frame.pack(fill="both", expand=True)
@@ -528,21 +533,21 @@ class App(tk.Tk):
                     _, directories, found = event
                     if not self.cancel_scan_event.is_set():
                         self.status_var.set(
-                            f"Durchsuche Verzeichnisse: {directories} Ordner, "
-                            f"{found} TB2-/TBL-Datei(en) gefunden …")
+                            f"Durchsuche Verzeichnisse: {format_number(directories)} Ordner, "
+                            f"{format_number(found)} TB2-/TBL-Datei(en) gefunden …")
                 elif event[0] == "discovery_done":
                     _, total, directories = event
                     self.progress.stop()
                     self.progress.configure(mode="determinate", maximum=max(total, 1), value=0)
                     if not self.cancel_scan_event.is_set():
                         self.status_var.set(
-                            f"Dateisuche abgeschlossen: {directories} Ordner, "
-                            f"{total} TB2-/TBL-Datei(en). Prüfung läuft …")
+                            f"Dateisuche abgeschlossen: {format_number(directories)} Ordner, "
+                            f"{format_number(total)} TB2-/TBL-Datei(en). Prüfung läuft …")
                 elif event[0] == "progress":
                     _, current, total, name = event
                     self.progress.configure(value=current)
                     if not self.cancel_scan_event.is_set():
-                        self.status_var.set(f"Datei {current}/{total}: {name}")
+                        self.status_var.set(f"Datei {format_number(current)}/{format_number(total)}: {name}")
                 elif event[0] == "finished":
                     if self.exit_after_scan:
                         self.destroy()
@@ -562,19 +567,19 @@ class App(tk.Tk):
                     self._refresh_scan_summary()
                     if cancelled:
                         self.status_var.set(
-                            f"Abgebrochen: {processed}/{total} gefundene Datei(en) geprüft | "
+                            f"Abgebrochen: {format_number(processed)}/{format_number(total)} gefundene Datei(en) geprüft | "
                             + self.scan_summary.removeprefix("Fertig: "))
                     elif not total:
                         self.status_var.set(
-                            f"Keine TB2-/TBL-Dateien gefunden ({checked_dirs} Ordner durchsucht).")
+                            f"Keine TB2-/TBL-Dateien gefunden ({format_number(checked_dirs)} Ordner durchsucht).")
                     self.access_issues = skipped
                     if skipped:
                         self.issues_button.configure(
-                            text=f"Zugriffsprobleme ({len(skipped)})")
+                            text=f"Zugriffsprobleme ({format_number(len(skipped))})")
                         self.issues_button.pack(side="left", padx=(8, 0), after=self.scan_button)
                 elif event[0] == "export_progress":
                     _, current, total = event
-                    self.status_var.set(f"Diagnose-ZIP: {current}/{total} Dateien verarbeitet …")
+                    self.status_var.set(f"Diagnose-ZIP: {format_number(current)}/{format_number(total)} Dateien verarbeitet …")
                 elif event[0] == "export_done":
                     _, result, error = event
                     self.exporting = False
@@ -613,20 +618,20 @@ class App(tk.Tk):
                 ignored[category] += 1
         if self.mode_var.get() == "Textcounter-Prüfung":
             self.scan_summary = (
-                f"Fertig: {total} Datei(en) geprüft | {recognized} gezählt | "
-                f"{fragments} prüfen ({ignored['Prüfen']} ignoriert) | "
-                f"{probably_no_text} kein Text erkannt "
-                f"({ignored['Kein Text erkannt']} ignoriert) | "
-                f"{empty} leer | {errors} Lesefehler.")
+                f"Fertig: {format_number(total)} Datei(en) geprüft | {format_number(recognized)} gezählt | "
+                f"{format_number(fragments)} prüfen ({format_number(ignored['Prüfen'])} ignoriert) | "
+                f"{format_number(probably_no_text)} kein Text erkannt "
+                f"({format_number(ignored['Kein Text erkannt'])} ignoriert) | "
+                f"{format_number(empty)} leer | {format_number(errors)} Lesefehler.")
             self.status_var.set(self.scan_summary)
             return
         self.scan_summary = (
-            f"Fertig: {total} Datei(en) geprüft | {recognized} erkannt | "
-            f"{fragments} Fragmente ({ignored['Fragment']} ignoriert) | "
-            f"{probably_no_text} vermutlich ohne Text "
-            f"({ignored['Vermutlich kein Text']} ignoriert) | "
-            f"{empty} leer ({ignored['Leer']} ignoriert) | "
-            f"{errors} Lesefehler ({ignored['Fehler']} ignoriert).")
+            f"Fertig: {format_number(total)} Datei(en) geprüft | {format_number(recognized)} erkannt | "
+            f"{format_number(fragments)} Fragmente ({format_number(ignored['Fragment'])} ignoriert) | "
+            f"{format_number(probably_no_text)} vermutlich ohne Text "
+            f"({format_number(ignored['Vermutlich kein Text'])} ignoriert) | "
+            f"{format_number(empty)} leer ({format_number(ignored['Leer'])} ignoriert) | "
+            f"{format_number(errors)} Lesefehler ({format_number(ignored['Fehler'])} ignoriert).")
         self.status_var.set(self.scan_summary)
 
     @staticmethod
@@ -658,7 +663,7 @@ class App(tk.Tk):
                 tags=("ignored",) if ignored else ())
             if path in selected_paths:
                 self.tree.selection_add(iid)
-        self.visible_count_var.set(f"{len(visible)} von {len(self.rows)} angezeigt")
+        self.visible_count_var.set(f"{format_number(len(visible))} von {format_number(len(self.rows))} angezeigt")
         self.clear_button.configure(state="normal" if self.rows and not self.scanning and not self.exporting else "disabled")
         self._fit_result_columns(visible)
         state = "normal" if self.rows and not self.scanning and not self.exporting else "disabled"
@@ -720,7 +725,7 @@ class App(tk.Tk):
         if lines:
             self.clipboard_clear()
             self.clipboard_append("\n".join(lines))
-            self.status_var.set(f"{len(lines)} vollständige Ergebniszeile(n) kopiert.")
+            self.status_var.set(f"{format_number(len(lines))} vollständige Ergebniszeile(n) kopiert.")
 
     def toggle_ignore(self):
         paths = self.selected_paths()
@@ -792,7 +797,7 @@ class App(tk.Tk):
         if paths:
             self.clipboard_clear()
             self.clipboard_append("\n".join(paths))
-            self.status_var.set(f"{len(paths)} Pfad/Pfade kopiert.")
+            self.status_var.set(f"{format_number(len(paths))} Pfad/Pfade kopiert.")
 
     def _report_text(self):
         """Der vollständige Bericht bleibt unabhängig von Filter und ZIP-Limit."""
@@ -802,7 +807,7 @@ class App(tk.Tk):
             f"Prüfmodus: {mode}",
             f"Ordner: {self.folder_var.get()}",
             f"Unterordner einbeziehen: {'Ja' if self.recursive_var.get() else 'Nein'}",
-            f"Gesamtzahl auffälliger Einträge: {len(self.rows)}",
+            f"Gesamtzahl auffälliger Einträge: {format_number(len(self.rows))}",
             f"GUI-Filter (nur Anzeige): {self.filter_var.get()}",
             f"Zusammenfassung: {self.scan_summary or 'Keine Zusammenfassung verfügbar'}",
             "Hinweis: 'Erkannt' garantiert keine vollständige Texterkennung.",
@@ -815,7 +820,7 @@ class App(tk.Tk):
             for category, path, detail in self.rows
         )
         if self.access_issues:
-            lines.extend(["", f"Zugriffsprobleme ({len(self.access_issues)}):"])
+            lines.extend(["", f"Zugriffsprobleme ({format_number(len(self.access_issues))}):"])
             lines.extend(self.access_issues)
         return "\n".join(lines) + "\n"
 
@@ -932,9 +937,9 @@ class App(tk.Tk):
                             self.events.put(("export_progress", index, len(ordered)))
                     manifest = [
                         "TB2-Negativtester – Diagnosepaket",
-                        f"Enthaltene TB2/TBL-Dateien: {len(selected)} (maximal {max_files})",
-                        f"Originaldaten: {used_bytes} Byte (Limit {max_bytes} Byte)",
-                        f"Nicht enthalten: {len(skipped)}",
+                        f"Enthaltene TB2/TBL-Dateien: {format_number(len(selected))} (maximal {format_number(max_files)})",
+                        f"Originaldaten: {format_number(used_bytes)} Byte (Limit {format_number(max_bytes)} Byte)",
+                        f"Nicht enthalten: {format_number(len(skipped))}",
                         "Vollständiger Prüfbericht: Pruefbericht.txt",
                         "",
                         "ENTHALTEN\tZIP-Pfad\tOriginalpfad\tBytes",
@@ -950,8 +955,8 @@ class App(tk.Tk):
             finally:
                 if zip_tmp.exists():
                     zip_tmp.unlink()
-            result = (f"TXT und ZIP gespeichert: {len(rows)} Berichtszeilen, "
-                      f"{len(selected)} Dateien im ZIP, {len(skipped)} nicht aufgenommen.\n"
+            result = (f"TXT und ZIP gespeichert: {format_number(len(rows))} Berichtszeilen, "
+                      f"{format_number(len(selected))} Dateien im ZIP, {format_number(len(skipped))} nicht aufgenommen.\n"
                       f"TXT: {txt_path}\nZIP: {zip_path}")
             self.events.put(("export_done", result, None))
         except (OSError, ValueError, zipfile.BadZipFile) as exc:
