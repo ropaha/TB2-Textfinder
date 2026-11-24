@@ -263,6 +263,14 @@ def _counter_font_entries(data: bytes):
         value = raw.decode("ascii")
         if raw == b"GROTESK1":
             pos = start + 343
+            if (pos + 10 <= len(data) and data[start + 285] == 1
+                    and 65 <= data[pos] <= 90
+                    and data[pos + 1:pos + 10] == bytes.fromhex("810000000020810000")
+                    and not any(e[0] == start for e in entries)):
+                entries.append((start, "GROTESK1", pos, 98, "grotesk1_single"))
+                continue
+        if raw == b"GROTESK1":
+            pos = start + 343
             if (pos + 206 <= len(data) and data[start + 285] == 3
                     and all(_grotesk1_number_glyph(data, pos + k * 98) for k in range(3))):
                 entries = [e for e in entries if e[0] != start]
@@ -446,9 +454,12 @@ def extract_counter_lines(data: bytes):
     for i, (start, font, pos, stride, legacy) in enumerate(entries):
         boundary = entries[i + 1][0] if i + 1 < len(entries) else len(data)
         glyphs = bytearray()
-        limit = data[start + 285] if stride == 587 or legacy in ('eva2p12', 'grotesk1_number') else 10000
+        limit = data[start + 285] if stride == 587 or legacy in ('eva2p12', 'grotesk1_number', 'grotesk1_single') else 10000
         while pos + 10 <= len(data) and pos < boundary and len(glyphs) < limit:
-            if legacy == 'grotesk1_number':
+            if legacy == 'grotesk1_single':
+                valid = (65 <= data[pos] <= 90
+                         and data[pos + 1:pos + 10] == bytes.fromhex("810000000020810000"))
+            elif legacy == 'grotesk1_number':
                 valid = _grotesk1_number_glyph(data, pos)
             elif legacy == 'eva2p12':
                 valid = _eva2p12_glyph(data, pos)
@@ -471,7 +482,7 @@ def extract_counter_lines(data: bytes):
             pos += stride
         if glyphs:
             lines.append((font, bytes(glyphs)))
-            if (stride == 587 or legacy in ('eva2p12', 'grotesk1_number')) and len(glyphs) != limit:
+            if (stride == 587 or legacy in ('eva2p12', 'grotesk1_number', 'grotesk1_single')) and len(glyphs) != limit:
                 warnings.append(f"{font}: historische Zeile unvollstaendig.")
             if len(glyphs) == 10000:
                 warnings.append(f"{font}: Sicherheitslimit erreicht; moeglicherweise unvollstaendig.")
