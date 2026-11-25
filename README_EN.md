@@ -84,4 +84,4 @@ This is an independent community project for investigating TB2 files. It is not 
 
 ## Central build system
 
-`build/build.py` defines the shared PyInstaller configuration for local builds and both GitHub workflows. Existing batch launchers remain available. Alternatively use `python build/build.py all --local`; individual targets are `textfinder`, `negativtester`, and `textcounter`. Use `--dry-run` to preview commands without building.
+`build/build.py` defines the shared PyInstaller configuration for local builds and both GitHub workflows. `build/Build_EXE.bat` is the single batch build launcher. Alternatively use `python build/build.py all --local`; individual targets are `textfinder`, `negativtester`, and `textcounter`. Use `--dry-run` to preview commands without building.
