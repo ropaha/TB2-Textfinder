@@ -3,10 +3,7 @@ __pycache__/
 *.py[cod]
 
 # PyInstaller build products
-/build/*
-!/build/*.py
-!/build/*.bat
-!/build/*.txt
+/build/
 dist/
 *.spec
 
@@ -19,3 +16,7 @@ venv/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Development tool caches
+.pytest_cache/
+.ruff_cache/

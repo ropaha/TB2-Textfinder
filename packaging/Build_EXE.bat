@@ -3,7 +3,7 @@ setlocal
 cd /d "%~dp0.."
 where py >nul 2>&1
 if not errorlevel 1 (set "PYTHON_CMD=py -3") else (set "PYTHON_CMD=python")
-%PYTHON_CMD% build\build.py all --local
+%PYTHON_CMD% packaging\build.py all --local
 if errorlevel 1 goto :error
 if /i "%~1"=="/nopause" exit /b 0
 explorer "%~dp0..\dist"

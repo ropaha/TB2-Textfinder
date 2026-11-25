@@ -42,7 +42,7 @@ No third-party packages are required to run the Python script directly. Keep the
 ## Build a standalone Windows executable
 
 1. Install Python 3.10 or newer.
-2. Double-click `build/Build_EXE.bat`.
+2. Double-click `packaging/Build_EXE.bat`.
 3. On the first run, an internet connection is needed to install PyInstaller.
 4. The three executables are created in `dist`: `TB2_Textfinder.exe`, `TB2_Negativtester.exe` and `TB2_Textcounter.exe`.
 
@@ -84,4 +84,4 @@ This is an independent community project for investigating TB2 files. It is not 
 
 ## Central build system
 
-`build/build.py` defines the shared PyInstaller configuration for local builds and both GitHub workflows. `build/Build_EXE.bat` is the single batch build launcher. Alternatively use `python build/build.py all --local`; individual targets are `textfinder`, `negativtester`, and `textcounter`. Use `--dry-run` to preview commands without building.
+`packaging/build.py` defines the shared PyInstaller configuration for local builds and both GitHub workflows. `packaging/Build_EXE.bat` is the single batch build launcher. Alternatively use `python packaging/build.py all --local`; individual targets are `textfinder`, `negativtester`, and `textcounter`. Use `--dry-run` to preview commands without building.

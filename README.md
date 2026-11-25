@@ -35,7 +35,7 @@ Die bisher untersuchten Dateien lassen sich in meinem Bestand inzwischen praktis
 ## Weitere Werkzeuge
 
 - **Negativtester:** Auffällige Dateien prüfen, filtern, ignorieren und als TXT/Diagnose-ZIP exportieren.
-- **Textcounter:** Zeichen (ohne Leerzeichen) und Zeilen nach Schriftart zählen. Start über `TB2_Textcounter.py`, Build über `build/Build_EXE.bat`.
+- **Textcounter:** Zeichen (ohne Leerzeichen) und Zeilen nach Schriftart zählen. Start über `TB2_Textcounter.py`, Build über `packaging/Build_EXE.bat`.
 - **Regressionstester:** Referenz erstellen und spätere Erkennungsergebnisse einschließlich Zeichenfolgen vergleichen. Start über `tools/Start_Regressiontester.bat`; kompakte JSON-Berichte enthalten Abweichungen und Summen.
 
 ## Einstellungen und Ignorierliste
@@ -72,7 +72,7 @@ Für den direkten Start des Python-Skripts werden keine zusätzlichen Pakete ben
 
 1. Auf der [Repository-Startseite](https://github.com/ropaha/TB2-Textfinder) **Code → Download ZIP** wählen und das ZIP entpacken (alternativ das Repository klonen).
 2. Python 3.10 oder neuer installieren.
-3. `build/Build_EXE.bat` (alle drei Programme) im entpackten Projektordner doppelt anklicken.
+3. `packaging/Build_EXE.bat` (alle drei Programme) im entpackten Projektordner doppelt anklicken.
 4. Beim ersten Lauf wird eine Internetverbindung benötigt, um die Build-Abhängigkeiten zu installieren.
 5. Die fertigen Dateien liegen unter `dist\\TB2_Textfinder.exe`, `dist\\TB2_Negativtester.exe` und `dist\\TB2_Textcounter.exe`.
 
@@ -116,4 +116,4 @@ Dieses Projekt ist ein unabhängiges Community-Projekt zur Untersuchung von TB2-
 
 ## Zentrales Buildsystem
 
-`build/build.py` enthält die gemeinsame PyInstaller-Konfiguration für lokale Builds und beide GitHub-Workflows. `build/Build_EXE.bat` bleibt als einziger Build-Starter erhalten. Alternativ: `python build/build.py all --local`; einzelne Ziele: `textfinder`, `negativtester`, `textcounter`. Mit `--dry-run` werden die Befehle ohne Build angezeigt.
+`packaging/build.py` enthält die gemeinsame PyInstaller-Konfiguration für lokale Builds und beide GitHub-Workflows. `packaging/Build_EXE.bat` bleibt als einziger Build-Starter erhalten. Alternativ: `python packaging/build.py all --local`; einzelne Ziele: `textfinder`, `negativtester`, `textcounter`. Mit `--dry-run` werden die Befehle ohne Build angezeigt.

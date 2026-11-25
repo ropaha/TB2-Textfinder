@@ -31,7 +31,7 @@ jobs:
         with:
           python-version: '3.12'
           cache: pip
-          cache-dependency-path: build/requirements-build.txt
+          cache-dependency-path: packaging/requirements-build.txt
 
       - name: Validate version and existing releases
         shell: pwsh
@@ -57,10 +57,10 @@ jobs:
           if ($refs -contains "refs/tags/$tag") { throw "Tag $tag already exists." }
 
       - name: Install build requirements
-        run: python -m pip install -r build/requirements-build.txt
+        run: python -m pip install -r packaging/requirements-build.txt
 
       - name: Build all three executables
-        run: python build/build.py all
+        run: python packaging/build.py all
 
       - name: Verify executables
         shell: pwsh

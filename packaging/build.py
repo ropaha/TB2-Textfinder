@@ -50,7 +50,7 @@ def main():
     keys = list(TARGETS) if "all" in keys else list(dict.fromkeys(keys))
     if args.dry_run:
         for key in keys:
-            print(subprocess.list2cmdline(command(key, ROOT / "dist", ROOT / "build" / key)))
+            print(subprocess.list2cmdline(command(key, ROOT / "dist" / ".tb2-build-preview" / "output", ROOT / "dist" / ".tb2-build-preview" / key)))
         return
     if os.name != "nt":
         parser.error("Windows is required to build Windows EXEs")
@@ -61,11 +61,11 @@ def main():
         python = env / "Scripts" / "python.exe"
         if not python.is_file():
             run([sys.executable, "-m", "venv", str(env)])
-        run([str(python), "-m", "pip", "install", "-r", "build/requirements-build.txt"])
+        run([str(python), "-m", "pip", "install", "-r", "packaging/requirements-build.txt"])
         run([str(python), str(Path(__file__).resolve()), *keys])
         return
     if importlib.util.find_spec("PyInstaller") is None:
-        parser.error("Install build/requirements-build.txt first")
+        parser.error("Install packaging/requirements-build.txt first")
     dist = ROOT / "dist"
     dist.mkdir(exist_ok=True)
     # A fresh staging directory prevents stale executables passing verification.

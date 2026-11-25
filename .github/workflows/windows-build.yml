@@ -29,13 +29,13 @@ jobs:
         with:
           python-version: '3.12'
           cache: pip
-          cache-dependency-path: build/requirements-build.txt
+          cache-dependency-path: packaging/requirements-build.txt
 
       - name: PyInstaller installieren
-        run: python -m pip install -r build/requirements-build.txt
+        run: python -m pip install -r packaging/requirements-build.txt
 
       - name: Alle drei Programme bauen
-        run: python build/build.py all
+        run: python packaging/build.py all
 
       - name: EXE-Dateien prüfen
         shell: pwsh
