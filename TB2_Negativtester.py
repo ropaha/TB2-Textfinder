@@ -256,7 +256,7 @@ class App(tk.Tk):
         self.tree.heading("path", text="Dateipfad")
         self.tree.heading("detail", text="Hinweis")
         self.tree.column("category", width=150, minwidth=120, stretch=False, anchor="w")
-        self.tree.column("path", width=100, minwidth=100, stretch=True, anchor="w")
+        self.tree.column("path", width=100, minwidth=100, stretch=False, anchor="w")
         self.tree.column("detail", width=190, minwidth=130, stretch=False, anchor="w")
         self.tree.tag_configure("ignored", foreground="#777777")
         self.tree.grid(row=0, column=0, sticky="nsew")
@@ -614,6 +614,7 @@ class App(tk.Tk):
                     self.scanning = False
                     self._set_inputs_locked(False)
                     self.apply_filter()
+                    self._fit_result_columns()
                     self._update_scan_button()
                     self.scan_totals = (processed, recognized, fragments,
                                         probably_no_text, empty, errors)
@@ -726,7 +727,6 @@ class App(tk.Tk):
                 self.tree.selection_add(iid)
         self.visible_count_var.set(f"{format_number(len(visible))} von {format_number(len(self.rows))} angezeigt")
         self.clear_button.configure(state="normal" if self.rows and not self.scanning and not self.exporting else "disabled")
-        self._fit_result_columns(visible)
         state = "normal" if self.rows and not self.scanning and not self.exporting else "disabled"
         self.copy_button.configure(state=state)
         self.save_button.configure(state=state)
@@ -753,7 +753,7 @@ class App(tk.Tk):
             content_width = max((font.measure(str(value)) for value in values[column]),
                                 default=0) + 24
             self.tree.column(column, width=max(heading_width, content_width, 80),
-                             stretch=(column == "path"))
+                             stretch=False)
 
     def selected_paths(self):
         """Dateipfade aller ausgewählten Zeilen, auch bei Mehrfachauswahl."""

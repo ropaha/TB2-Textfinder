@@ -429,7 +429,7 @@ class App(tk.Tk):
 
         self.tree = ttk.Treeview(results_frame, columns=("path",), show="headings")
         self.tree.heading("path", text="Dateipfad")
-        self.tree.column("path", width=80, minwidth=80, anchor="w", stretch=True)
+        self.tree.column("path", width=80, minwidth=80, anchor="w", stretch=False)
         self.tree.grid(row=0, column=0, sticky="nsew")
         yscroll = ttk.Scrollbar(results_frame, orient="vertical", command=self.tree.yview)
         yscroll.grid(row=0, column=1, sticky="ns")
@@ -799,9 +799,8 @@ class App(tk.Tk):
         font = tkfont.nametofont(font_name) if font_name in tkfont.names(self) else tkfont.nametofont("TkDefaultFont")
         heading_width = font.measure("Dateipfad") + 32
         content_width = max((font.measure(path) for path in paths), default=0) + 24
-        # Treeview dehnt die Spalte selbst auf den verfügbaren Platz aus.
-        # Die Widgetbreite darf nicht als Spaltenbreite verwendet werden:
-        # Rahmen und Innenabstände würden sonst unnötiges Scrollen auslösen.
+        # Feste Spaltenbreite: manuelle Änderungen bleiben erhalten;
+        # lange Pfade können horizontal gescrollt werden.
         self.tree.column("path", width=max(heading_width, content_width, 80))
 
     def _update_open_button_state(self, _event=None):
