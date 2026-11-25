@@ -12,6 +12,7 @@ import re
 import webbrowser
 from pathlib import Path
 from tb2_version import APP_VERSION
+from tb2_settings import load_folder, remember_folder
 from tb2_project_info import PROJECT_URL, MIT_LICENSE
 from tb2_muster import PROFILES, find_all, has_early_80_pattern, has_variable_80_pattern, has_wide_587_pattern, has_early_82_pattern, has_variable_98_pattern, has_variable_106_pattern, extract_counter_lines
 from tb2_window_position import center_window
@@ -175,13 +176,14 @@ class App(tk.Tk):
         self.access_issues = []
         self._build_ui()
         self.folder_var.trace_add("write", self._update_scan_button)
+        self._update_scan_button()
         self.after(100, self._poll_events)
 
     def _build_ui(self):
         frame = ttk.Frame(self, padding=14)
         frame.pack(fill="both", expand=True)
         ttk.Label(frame, text="Zu prüfender Ordner:").grid(row=0, column=0, sticky="w")
-        self.folder_var = tk.StringVar()
+        self.folder_var = tk.StringVar(value=load_folder())
         self.folder_entry = ttk.Entry(frame, textvariable=self.folder_var)
         self.folder_entry.grid(row=0, column=1, sticky="ew", padx=10)
         self.folder_button = ttk.Button(frame, text="Ordner wählen …", command=self.choose_folder)
@@ -402,9 +404,10 @@ class App(tk.Tk):
             anchor="e", pady=(10, 0))
 
     def choose_folder(self):
-        folder = filedialog.askdirectory(title="Ordner mit TB2-/TBL-Dateien auswählen")
+        folder = filedialog.askdirectory(title="Ordner mit TB2-/TBL-Dateien auswählen", initialdir=self.folder_var.get() or None)
         if folder:
             self.folder_var.set(folder)
+            remember_folder(folder)
 
     def _update_scan_button(self, *_args):
         """Ordner prüfen anbieten oder laufende Prüfung abbrechbar halten."""
@@ -464,6 +467,7 @@ class App(tk.Tk):
             return
         if self.scanning:
             return
+        remember_folder(folder_text)
         self.cancel_scan_event.clear()
         self.scan_started_at = perf_counter()
         self.scanning = True
