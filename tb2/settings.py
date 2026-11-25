@@ -1,8 +1,11 @@
 """Shared per-user settings for the Signum Textfinder tools."""
 import json
+import logging
 import os
 import tempfile
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 def settings_path():
     return Path(os.environ.get("LOCALAPPDATA") or Path.home() / ".config") / "Signum Textfinder" / "TB2-Textfinder.json"
@@ -30,7 +33,7 @@ def remember_folder(folder):
 
 def load_json_folder():
     folder = load_settings().get("regression_json_folder", "")
-    return folder if isinstance(folder, str) and Path(folder).is_dir() else ""
+    return folder if isinstance(folder, str) and folder and Path(folder).is_dir() else ""
 
 def remember_json_folder(folder):
     remember_directory("regression_json_folder", folder)
@@ -46,11 +49,15 @@ def remember_directory(key, folder):
     try:
         folder = Path(folder).resolve()
         path = settings_path().resolve()
-        if not folder.is_dir() or path == folder or folder in path.parents:
+        if not folder.is_dir():
+            logger.warning("Settings directory does not exist: %s", folder)
+            return
+        if key == "folder" and (path == folder or folder in path.parents):
+            logger.warning("Refusing settings ancestor as scan directory: %s", folder)
             return
         save_option(key, str(folder))
     except (OSError, ValueError):
-        pass
+        logger.exception("Could not remember directory for %s", key)
 
 def load_option(key, default):
     value = load_settings().get(key, default)
