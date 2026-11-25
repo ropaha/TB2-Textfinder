@@ -3,7 +3,10 @@ __pycache__/
 *.py[cod]
 
 # PyInstaller build products
-build/
+/build/*
+!/build/*.py
+!/build/*.bat
+!/build/*.txt
 dist/
 *.spec
 

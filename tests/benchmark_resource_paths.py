@@ -17,8 +17,8 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from time import perf_counter
 
-from tb2_resource_paths import _RESOURCE_PATH, _LEGACY_SERVER_PATH, mask_resource_paths
-from tb2_jpeg_fast import contains_term_fast
+from tb2.tb2_resource_paths import _RESOURCE_PATH, _LEGACY_SERVER_PATH, mask_resource_paths
+from tb2.tb2_jpeg_fast import contains_term_fast
 
 
 def _mask(data: bytes, matches) -> bytes:

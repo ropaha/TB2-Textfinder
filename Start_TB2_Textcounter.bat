@@ -1,7 +1,7 @@
 @echo off
 setlocal
 cd /d "%~dp0"
-title TB2-Textcounter - Testversion
+title TB2-Textcounter
 
 where py >nul 2>&1
 if not errorlevel 1 (

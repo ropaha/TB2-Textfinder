@@ -1,9 +1,9 @@
 """Gemeinsame Programmversion prüfen und Releases ausdrücklich vorbereiten.
 
 Beispiele:
-    python version_workflow.py check --dev
-    python version_workflow.py prepare-release
-    python version_workflow.py check --release-tag v1.9.0
+    python tools/version_workflow.py check --dev
+    python tools/version_workflow.py prepare-release
+    python tools/version_workflow.py check --release-tag v1.9.0
 
 'prepare-release' ändert Dateien nur lokal; Commit, Merge, Tag und
 Veröffentlichung erfolgen weiterhin nach ausdrücklicher Freigabe.
@@ -12,8 +12,8 @@ import argparse
 from pathlib import Path
 import re
 
-ROOT = Path(__file__).resolve().parent
-VERSION_FILE = "tb2_version.py"
+ROOT = Path(__file__).resolve().parent.parent
+VERSION_FILE = "tb2/tb2_version.py"
 VERSION_RE = re.compile(r'^APP_VERSION\s*=\s*"(?P<version>\d+\.\d+\.\d+(?:-dev)?)"\s*$', re.MULTILINE)
 
 

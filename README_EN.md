@@ -4,7 +4,7 @@ A small Windows utility for searching text in `.TB2` files from different Signum
 
 **Current development version:** 1.9.2-dev (latest release: 1.9.1)
 
-![TB2-Textfinder project banner](banner.svg)
+![TB2-Textfinder project banner](images/banner.svg)
 
 ## Features
 
@@ -25,7 +25,7 @@ A small Windows utility for searching text in `.TB2` files from different Signum
 
 ## Interface preview
 
-![Illustrative interface preview](docs/screenshot.svg)
+![Illustrative interface preview](images/screenshot.svg)
 
 *Illustrative preview, not an actual screenshot of a running application. The real appearance may vary by version and Windows theme.*
 
@@ -37,12 +37,12 @@ Requirements: Windows and Python 3.10 or newer with Tkinter.
 2. Double-click `Start_TB2_Textfinder.bat`.
 3. Enter a search term, choose a folder, and click **Suchen** (Search).
 
-No third-party packages are required to run the Python script directly.
+No third-party packages are required to run the Python script directly. Keep the shared `tb2/` package in the project directory.
 
 ## Build a standalone Windows executable
 
 1. Install Python 3.10 or newer.
-2. Double-click `Build_EXE.bat`.
+2. Double-click `build/Build_EXE.bat`.
 3. On the first run, an internet connection is needed to install PyInstaller.
 4. The three executables are created in `dist`: `TB2_Textfinder.exe`, `TB2_Negativtester.exe` and `TB2_Textcounter.exe`.
 
@@ -81,3 +81,7 @@ This project is licensed under the MIT License. See [LICENSE](LICENSE).
 ## Disclaimer
 
 This is an independent community project for investigating TB2 files. It is not affiliated with, endorsed by, or an official product of the Signum / SignumNext vendor.
+
+## Central build system
+
+`build/build.py` defines the shared PyInstaller configuration for local builds and both GitHub workflows. `build/Build_EXE.bat` is the single batch build launcher. Alternatively use `python build/build.py all --local`; individual targets are `textfinder`, `negativtester`, and `textcounter`. Use `--dry-run` to preview commands without building.

@@ -4,7 +4,7 @@ import json
 import os
 import tempfile
 from pathlib import Path
-from tb2_settings import settings_path
+from tb2.tb2_settings import settings_path
 
 def path_key(path):
     return os.path.normcase(os.path.abspath(path))

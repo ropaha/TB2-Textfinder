@@ -13,17 +13,17 @@ import queue
 import threading
 import webbrowser
 from time import perf_counter
-from tb2_version import APP_VERSION
-from tb2_settings import load_folder, remember_folder, load_option, bind_option, load_export_folder, remember_export_folder
-from tb2_project_info import PROJECT_URL, MIT_LICENSE
-from tb2_muster import PROFILES, find_all, has_early_80_pattern, has_variable_80_pattern, has_wide_587_pattern, has_early_82_pattern, has_variable_98_pattern, has_variable_106_pattern
-from tb2_muster import (_early_80_record, _variable_marker_record, _wide_587_record, _early_82_record, _variable_98_record, _variable_106_record)
-from tb2_resource_paths import mask_resource_paths
-from tb2_whole_words import contains_whole_word
+from tb2.tb2_version import APP_VERSION
+from tb2.tb2_settings import load_folder, remember_folder, load_option, bind_option, load_export_folder, remember_export_folder
+from tb2.tb2_project_info import PROJECT_URL, MIT_LICENSE
+from tb2.tb2_muster import PROFILES, find_all, has_early_80_pattern, has_variable_80_pattern, has_wide_587_pattern, has_early_82_pattern, has_variable_98_pattern, has_variable_106_pattern
+from tb2.tb2_muster import (_early_80_record, _variable_marker_record, _wide_587_record, _early_82_record, _variable_98_record, _variable_106_record)
+from tb2.tb2_resource_paths import mask_resource_paths
+from tb2.tb2_whole_words import contains_whole_word
 from pathlib import Path
-from tb2_window_position import center_window
-from tb2_changelog import changelog_for_version
-from tb2_app_identity import configure_app_identity, apply_window_icon
+from tb2.tb2_window_position import center_window
+from tb2.tb2_changelog import changelog_for_version
+from tb2.tb2_app_identity import configure_app_identity, apply_window_icon
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk, font as tkfont
 
@@ -683,14 +683,14 @@ class App(tk.Tk):
                 break
             if mode == "fast":
                 try:
-                    from tb2_jpeg_fast import contains_term_fast
+                    from tb2.tb2_jpeg_fast import contains_term_fast
                     data = mask_resource_paths(path.read_bytes())
                     # Zweistufige Ganzwortsuche: Nur Kandidaten mit einem
                     # Teilworttreffer benötigen die teure Wortgrenzenprüfung.
                     # JPEG-Bereiche werden in beiden Stufen identisch behandelt.
                     candidate = contains_term_fast(data, term, case_sensitive)
                     if whole_word and candidate:
-                        from tb2_jpeg_fast import jpeg_ranges
+                        from tb2.tb2_jpeg_fast import jpeg_ranges
                         spans = jpeg_ranges(data)
                         previous = 0
                         hit = False

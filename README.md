@@ -1,12 +1,12 @@
 # TB2-Textfinder
 
-<p align="center"><img src="logo.svg" alt="TB2-Textfinder Bandzugfeder-Logo" width="150"></p>
+<p align="center"><img src="images/logo.svg" alt="TB2-Textfinder Bandzugfeder-Logo" width="150"></p>
 
 Ein kleines Windows-Programm zum Durchsuchen von `.TB2`-Dateien nach Texten, die in unterschiedlichen Signum-/SignumNext-Dateigenerationen gespeichert sein können.
 
 **Aktueller Entwicklungsstand:** 1.9.2-dev (letztes Release: 1.9.1). · [Änderungsverlauf](CHANGELOG.md) · [English version](README_EN.md)
 
-![TB2-Textfinder Projektbanner](banner.svg)
+![TB2-Textfinder Projektbanner](images/banner.svg)
 
 ## Wie dieses Projekt entstanden ist
 
@@ -35,7 +35,7 @@ Die bisher untersuchten Dateien lassen sich in meinem Bestand inzwischen praktis
 ## Weitere Werkzeuge
 
 - **Negativtester:** Auffällige Dateien prüfen, filtern, ignorieren und als TXT/Diagnose-ZIP exportieren.
-- **Textcounter:** Zeichen (ohne Leerzeichen) und Zeilen nach Schriftart zählen. Start über `TB2_Textcounter.py`, Build über `Build_TB2_Textcounter_EXE.bat`.
+- **Textcounter:** Zeichen (ohne Leerzeichen) und Zeilen nach Schriftart zählen. Start über `TB2_Textcounter.py`, Build über `build/Build_EXE.bat`.
 - **Regressionstester:** Referenz erstellen und spätere Erkennungsergebnisse einschließlich Zeichenfolgen vergleichen. Start über `Start_Regressiontester.bat`; kompakte JSON-Berichte enthalten Abweichungen und Summen.
 
 ## Einstellungen und Ignorierliste
@@ -44,7 +44,7 @@ Unter `%LOCALAPPDATA%\Signum Textfinder` liegen die gemeinsamen Einstellungen (`
 
 ## Programmoberfläche
 
-![Schematische Vorschau der Programmoberfläche](docs/screenshot.svg)
+![Schematische Vorschau der Programmoberfläche](images/screenshot.svg)
 
 *Hinweis: Dies ist eine schematische Vorschau, kein echter Screenshot eines laufenden Programms. Das tatsächliche Erscheinungsbild kann je nach Version und Windows-Design abweichen.*
 
@@ -56,7 +56,7 @@ Voraussetzung: Windows und Python 3.10 oder neuer mit Tkinter.
 2. `Start_TB2_Textfinder.bat` doppelt anklicken.
 3. Suchbegriff und Ordner auswählen und auf **Suchen** klicken.
 
-Für den direkten Start des Python-Skripts werden keine zusätzlichen Pakete benötigt. Die Python-Module müssen gemeinsam im Projektordner verbleiben.
+Für den direkten Start des Python-Skripts werden keine zusätzlichen Pakete benötigt. Die Hauptprogramme benötigen das Paket `tb2/` im Projektordner.
 
 ## Windows-EXE herunterladen oder selbst erstellen
 
@@ -72,7 +72,7 @@ Für den direkten Start des Python-Skripts werden keine zusätzlichen Pakete ben
 
 1. Auf der [Repository-Startseite](https://github.com/ropaha/TB2-Textfinder) **Code → Download ZIP** wählen und das ZIP entpacken (alternativ das Repository klonen).
 2. Python 3.10 oder neuer installieren.
-3. `Build_EXE.bat` (alle drei Programme) oder das jeweilige `Build_TB2_*_EXE.bat` im entpackten Projektordner doppelt anklicken.
+3. `build/Build_EXE.bat` (alle drei Programme) im entpackten Projektordner doppelt anklicken.
 4. Beim ersten Lauf wird eine Internetverbindung benötigt, um die Build-Abhängigkeiten zu installieren.
 5. Die fertigen Dateien liegen unter `dist\\TB2_Textfinder.exe`, `dist\\TB2_Negativtester.exe` und `dist\\TB2_Textcounter.exe`.
 
@@ -113,3 +113,7 @@ Dieses Projekt steht unter der **MIT-Lizenz**. Den vollständigen Lizenztext fin
 ## Hinweis
 
 Dieses Projekt ist ein unabhängiges Community-Projekt zur Untersuchung von TB2-Dateien. Es ist nicht mit dem Hersteller von Signum/SignumNext verbunden, wird von diesem nicht unterstützt und ist kein offizielles Produkt.
+
+## Zentrales Buildsystem
+
+`build/build.py` enthält die gemeinsame PyInstaller-Konfiguration für lokale Builds und beide GitHub-Workflows. `build/Build_EXE.bat` bleibt als einziger Build-Starter erhalten. Alternativ: `python build/build.py all --local`; einzelne Ziele: `textfinder`, `negativtester`, `textcounter`. Mit `--dry-run` werden die Befehle ohne Build angezeigt.

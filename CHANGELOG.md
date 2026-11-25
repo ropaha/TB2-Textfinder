@@ -6,6 +6,10 @@ Die Versionsnummer des Gesamtpakets ist unabhängig von den Programmversionen. D
 
 ## [Unveröffentlicht] – Entwicklungsbranch dev
 
+- Gemeinsame Python-Module in das Paket `tb2/` verschoben; Versionsworkflow unter `tools/`.
+
+- Zentrales Buildsystem in `build/build.py` für alle drei Programme; lokaler Batch-Starter und beide GitHub-Workflows verwenden dieselbe Konfiguration. Frische Build-Ausgaben werden vor Übernahme geprüft.
+
 ### Build und Release
 - Windows-Test-Build und offizieller Release-Workflow bauen, prüfen und veröffentlichen nun alle drei EXE-Dateien; Regressionstester bleibt internes Python-Werkzeug.
 

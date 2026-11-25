@@ -8,7 +8,7 @@ SECTION = re.compile(r"^## \[([^\]]+)\]", re.MULTILINE)
 
 def changelog_for_version(version: str) -> str:
     """Nur veröffentlichte Einträge bis einschließlich installierter Version."""
-    root = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
+    root = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent))
     try:
         content = (root / "CHANGELOG.md").read_text(encoding="utf-8")
     except OSError:

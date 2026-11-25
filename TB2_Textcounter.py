@@ -6,18 +6,18 @@ import threading
 from time import perf_counter
 from collections import Counter
 import webbrowser
-from tb2_version import APP_VERSION
-from tb2_settings import load_folder, remember_folder, load_option, bind_option
-from tb2_project_info import PROJECT_URL, MIT_LICENSE
-from tb2_window_position import center_window
-from tb2_changelog import changelog_for_version
-from tb2_app_identity import configure_app_identity, apply_window_icon
+from tb2.tb2_version import APP_VERSION
+from tb2.tb2_settings import load_folder, remember_folder, load_option, bind_option
+from tb2.tb2_project_info import PROJECT_URL, MIT_LICENSE
+from tb2.tb2_window_position import center_window
+from tb2.tb2_changelog import changelog_for_version
+from tb2.tb2_app_identity import configure_app_identity, apply_window_icon
 APP_TITLE = 'Signum Textcounter'
 INFO_TEXT = 'Zählt erkannte Schriftzeichen je Schriftart in TB2- und TBL-Dateien. Leerzeichen werden nicht gezählt. Schnell überspringt erkannte JPEG-Bereiche und kann Zeichen übersehen. Vollständig analysiert alle Bytes. Die Erkennung ist noch nicht vollständig. Quelldateien werden ausschließlich binär gelesen.'
 from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog, ttk, messagebox
-from tb2_muster import extract_counter_lines
+from tb2.tb2_muster import extract_counter_lines
 
 SPACE_CODE = 0xFA
 
@@ -29,7 +29,7 @@ def format_number(value, decimals=0):
 def counter_lines(data, mode):
     if mode != "fast":
         return extract_counter_lines(data)
-    from tb2_jpeg_fast import jpeg_ranges
+    from tb2.tb2_jpeg_fast import jpeg_ranges
     spans = jpeg_ranges(data)
     if not spans:
         return extract_counter_lines(data)
