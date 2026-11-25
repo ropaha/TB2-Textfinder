@@ -2,7 +2,7 @@
 
 A small Windows utility for searching text in `.TB2` files from different Signum / SignumNext file-format generations.
 
-**Current development status:** 0.7 (experimental)
+**Current development version:** 1.9.2-dev (latest release: 1.9.1)
 
 ![TB2-Textfinder project banner](banner.svg)
 
@@ -15,6 +15,13 @@ A small Windows utility for searching text in `.TB2` files from different Signum
 - Copy or save matching paths as a text file.
 - Open a selected result with the Windows application associated with `.TB2` files, by double-clicking or using the **Datei öffnen** button.
 - TB2 files are read-only; the tool does not modify them.
+
+## Additional tools and settings
+
+- Negative tester: review suspicious files, filter results and export TXT/diagnostic ZIP reports.
+- Text counter: count characters (excluding spaces) and lines by font.
+- Regression tester: create and compare JSON references, including glyph sequence hashes; start with `Start_Regressiontester.bat`.
+- Shared settings and the central SHA-256-based ignore list are stored in `%LOCALAPPDATA%\Signum Textfinder`. Existing `ignore.txt` files are imported once without modification. Changed files become eligible for review again.
 
 ## Interface preview
 
