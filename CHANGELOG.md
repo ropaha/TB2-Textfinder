@@ -6,15 +6,19 @@ Die Versionsnummer des Gesamtpakets ist unabhängig von den Programmversionen. D
 
 ## [Unveröffentlicht] – Entwicklungsbranch dev
 
+- Build-Skripte nach `packaging/` verschoben; `build/` bleibt für temporäre Artefakte reserviert.
+- Benchmarks und ihre Starter in `benchmarks/` ausgelagert; Modulnamen im Paket `tb2/` vereinfacht.
+- `.editorconfig` und `pyproject.toml` für Entwicklungswerkzeuge ergänzt; zentrale Programmversion unverändert.
+
 - Gemeinsame Python-Module in das Paket `tb2/` verschoben; Versionsworkflow unter `tools/`.
 
-- Zentrales Buildsystem in `build/build.py` für alle drei Programme; lokaler Batch-Starter und beide GitHub-Workflows verwenden dieselbe Konfiguration. Frische Build-Ausgaben werden vor Übernahme geprüft.
+- Zentrales Buildsystem in `packaging/build.py` für alle drei Programme; lokaler Batch-Starter und beide GitHub-Workflows verwenden dieselbe Konfiguration. Frische Build-Ausgaben werden vor Übernahme geprüft.
 
 ### Build und Release
 - Windows-Test-Build und offizieller Release-Workflow bauen, prüfen und veröffentlichen nun alle drei EXE-Dateien; Regressionstester bleibt internes Python-Werkzeug.
 
 ### Erkennung und Werkzeuge
-- Gemeinsame Mustererkennung in `tb2_muster.py`; zusätzliche historische Glyphenstrukturen und Ressourcenvarianten.
+- Gemeinsame Mustererkennung in `tb2/muster.py`; zusätzliche historische Glyphenstrukturen und Ressourcenvarianten.
 - Textcounter mit Zeichen- und Zeilenzählung je Schriftart, ohne Leerzeichen; eigener Windows-Build.
 - Negativtester mit Textfinder- und Textcounter-Prüfung, Ergebnisfiltern und begrenztem Diagnose-ZIP samt TXT-Bericht.
 - Regressionstester mit JSON-Referenzen, Datei- und Zeichenfolgen-Prüfsummen, Modulprüfsummen und kompaktem Vergleichsbericht.
