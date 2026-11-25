@@ -13,7 +13,7 @@ import webbrowser
 from pathlib import Path
 from tb2_version import APP_VERSION
 import tb2_ignore
-from tb2_settings import load_folder, remember_folder, load_option, bind_option
+from tb2_settings import load_folder, remember_folder, load_option, bind_option, load_export_folder, remember_export_folder
 from tb2_project_info import PROJECT_URL, MIT_LICENSE
 from tb2_muster import PROFILES, find_all, has_early_80_pattern, has_variable_80_pattern, has_wide_587_pattern, has_early_82_pattern, has_variable_98_pattern, has_variable_106_pattern, extract_counter_lines
 from tb2_window_position import center_window
@@ -885,7 +885,7 @@ class App(tk.Tk):
         destination = filedialog.asksaveasfilename(
             title="TXT und Diagnose-ZIP speichern", defaultextension=".txt",
             filetypes=[("Textdatei", "*.txt")],
-            initialfile="TB2_Negativtester_Bericht.txt", parent=self)
+            initialfile="TB2_Negativtester_Bericht.txt", initialdir=load_export_folder() or None, parent=self)
         if not destination:
             return
         txt_path = Path(destination).with_suffix(".txt")
@@ -1003,6 +1003,7 @@ class App(tk.Tk):
             result = (f"TXT und ZIP gespeichert: {format_number(len(rows))} Berichtszeilen, "
                       f"{format_number(len(selected))} Dateien im ZIP, {format_number(len(skipped))} nicht aufgenommen.\n"
                       f"TXT: {txt_path}\nZIP: {zip_path}")
+            remember_export_folder(txt_path.resolve().parent)
             self.events.put(("export_done", result, None))
         except (OSError, ValueError, zipfile.BadZipFile) as exc:
             self.events.put(("export_done", None, str(exc)))
