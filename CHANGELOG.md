@@ -6,6 +6,8 @@ Die Versionsnummer des Gesamtpakets ist unabhängig von den Programmversionen. D
 
 ## [Unveröffentlicht] – Entwicklungsbranch dev
 
+- Exportordner unabhängig vom Suchordner speichern; Regressionstester merkt sich auch den Ordner erfolgreich geöffneter Referenzen. Schreibfehler werden protokolliert; zusätzliche Unit-Tests für die Ordnereinstellungen.
+
 ### Oberfläche und Bedienung
 - Textfinder und Negativtester: manuell angepasste Spaltenbreiten bleiben erhalten; im Negativtester auch beim Filtern, Ignorieren und Aufheben.
 
