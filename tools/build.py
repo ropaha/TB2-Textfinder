@@ -22,14 +22,14 @@ def command(key, output, work):
         if not (ROOT / filename).is_file():
             raise FileNotFoundError(ROOT / filename)
     cmd = [sys.executable, "-m", "PyInstaller", "--noconfirm", "--clean",
-           "--onefile", "--windowed", "--icon", "logo.ico"]
+           "--onefile", "--windowed", "--icon", str(ROOT / "logo.ico")]
     for filename in RESOURCES:
-        cmd.extend(["--add-data", filename + ";."])
+        cmd.extend(["--add-data", str(ROOT / filename) + ";."])
     for module in hidden:
         cmd.extend(["--hidden-import", module])
     return cmd + ["--name", name, "--distpath", str(output),
                   "--workpath", str(work), "--specpath", str(work),
-                  name + ".py"]
+                  str(ROOT / (name + ".py"))]
 
 
 def run(cmd):
