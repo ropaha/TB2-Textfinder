@@ -36,14 +36,32 @@ def remember_json_folder(folder):
     remember_directory("regression_json_folder", folder)
 
 def remember_directory(key, folder):
+    try:
+        folder = Path(folder).resolve()
+        path = settings_path().resolve()
+        if not folder.is_dir() or path == folder or folder in path.parents:
+            return
+        save_option(key, str(folder))
+    except (OSError, ValueError):
+        pass
+
+def load_option(key, default):
+    value = load_settings().get(key, default)
+    if type(value) is not type(default):
+        return default
+    if key == "search_mode" and value not in ("fast", "full"):
+        return default
+    return value
+
+def bind_option(variable, key):
+    variable.trace_add("write", lambda *_: save_option(key, variable.get()))
+
+def save_option(key, value):
     path = settings_path()
     temporary = None
     try:
-        folder = Path(folder).resolve()
-        if not folder.is_dir() or path.resolve() == folder or folder in path.resolve().parents:
-            return
         data = load_settings()
-        data[key] = str(folder)
+        data[key] = value
         path.parent.mkdir(parents=True, exist_ok=True)
         with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=path.parent,
                                          prefix=".settings-", suffix=".tmp", delete=False) as f:
