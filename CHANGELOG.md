@@ -4,6 +4,23 @@ Alle wesentlichen Änderungen am TB2-Textfinder und Negativtester werden hier do
 
 Die Versionsnummer des Gesamtpakets ist unabhängig von den Programmversionen. Die Erkennung beruht auf empirisch untersuchten TB2-Dateien, nicht auf einer vollständigen offiziellen Formatspezifikation.
 
+## [Unveröffentlicht]
+
+### Erkennung und Werkzeuge
+- Gemeinsame Mustererkennung in `tb2_muster.py`; zusätzliche historische Glyphenstrukturen und Ressourcenvarianten.
+- Textcounter mit Zeichen- und Zeilenzählung je Schriftart, ohne Leerzeichen; eigener Windows-Build.
+- Negativtester mit Textfinder- und Textcounter-Prüfung, Ergebnisfiltern und begrenztem Diagnose-ZIP samt TXT-Bericht.
+- Regressionstester mit JSON-Referenzen, Datei- und Zeichenfolgen-Prüfsummen, Modulprüfsummen und kompaktem Vergleichsbericht.
+
+### Einstellungen und Datensicherheit
+- Gemeinsame JSON-Einstellungen unter `%LOCALAPPDATA%\Signum Textfinder`: Suchordner, Suchoptionen und Exportordner.
+- Zentrale `TB2-Ignore.json` mit Dateipfaden und SHA-256-Prüfsummen. Bestehende `ignore.txt` werden einmalig eingelesen und nicht verändert; geänderte Dateien werden erneut zur Prüfung angeboten.
+- Ignorierverwaltung schreibt nicht mehr in den Signum-Datenbestand.
+
+### Praxistests
+- Regression im Schnellmodus: 28.762 Dateien, 1.189.437 Zeichen, 116.418 Zeilen, keine Abweichungen zur neuen Referenz; 780 Dateien bleiben zu prüfen.
+- Einstellungsverwaltung, Migration, Ignorieren/Aufheben, Prüfsummencheck, TXT/ZIP-Export und lokaler EXE-Build unter Windows erfolgreich praktisch getestet.
+
 ## [1.9.1] – Release
 
 ### Wartung und Releases
