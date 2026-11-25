@@ -20,7 +20,7 @@ def configure_app_identity(app_id: str) -> None:
 def apply_window_icon(window: tk.Tk) -> None:
     """Tk-Icon setzen und unter Windows beide nativen Fenster-Icons aktualisieren."""
     base = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
-    icon_path = base / "logo.ico"
+    icon_path = base / "images" / "logo.ico"
     if not icon_path.is_file():
         return
     try:

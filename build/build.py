@@ -13,7 +13,7 @@ TARGETS = {
     "negativtester": ("TB2_Negativtester", ("TB2_Textfinder",)),
     "textcounter": ("TB2_Textcounter", ()),
 }
-RESOURCES = ("logo.ico", "CHANGELOG.md")
+RESOURCES = ("images/logo.ico", "CHANGELOG.md")
 
 
 def command(key, output, work):
@@ -22,9 +22,9 @@ def command(key, output, work):
         if not (ROOT / filename).is_file():
             raise FileNotFoundError(ROOT / filename)
     cmd = [sys.executable, "-m", "PyInstaller", "--noconfirm", "--clean",
-           "--onefile", "--windowed", "--icon", str(ROOT / "logo.ico")]
+           "--onefile", "--windowed", "--icon", str(ROOT / "images/logo.ico")]
     for filename in RESOURCES:
-        cmd.extend(["--add-data", str(ROOT / filename) + ";."])
+        cmd.extend(["--add-data", str(ROOT / filename) + ";" + str(Path(filename).parent)])
     for module in hidden:
         cmd.extend(["--hidden-import", module])
     return cmd + ["--name", name, "--distpath", str(output),

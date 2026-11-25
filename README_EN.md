@@ -4,7 +4,7 @@ A small Windows utility for searching text in `.TB2` files from different Signum
 
 **Current development version:** 1.9.2-dev (latest release: 1.9.1)
 
-![TB2-Textfinder project banner](banner.svg)
+![TB2-Textfinder project banner](images/banner.svg)
 
 ## Features
 
@@ -25,7 +25,7 @@ A small Windows utility for searching text in `.TB2` files from different Signum
 
 ## Interface preview
 
-![Illustrative interface preview](docs/screenshot.svg)
+![Illustrative interface preview](images/screenshot.svg)
 
 *Illustrative preview, not an actual screenshot of a running application. The real appearance may vary by version and Windows theme.*
 
