@@ -7,6 +7,7 @@ from time import perf_counter
 from collections import Counter
 import webbrowser
 from tb2_version import APP_VERSION
+from tb2_settings import load_folder, remember_folder
 from tb2_project_info import PROJECT_URL, MIT_LICENSE
 from tb2_window_position import center_window
 from tb2_changelog import changelog_for_version
@@ -95,7 +96,7 @@ class App(tk.Tk):
         self.title(f"{APP_TITLE} – {APP_VERSION}")
         center_window(self, 900, 560)
         self.minsize(720, 480)
-        self.folder = tk.StringVar()
+        self.folder = tk.StringVar(value=load_folder())
         self.recursive = tk.BooleanVar(value=True)
         self.status = tk.StringVar(value="Bereit. Ordner auswählen und Zählung starten.")
         self.summary = tk.StringVar(value="Noch keine Ergebnisse.")
@@ -157,12 +158,14 @@ class App(tk.Tk):
         frame.columnconfigure(1, weight=1)
         frame.rowconfigure(7, weight=1)
         self.folder.trace_add("write", self.update_button)
+        self.update_button()
         self.after(100, self.poll)
 
     def choose(self):
-        selected = filedialog.askdirectory(title="Ordner mit TB2-/TBL-Dateien auswählen")
+        selected = filedialog.askdirectory(title="Ordner mit TB2-/TBL-Dateien auswählen", initialdir=self.folder.get() or None)
         if selected:
             self.folder.set(selected)
+            remember_folder(selected)
 
     def update_button(self, *_):
         if not self.running:
@@ -223,6 +226,7 @@ class App(tk.Tk):
         if not self.folder.get().strip() or not Path(self.folder.get()).is_dir():
             messagebox.showwarning("Ordner fehlt", "Bitte einen gültigen Ordner auswählen.", parent=self)
             return
+        remember_folder(self.folder.get().strip())
         self.clear()
         self.started_at = perf_counter()
         self.running = True
