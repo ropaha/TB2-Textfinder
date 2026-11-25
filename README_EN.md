@@ -37,7 +37,7 @@ Requirements: Windows and Python 3.10 or newer with Tkinter.
 2. Double-click `Start_TB2_Textfinder.bat`.
 3. Enter a search term, choose a folder, and click **Suchen** (Search).
 
-No third-party packages are required to run the Python script directly.
+No third-party packages are required to run the Python script directly. Keep the shared `tb2/` package in the project directory.
 
 ## Build a standalone Windows executable
 

@@ -11,14 +11,14 @@ import zipfile
 import re
 import webbrowser
 from pathlib import Path
-from tb2_version import APP_VERSION
-import tb2_ignore
-from tb2_settings import load_folder, remember_folder, load_option, bind_option, load_export_folder, remember_export_folder
-from tb2_project_info import PROJECT_URL, MIT_LICENSE
-from tb2_muster import PROFILES, find_all, has_early_80_pattern, has_variable_80_pattern, has_wide_587_pattern, has_early_82_pattern, has_variable_98_pattern, has_variable_106_pattern, extract_counter_lines
-from tb2_window_position import center_window
-from tb2_changelog import changelog_for_version
-from tb2_app_identity import configure_app_identity, apply_window_icon
+from tb2.tb2_version import APP_VERSION
+from tb2 import tb2_ignore
+from tb2.tb2_settings import load_folder, remember_folder, load_option, bind_option, load_export_folder, remember_export_folder
+from tb2.tb2_project_info import PROJECT_URL, MIT_LICENSE
+from tb2.tb2_muster import PROFILES, find_all, has_early_80_pattern, has_variable_80_pattern, has_wide_587_pattern, has_early_82_pattern, has_variable_98_pattern, has_variable_106_pattern, extract_counter_lines
+from tb2.tb2_window_position import center_window
+from tb2.tb2_changelog import changelog_for_version
+from tb2.tb2_app_identity import configure_app_identity, apply_window_icon
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk, font as tkfont
 
@@ -104,7 +104,7 @@ def inspect_counter_file(path: Path, search_mode: str = "full") -> tuple[str, st
         return "Fehler", str(exc)
     if not data:
         return "Leer", "Datei enthält 0 Bytes"
-    from tb2_muster import historical_resource_document
+    from tb2.tb2_muster import historical_resource_document
     resources = historical_resource_document(data)
     if resources is not None:
         detail = ", ".join(f"{resources.count(kind)} {kind}"
@@ -125,7 +125,7 @@ def inspect_counter_file(path: Path, search_mode: str = "full") -> tuple[str, st
 def has_pattern_in_mode(data, search_mode, minimum=MIN_CHARACTERS):
     if search_mode != "fast":
         return has_known_glyph_pattern(data, minimum)
-    from tb2_jpeg_fast import jpeg_ranges
+    from tb2.tb2_jpeg_fast import jpeg_ranges
     previous = 0
     for start, end in jpeg_ranges(data):
         if start > previous and has_known_glyph_pattern(data[previous:start], minimum):

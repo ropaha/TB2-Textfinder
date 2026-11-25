@@ -45,7 +45,7 @@ jobs:
             throw 'Version must be in X.Y.Z format (without v).'
           }
           $tag = $version
-          python version_workflow.py check --release-tag $tag
+          python tools/version_workflow.py check --release-tag $tag
           if ($LASTEXITCODE -ne 0) { throw 'Program version validation failed.' }
           git fetch --no-tags origin main
           if ((git rev-parse HEAD) -ne (git rev-parse origin/main)) {

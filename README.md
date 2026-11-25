@@ -56,7 +56,7 @@ Voraussetzung: Windows und Python 3.10 oder neuer mit Tkinter.
 2. `Start_TB2_Textfinder.bat` doppelt anklicken.
 3. Suchbegriff und Ordner auswählen und auf **Suchen** klicken.
 
-Für den direkten Start des Python-Skripts werden keine zusätzlichen Pakete benötigt. Die Python-Module müssen gemeinsam im Projektordner verbleiben.
+Für den direkten Start des Python-Skripts werden keine zusätzlichen Pakete benötigt. Die Hauptprogramme benötigen das Paket `tb2/` im Projektordner.
 
 ## Windows-EXE herunterladen oder selbst erstellen
 

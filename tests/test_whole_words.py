@@ -1,6 +1,6 @@
 """Regressionstests für die experimentelle Ganzwortsuche."""
 import unittest
-from tb2_whole_words import contains_whole_word
+from tb2.tb2_whole_words import contains_whole_word
 
 def glyphs(text, stride=106):
     data = bytearray(stride * len(text) + 12)

@@ -18,9 +18,9 @@ jobs:
         run: |
           if ($env:GITHUB_REF -like 'refs/heads/release/*') {
             $version = $env:GITHUB_REF.Substring('refs/heads/release/'.Length)
-            python version_workflow.py check --release-tag $version
+            python tools/version_workflow.py check --release-tag $version
           } else {
-            python version_workflow.py check --dev
+            python tools/version_workflow.py check --dev
           }
           if ($LASTEXITCODE -ne 0) { throw 'Versionsprüfung fehlgeschlagen.' }
 
