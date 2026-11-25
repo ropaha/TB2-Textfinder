@@ -1,6 +1,7 @@
 """Central Windows executable build for the three public TB2 tools."""
 import argparse
 import importlib.util
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -8,6 +9,9 @@ import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+from tb2.build_identity import identity
+
 TARGETS = {
     "textfinder": ("TB2_Textfinder", ()),
     "negativtester": ("TB2_Negativtester", ("TB2_Textfinder",)),
@@ -25,6 +29,7 @@ def command(key, output, work):
            "--onefile", "--windowed", "--icon", str(ROOT / "images/logo.ico")]
     for filename in RESOURCES:
         cmd.extend(["--add-data", str(ROOT / filename) + ";" + str(Path(filename).parent)])
+    cmd.extend(["--add-data", str(work.parent / "build_identity.json") + ";."])
     for module in hidden:
         cmd.extend(["--hidden-import", module])
     return cmd + ["--name", name, "--distpath", str(output),
@@ -72,6 +77,8 @@ def main():
     # Only this newly created temporary directory is cleaned up.
     with tempfile.TemporaryDirectory(prefix=".tb2-build-", dir=dist) as temp:
         stage = Path(temp)
+        branch, commit = identity()
+        (stage / "build_identity.json").write_text(json.dumps({"branch": branch, "commit": commit}), encoding="utf-8")
         for key in keys:
             name, _ = TARGETS[key]
             output = stage / "output"
