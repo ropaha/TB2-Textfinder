@@ -83,7 +83,7 @@ def save_option(key, value):
             json.dump(data, f, ensure_ascii=False, indent=2)
         os.replace(temporary, path)
     except (OSError, ValueError):
-        pass
+        logger.exception("Could not save setting %s to %s", key, path)
     finally:
         if temporary is not None:
             try:
