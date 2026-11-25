@@ -129,6 +129,7 @@ class App(tk.Tk):
         self.mode = tk.StringVar(value=load_option("search_mode", "fast"))
         bind_option(self.mode, "search_mode")
         self.status = tk.StringVar(value="Quellordner wählen.")
+        self.operation = tk.StringVar(value="Vorgang: Noch nicht gestartet")
         self.events = queue.Queue()
         self.stop = threading.Event()
         self.running = False
@@ -164,6 +165,8 @@ class App(tk.Tk):
         self.save.pack(side="left")
         self.compact = ttk.Button(bar, text="Kompakt", command=lambda: self.export(True), state="disabled")
         self.compact.pack(side="left", padx=(8,0))
+        ttk.Label(frame, textvariable=self.operation, font=("TkDefaultFont", 10, "bold"),
+                  wraplength=680).pack(fill="x", pady=(0, 5))
         self.progress = ttk.Progressbar(frame, mode="determinate")
         self.progress.pack(fill="x", pady=(0,7))
         ttk.Label(frame, textvariable=self.status, wraplength=880).pack(fill="x")
@@ -264,6 +267,10 @@ class App(tk.Tk):
             except Exception as e:
                 messagebox.showerror("Referenz",str(e))
                 return
+        if comparison:
+            self.operation.set(f"Vorgang: Vergleich mit Referenz {old.get('version', 'unbekannt')} – {Path(p).name}")
+        else:
+            self.operation.set("Vorgang: Referenz erstellen")
         self.running = True
         self.cancel.configure(state="normal")
         self.open_button.configure(state="disabled")
