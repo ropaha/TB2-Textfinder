@@ -1,4 +1,4 @@
-@rem Startet tests/benchmark_resource_paths.py mit interaktiver Parameterabfrage.
+@rem Startet benchmarks/benchmark_resource_paths.py mit interaktiver Parameterabfrage.
 @echo off
 setlocal DisableDelayedExpansion
 cd /d "%~dp0.."
@@ -27,9 +27,9 @@ set /p "output=CSV-Ausgabedatei [benchmark_resource_paths.csv]: "
 if not defined output set "output=benchmark_resource_paths.csv"
 echo.
 if defined expected (
-  py -3 "tests\benchmark_resource_paths.py" "%folder%" --term "%term%" --expected "%expected%" --output "%output%"
+  py -3 "benchmarks\benchmark_resource_paths.py" "%folder%" --term "%term%" --expected "%expected%" --output "%output%"
 ) else (
-  py -3 "tests\benchmark_resource_paths.py" "%folder%" --term "%term%" --output "%output%"
+  py -3 "benchmarks\benchmark_resource_paths.py" "%folder%" --term "%term%" --output "%output%"
 )
 
 echo.

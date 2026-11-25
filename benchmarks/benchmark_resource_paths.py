@@ -1,7 +1,7 @@
 """Vergleich der Pfadmaskierung – ausschließlich Benchmark, keine Produktionsänderung.
 
 Aufruf:
-  py -3 tests/benchmark_resource_paths.py "C:\\Signum\\TBL" --expected "C:\\Temp\\hagen.txt"
+  py -3 benchmarks/benchmark_resource_paths.py "C:\\Signum\\TBL" --expected "C:\\Temp\\hagen.txt"
 
 Liest TB2/TBL-Dateien nur. Vergleicht alte und experimentelle Maskierung
 bytegenau sowie die Treffer der bestehenden JPEG-Schnellsuche nach "Hagen".
@@ -13,7 +13,7 @@ import csv
 from pathlib import Path
 import sys
 
-# Auch beim direkten Aufruf aus tests/ die Projektmodule importieren.
+# Auch beim direkten Aufruf aus benchmarks/ die Projektmodule importieren.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from time import perf_counter
 

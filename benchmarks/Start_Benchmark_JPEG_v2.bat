@@ -1,4 +1,4 @@
-@rem Startet tests/benchmark_jpeg.py mit interaktiver Parameterabfrage.
+@rem Startet benchmarks/benchmark_jpeg_v2.py mit interaktiver Parameterabfrage.
 @echo off
 setlocal DisableDelayedExpansion
 cd /d "%~dp0.."
@@ -22,10 +22,10 @@ if not exist "%folder%\." (
 )
 set /p "term=Suchbegriff [Gerken]: "
 if not defined term set "term=Gerken"
-set /p "repeats=Wiederholungen pro Datei [1]: "
-if not defined repeats set "repeats=1"
+set /p "limit=Profil-Limit (0 = aus) [100]: "
+if not defined limit set "limit=100"
 echo.
-py -3 "tests\benchmark_jpeg.py" "%folder%" --term "%term%" --repeats "%repeats%"
+py -3 "benchmarks\benchmark_jpeg_v2.py" "%folder%" --term "%term%" --profile-limit "%limit%"
 
 echo.
 echo Benchmark beendet. Rueckgabecode: %errorlevel%
