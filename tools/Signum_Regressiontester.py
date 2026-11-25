@@ -19,7 +19,7 @@ from tb2_project_info import PROJECT_URL
 import webbrowser
 from tb2_muster import historical_resource_document
 from tb2_version import APP_VERSION
-from tb2_settings import load_folder, remember_folder, load_json_folder, remember_json_folder
+from tb2_settings import load_folder, remember_folder, load_json_folder, remember_json_folder, load_option, bind_option
 
 def parser_hashes():
     base = Path(__file__).resolve().parents[1]
@@ -126,7 +126,8 @@ class App(tk.Tk):
         center_window(self, 950, 600)
         self.minsize(720, 480)
         self.rootdir = tk.StringVar(value=load_folder())
-        self.mode = tk.StringVar(value="fast")
+        self.mode = tk.StringVar(value=load_option("search_mode", "fast"))
+        bind_option(self.mode, "search_mode")
         self.status = tk.StringVar(value="Quellordner wählen.")
         self.events = queue.Queue()
         self.stop = threading.Event()
