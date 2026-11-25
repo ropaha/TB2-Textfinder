@@ -35,6 +35,13 @@ def load_json_folder():
 def remember_json_folder(folder):
     remember_directory("regression_json_folder", folder)
 
+def load_export_folder():
+    folder = load_settings().get("export_folder", "")
+    return folder if isinstance(folder, str) and folder and Path(folder).is_dir() else ""
+
+def remember_export_folder(folder):
+    remember_directory("export_folder", folder)
+
 def remember_directory(key, folder):
     try:
         folder = Path(folder).resolve()
