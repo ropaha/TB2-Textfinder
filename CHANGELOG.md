@@ -6,6 +6,8 @@ Die Versionsnummer des Gesamtpakets ist unabhängig von den Programmversionen. D
 
 ## [Unveröffentlicht] – Entwicklungsbranch dev
 
+- Alle vier Programme zeigen Entwicklungsbranch im Fenstertitel sowie Branch und Commit im Info-Fenster; EXE-Builds enthalten die Build-Identität.
+
 - Regressionstester erlaubt nach Sicherheitsabfrage Vergleiche zwischen unterschiedlichen Quellordnern anhand relativer Dateipfade; getrennte Fehlermeldungen für inkompatibles JSON-Schema und abweichenden Suchmodus.
 
 - Regressionstester zeigt den aktuellen Vorgang (Referenzerstellung oder Vergleich mit Referenzversion und Dateiname) dauerhaft oberhalb des Fortschrittsbalkens an.
