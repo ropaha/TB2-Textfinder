@@ -283,6 +283,7 @@ class App(tk.Tk):
         self.open_button.configure(state="disabled")
         self.filter.configure(values=("Alle",))
         self.filter.set("Alle")
+        self.filter.configure(state="disabled")
         self.stop.clear()
         self.result = None
         self.save.configure(state="disabled")
@@ -311,6 +312,7 @@ class App(tk.Tk):
                     self.status.set(f"{format_number(e[1])} von {format_number(e[2])} Dateien analysiert ({format_number(100 * e[1] / e[2], 1)} %)")
                 else:
                     self.running = False
+                    self.filter.configure(state="readonly")
                     self.cancel.configure(state="disabled")
                     for w in self.controls: w.configure(state="normal")
                     if e[0] == "error":
