@@ -12,6 +12,7 @@ import re
 import webbrowser
 from pathlib import Path
 from tb2.version import APP_VERSION
+from tb2.build_identity import window_title, info_identity
 from tb2 import ignore as tb2_ignore
 from tb2.settings import load_folder, remember_folder, load_option, bind_option, load_export_folder, remember_export_folder
 from tb2.project_info import PROJECT_URL, MIT_LICENSE
@@ -153,7 +154,7 @@ class App(tk.Tk):
         configure_app_identity("ropaha.TB2Negativtester")
         super().__init__()
         apply_window_icon(self)
-        self.title(f"TB2-Negativtester – {APP_VERSION}")
+        self.title(window_title("TB2-Negativtester", APP_VERSION))
         center_window(self, 900, 560)
         self.minsize(800, 480)
         self.events: queue.Queue = queue.Queue()
@@ -317,6 +318,7 @@ class App(tk.Tk):
         body.pack(fill="both", expand=True)
         ttk.Label(body, text=f"{'TB2-Negativtester'} – Version {APP_VERSION}",
                   font=("TkDefaultFont", 13, "bold")).pack(anchor="w", pady=(0, 12))
+        ttk.Label(body, text=info_identity(), wraplength=580).pack(anchor="w", pady=(0, 8))
         help_frame = ttk.Frame(body)
         help_frame.pack(fill="both", expand=True)
         help_text = tk.Text(help_frame, wrap="word", height=9, relief="flat",
