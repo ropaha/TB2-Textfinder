@@ -67,10 +67,14 @@ jobs:
         shell: cmd
         run: call Build_TB2_Negativtester_EXE.bat /nopause
 
+      - name: Build Textcounter
+        shell: cmd
+        run: call Build_TB2_Textcounter_EXE.bat /nopause
+
       - name: Verify executables
         shell: pwsh
         run: |
-          foreach ($file in @('dist/TB2_Textfinder.exe', 'dist/TB2_Negativtester.exe')) {
+          foreach ($file in @('dist/TB2_Textfinder.exe', 'dist/TB2_Negativtester.exe', 'dist/TB2_Textcounter.exe')) {
             if (-not (Test-Path $file)) { throw "Missing executable: $file" }
           }
 
@@ -85,5 +89,5 @@ jobs:
           # GitHub API uses GH_TOKEN with contents:write; no local Git credentials needed.
           gh api --method POST "repos/$env:GH_REPO/git/refs" -f "ref=refs/tags/$tag" -f "sha=$env:GITHUB_SHA"
           if ($LASTEXITCODE -ne 0) { throw "Could not create tag $tag" }
-          gh release create $tag 'dist/TB2_Textfinder.exe' 'dist/TB2_Negativtester.exe' --verify-tag --latest --title "TB2-Textfinder v$tag" --generate-notes
+          gh release create $tag 'dist/TB2_Textfinder.exe' 'dist/TB2_Negativtester.exe' 'dist/TB2_Textcounter.exe' --verify-tag --latest --title "TB2-Textfinder v$tag" --generate-notes
           if ($LASTEXITCODE -ne 0) { throw "Could not publish release $tag" }
