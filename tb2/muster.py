@@ -416,7 +416,12 @@ def _counter_font_entries(data: bytes):
                 and data[start + 285] == 0):
             overlap = False
             for s, f, p, t, l in reversed(filtered):
-                if t != stride or l != legacy or p != s + 343:
+                if t != stride or p != s + 343:
+                    continue
+                confirmed_profile = l in ("breitnut98", "ttf98")
+                if l != legacy and not confirmed_profile:
+                    continue
+                if confirmed_profile and not (s < start < p):
                     continue
                 count = data[s + 285]
                 delta = start - s
@@ -424,6 +429,8 @@ def _counter_font_entries(data: bytes):
                         and delta % t == 0 and p + (count - 1) * t + 10 <= len(data)):
                     continue
                 def valid(q):
+                    if confirmed_profile:
+                        return _confirmed_counter_glyph(data, q, l)
                     if not (32 <= data[q] <= 126 or data[q] >= 128):
                         return False
                     if l:
