@@ -2,9 +2,9 @@
 
 A small Windows utility for searching text in `.TB2` files from different Signum / SignumNext file-format generations.
 
-**Current development status:** 0.7 (experimental)
+**Current release:** 1.9.2
 
-![TB2-Textfinder project banner](banner.svg)
+![TB2-Textfinder project banner](images/banner.svg)
 
 ## Features
 
@@ -16,9 +16,16 @@ A small Windows utility for searching text in `.TB2` files from different Signum
 - Open a selected result with the Windows application associated with `.TB2` files, by double-clicking or using the **Datei öffnen** button.
 - TB2 files are read-only; the tool does not modify them.
 
+## Additional tools and settings
+
+- Negative tester: review suspicious files, filter results and export TXT/diagnostic ZIP reports.
+- Text counter: count characters (excluding spaces) and lines by font.
+- Regression tester: create and compare JSON references, including glyph sequence hashes; start with `tools/Start_Regressiontester.bat`.
+- Shared settings and the central SHA-256-based ignore list are stored in `%LOCALAPPDATA%\Signum Textfinder`. Existing `ignore.txt` files are imported once without modification. Changed files become eligible for review again.
+
 ## Interface preview
 
-![Illustrative interface preview](docs/screenshot.svg)
+![Illustrative interface preview](images/screenshot.svg)
 
 *Illustrative preview, not an actual screenshot of a running application. The real appearance may vary by version and Windows theme.*
 
@@ -30,16 +37,18 @@ Requirements: Windows and Python 3.10 or newer with Tkinter.
 2. Double-click `Start_TB2_Textfinder.bat`.
 3. Enter a search term, choose a folder, and click **Suchen** (Search).
 
-No third-party packages are required to run the Python script directly.
+No third-party packages are required to run the Python script directly. Keep the shared `tb2/` package in the project directory.
 
 ## Build a standalone Windows executable
 
 1. Install Python 3.10 or newer.
-2. Double-click `Build_EXE.bat`.
+2. Double-click `packaging/Build_EXE.bat`.
 3. On the first run, an internet connection is needed to install PyInstaller.
-4. The executable is created at `dist\TB2_Textfinder.exe`.
+4. The three executables are created in `dist`: `TB2_Textfinder.exe`, `TB2_Negativtester.exe` and `TB2_Textcounter.exe`.
 
 The build script creates a local virtual environment in `.venv`, installs PyInstaller there, and builds a single-file, windowed executable. The Python runtime is bundled, so Python does not need to be installed on the target computer.
+
+The manual GitHub Actions test build uploads all three executables in one artifact; official releases publish all three as individual assets. The regression tester remains an internal Python tool.
 
 ## Known format observations
 
@@ -72,3 +81,7 @@ This project is licensed under the MIT License. See [LICENSE](LICENSE).
 ## Disclaimer
 
 This is an independent community project for investigating TB2 files. It is not affiliated with, endorsed by, or an official product of the Signum / SignumNext vendor.
+
+## Central build system
+
+`packaging/build.py` defines the shared PyInstaller configuration for local builds and both GitHub workflows. `packaging/Build_EXE.bat` is the single batch build launcher. Alternatively use `python packaging/build.py all --local`; individual targets are `textfinder`, `negativtester`, and `textcounter`. Use `--dry-run` to preview commands without building.

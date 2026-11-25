@@ -33,3 +33,24 @@ def mask_resource_paths(data: bytes) -> bytes:
     for match in matches:
         masked[match.start():match.end()] = b"\x00" * (match.end() - match.start())
     return bytes(masked)
+
+
+# Ressourcentypen: der Dateiname und die Endung sind entscheidend,
+# niemals der Laufwerksbuchstabe oder die Verzeichnishierarchie.
+RESOURCE_EXTENSIONS = {
+    "FN2": "Schrift", "FN3": "Schrift", "FNT": "Schrift",
+    "ORN": "Ornament", "BAU": "Baustein", "STN": "Stein",
+    "ORNRN": "Ornament", "STNTN": "Stein",
+}
+
+
+def classify_resource_name(path: str):
+    """(Typ, Name, Endung) oder None; Verzeichnisse werden ignoriert."""
+    leaf = re.split(r"[\\/]", path)[-1]
+    if "." not in leaf:
+        return None
+    name, ext = leaf.rsplit(".", 1)
+    kind = RESOURCE_EXTENSIONS.get(ext.upper())
+    if not name or kind is None:
+        return None
+    return kind, name, ext.upper()

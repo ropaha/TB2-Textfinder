@@ -18,9 +18,9 @@ jobs:
         run: |
           if ($env:GITHUB_REF -like 'refs/heads/release/*') {
             $version = $env:GITHUB_REF.Substring('refs/heads/release/'.Length)
-            python version_workflow.py check --release-tag $version
+            python tools/version_workflow.py check --release-tag $version
           } else {
-            python version_workflow.py check --dev
+            python tools/version_workflow.py check --dev
           }
           if ($LASTEXITCODE -ne 0) { throw 'Versionsprüfung fehlgeschlagen.' }
 
@@ -29,30 +29,18 @@ jobs:
         with:
           python-version: '3.12'
           cache: pip
-          cache-dependency-path: requirements-build.txt
+          cache-dependency-path: packaging/requirements-build.txt
 
       - name: PyInstaller installieren
-        run: python -m pip install -r requirements-build.txt
+        run: python -m pip install -r packaging/requirements-build.txt
 
-      - name: Textfinder bauen
-        run: >-
-          python -m PyInstaller --noconfirm --clean --onefile --windowed
-          --icon logo.ico --add-data "logo.ico;." --add-data "CHANGELOG.md;."
-          --name TB2_Textfinder --distpath dist --workpath build
-          --specpath . TB2_Textfinder.py
-
-      - name: Negativtester bauen
-        run: >-
-          python -m PyInstaller --noconfirm --clean --onefile --windowed
-          --icon logo.ico --add-data "logo.ico;." --add-data "CHANGELOG.md;."
-          --hidden-import TB2_Textfinder
-          --name TB2_Negativtester --distpath dist --workpath build
-          --specpath . TB2_Negativtester.py
+      - name: Alle drei Programme bauen
+        run: python packaging/build.py all
 
       - name: EXE-Dateien prüfen
         shell: pwsh
         run: |
-          foreach ($file in @("dist/TB2_Textfinder.exe", "dist/TB2_Negativtester.exe")) {
+          foreach ($file in @("dist/TB2_Textfinder.exe", "dist/TB2_Negativtester.exe", "dist/TB2_Textcounter.exe")) {
             if (!(Test-Path $file)) { throw "Build-Datei fehlt: $file" }
             Write-Host "$file ($((Get-Item $file).Length) Bytes)"
           }
@@ -64,5 +52,6 @@ jobs:
           path: |
             dist/TB2_Textfinder.exe
             dist/TB2_Negativtester.exe
+            dist/TB2_Textcounter.exe
           if-no-files-found: error
           retention-days: 14

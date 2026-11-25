@@ -4,6 +4,35 @@ Alle wesentlichen Änderungen am TB2-Textfinder und Negativtester werden hier do
 
 Die Versionsnummer des Gesamtpakets ist unabhängig von den Programmversionen. Die Erkennung beruht auf empirisch untersuchten TB2-Dateien, nicht auf einer vollständigen offiziellen Formatspezifikation.
 
+## [1.9.2] – Release
+
+- Build-Skripte nach `packaging/` verschoben; `build/` bleibt für temporäre Artefakte reserviert.
+- Benchmarks und ihre Starter in `benchmarks/` ausgelagert; Modulnamen im Paket `tb2/` vereinfacht.
+- `.editorconfig` und `pyproject.toml` für Entwicklungswerkzeuge ergänzt; zentrale Programmversion unverändert.
+
+- Gemeinsame Python-Module in das Paket `tb2/` verschoben; Versionsworkflow unter `tools/`.
+
+- Zentrales Buildsystem in `packaging/build.py` für alle drei Programme; lokaler Batch-Starter und beide GitHub-Workflows verwenden dieselbe Konfiguration. Frische Build-Ausgaben werden vor Übernahme geprüft.
+
+### Build und Release
+- Windows-Test-Build und offizieller Release-Workflow bauen, prüfen und veröffentlichen nun alle drei EXE-Dateien; Regressionstester bleibt internes Python-Werkzeug.
+
+### Erkennung und Werkzeuge
+- Gemeinsame Mustererkennung in `tb2/muster.py`; zusätzliche historische Glyphenstrukturen und Ressourcenvarianten.
+- Textcounter mit Zeichen- und Zeilenzählung je Schriftart, ohne Leerzeichen; eigener Windows-Build.
+- Negativtester mit Textfinder- und Textcounter-Prüfung, Ergebnisfiltern und begrenztem Diagnose-ZIP samt TXT-Bericht.
+- Regressionstester mit JSON-Referenzen, Datei- und Zeichenfolgen-Prüfsummen, Modulprüfsummen und kompaktem Vergleichsbericht.
+
+### Einstellungen und Datensicherheit
+- Gemeinsame JSON-Einstellungen unter `%LOCALAPPDATA%\Signum Textfinder`: Suchordner, Suchoptionen und Exportordner.
+- Zentrale `TB2-Ignore.json` mit Dateipfaden und SHA-256-Prüfsummen. Bestehende `ignore.txt` werden einmalig eingelesen und nicht verändert; geänderte Dateien werden erneut zur Prüfung angeboten.
+- Ignorierverwaltung schreibt nicht mehr in den Signum-Datenbestand.
+
+### Praxistests
+- Nach dem strukturellen Refactoring: Start aller drei Programme und des Regressionstesters, Unit-Tests, lokaler EXE-Build und GitHub-Test-Build erfolgreich.
+- Regression im Schnellmodus: 28.762 Dateien, 1.189.437 Zeichen, 116.418 Zeilen, keine Abweichungen zur neuen Referenz; 780 Dateien bleiben zu prüfen.
+- Einstellungsverwaltung, Migration, Ignorieren/Aufheben, Prüfsummencheck, TXT/ZIP-Export und lokaler EXE-Build unter Windows erfolgreich praktisch getestet.
+
 ## [1.9.1] – Release
 
 ### Wartung und Releases

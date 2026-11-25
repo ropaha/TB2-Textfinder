@@ -1,4 +1,4 @@
-@rem Startet tests/benchmark_jpeg_v3.py mit interaktiver Parameterabfrage.
+@rem Startet benchmarks/benchmark_jpeg_v3.py mit interaktiver Parameterabfrage.
 @echo off
 setlocal DisableDelayedExpansion
 cd /d "%~dp0.."
@@ -30,29 +30,29 @@ echo.
 if defined termsfile (
   if defined term (
     if /i "%case%"=="J" (
-      py -3 "tests\benchmark_jpeg_v3.py" "%folder%" --terms-file "%termsfile%" --term "%term%" --case-sensitive --max-files "%maxfiles%"
+      py -3 "benchmarks\benchmark_jpeg_v3.py" "%folder%" --terms-file "%termsfile%" --term "%term%" --case-sensitive --max-files "%maxfiles%"
     ) else (
-      py -3 "tests\benchmark_jpeg_v3.py" "%folder%" --terms-file "%termsfile%" --term "%term%" --max-files "%maxfiles%"
+      py -3 "benchmarks\benchmark_jpeg_v3.py" "%folder%" --terms-file "%termsfile%" --term "%term%" --max-files "%maxfiles%"
     )
   ) else (
     if /i "%case%"=="J" (
-      py -3 "tests\benchmark_jpeg_v3.py" "%folder%" --terms-file "%termsfile%" --case-sensitive --max-files "%maxfiles%"
+      py -3 "benchmarks\benchmark_jpeg_v3.py" "%folder%" --terms-file "%termsfile%" --case-sensitive --max-files "%maxfiles%"
     ) else (
-      py -3 "tests\benchmark_jpeg_v3.py" "%folder%" --terms-file "%termsfile%" --max-files "%maxfiles%"
+      py -3 "benchmarks\benchmark_jpeg_v3.py" "%folder%" --terms-file "%termsfile%" --max-files "%maxfiles%"
     )
   )
 ) else (
   if defined term (
     if /i "%case%"=="J" (
-      py -3 "tests\benchmark_jpeg_v3.py" "%folder%" --term "%term%" --case-sensitive --max-files "%maxfiles%"
+      py -3 "benchmarks\benchmark_jpeg_v3.py" "%folder%" --term "%term%" --case-sensitive --max-files "%maxfiles%"
     ) else (
-      py -3 "tests\benchmark_jpeg_v3.py" "%folder%" --term "%term%" --max-files "%maxfiles%"
+      py -3 "benchmarks\benchmark_jpeg_v3.py" "%folder%" --term "%term%" --max-files "%maxfiles%"
     )
   ) else (
     if /i "%case%"=="J" (
-      py -3 "tests\benchmark_jpeg_v3.py" "%folder%" --case-sensitive --max-files "%maxfiles%"
+      py -3 "benchmarks\benchmark_jpeg_v3.py" "%folder%" --case-sensitive --max-files "%maxfiles%"
     ) else (
-      py -3 "tests\benchmark_jpeg_v3.py" "%folder%" --max-files "%maxfiles%"
+      py -3 "benchmarks\benchmark_jpeg_v3.py" "%folder%" --max-files "%maxfiles%"
     )
   )
 )

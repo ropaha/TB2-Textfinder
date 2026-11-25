@@ -1,12 +1,12 @@
 # TB2-Textfinder
 
-<p align="center"><img src="logo.svg" alt="TB2-Textfinder Bandzugfeder-Logo" width="150"></p>
+<p align="center"><img src="images/logo.svg" alt="TB2-Textfinder Bandzugfeder-Logo" width="150"></p>
 
 Ein kleines Windows-Programm zum Durchsuchen von `.TB2`-Dateien nach Texten, die in unterschiedlichen Signum-/SignumNext-Dateigenerationen gespeichert sein können.
 
-**Aktuelle Version:** 1.9.1. · [Änderungsverlauf](CHANGELOG.md) · [English version](README_EN.md)
+**Aktuelles Release:** 1.9.2. · [Änderungsverlauf](CHANGELOG.md) · [English version](README_EN.md)
 
-![TB2-Textfinder Projektbanner](banner.svg)
+![TB2-Textfinder Projektbanner](images/banner.svg)
 
 ## Wie dieses Projekt entstanden ist
 
@@ -32,9 +32,19 @@ Die bisher untersuchten Dateien lassen sich in meinem Bestand inzwischen praktis
 - Treffer lassen sich per Doppelklick oder über **Datei öffnen** mit der in Windows verknüpften Anwendung öffnen.
 - TB2-Dateien werden nur gelesen und nicht verändert.
 
+## Weitere Werkzeuge
+
+- **Negativtester:** Auffällige Dateien prüfen, filtern, ignorieren und als TXT/Diagnose-ZIP exportieren.
+- **Textcounter:** Zeichen (ohne Leerzeichen) und Zeilen nach Schriftart zählen. Start über `TB2_Textcounter.py`, Build über `packaging/Build_EXE.bat`.
+- **Regressionstester:** Referenz erstellen und spätere Erkennungsergebnisse einschließlich Zeichenfolgen vergleichen. Start über `tools/Start_Regressiontester.bat`; kompakte JSON-Berichte enthalten Abweichungen und Summen.
+
+## Einstellungen und Ignorierliste
+
+Unter `%LOCALAPPDATA%\Signum Textfinder` liegen die gemeinsamen Einstellungen (`TB2-Textfinder.json`) und die zentrale Ignorierliste (`TB2-Ignore.json`). Suchordner, Suchoptionen und Exportordner werden gespeichert. Die Ignorierliste enthält absolute Dateipfade und SHA-256-Prüfsummen. Geänderte Dateien werden bei Auffälligkeiten erneut angezeigt. Vorhandene `ignore.txt` werden einmalig übernommen, ohne sie zu verändern oder zu löschen. Die zentrale Liste ist benutzer- und rechnerbezogen.
+
 ## Programmoberfläche
 
-![Schematische Vorschau der Programmoberfläche](docs/screenshot.svg)
+![Schematische Vorschau der Programmoberfläche](images/screenshot.svg)
 
 *Hinweis: Dies ist eine schematische Vorschau, kein echter Screenshot eines laufenden Programms. Das tatsächliche Erscheinungsbild kann je nach Version und Windows-Design abweichen.*
 
@@ -46,14 +56,14 @@ Voraussetzung: Windows und Python 3.10 oder neuer mit Tkinter.
 2. `Start_TB2_Textfinder.bat` doppelt anklicken.
 3. Suchbegriff und Ordner auswählen und auf **Suchen** klicken.
 
-Für den direkten Start des Python-Skripts werden keine zusätzlichen Pakete benötigt. Die Dateien `TB2_Textfinder.py`, `tb2_jpeg_fast.py` und `tb2_resource_paths.py` müssen im selben Verzeichnis liegen.
+Für den direkten Start des Python-Skripts werden keine zusätzlichen Pakete benötigt. Die Hauptprogramme benötigen das Paket `tb2/` im Projektordner.
 
 ## Windows-EXE herunterladen oder selbst erstellen
 
 ### Fertige EXE aus einem GitHub-Release
 
 1. Unter [Releases](https://github.com/ropaha/TB2-Textfinder/releases) die gewünschte Version öffnen.
-2. Unter **Assets** `TB2_Textfinder.exe` oder `TB2_Negativtester.exe` herunterladen.
+2. Unter **Assets** `TB2_Textfinder.exe`, `TB2_Negativtester.exe` oder `TB2_Textcounter.exe` herunterladen.
 3. Die heruntergeladene EXE unter Windows starten. Eine Python-Installation ist dafür nicht erforderlich.
 
 **Hinweis zu Microsoft Defender SmartScreen:** Windows kann beim Start einer heruntergeladenen EXE die Meldung **„Der Computer wurde durch Windows geschützt“** mit **„Unbekannter Herausgeber“** anzeigen. Die Programme sind derzeit nicht digital signiert. Außerdem können Browser Downloads als Dateien aus dem Internet kennzeichnen (Mark of the Web), wodurch Windows eine Reputationsprüfung auslöst. Eine solche Warnung bedeutet nicht automatisch, dass die Datei schädlich ist. Prüfe die Downloadquelle und führe nur Dateien aus, denen du vertraust.
@@ -62,13 +72,15 @@ Für den direkten Start des Python-Skripts werden keine zusätzlichen Pakete ben
 
 1. Auf der [Repository-Startseite](https://github.com/ropaha/TB2-Textfinder) **Code → Download ZIP** wählen und das ZIP entpacken (alternativ das Repository klonen).
 2. Python 3.10 oder neuer installieren.
-3. `Build_TB2_Textfinder_EXE.bat` beziehungsweise `Build_TB2_Negativtester_EXE.bat` im entpackten Projektordner doppelt anklicken.
+3. `packaging/Build_EXE.bat` (alle drei Programme) im entpackten Projektordner doppelt anklicken.
 4. Beim ersten Lauf wird eine Internetverbindung benötigt, um die Build-Abhängigkeiten zu installieren.
-5. Die fertigen Dateien liegen unter `dist\\TB2_Textfinder.exe` beziehungsweise `dist\\TB2_Negativtester.exe`.
+5. Die fertigen Dateien liegen unter `dist\\TB2_Textfinder.exe`, `dist\\TB2_Negativtester.exe` und `dist\\TB2_Textcounter.exe`.
 
 Die Build-Skripte verwenden eine lokale virtuelle Umgebung unter `.venv`, installieren PyInstaller und erstellen eigenständige EXE-Dateien ohne zusätzliches Konsolenfenster.
 
 **Warum lokal oft keine SmartScreen-Warnung erscheint:** Eine selbst erstellte EXE trägt normalerweise keine Internet-Downloadkennzeichnung. Das bedeutet jedoch **nicht**, dass sie automatisch sicherer ist. Je nach Windows-Konfiguration und Dateibehandlung kann auch bei lokal erstellten Dateien eine Sicherheitswarnung auftreten. Die Build-Skripte führen Python-Code aus und installieren Abhängigkeiten; verwende daher nur eine vertrauenswürdige Quelle.
+
+Der manuelle GitHub-Actions-Test-Build stellt alle drei EXE-Dateien als gemeinsames Artefakt bereit. Der offizielle Release-Workflow veröffentlicht alle drei als einzelne Release-Assets. Der Regressionstester wird nicht als EXE ausgeliefert.
 
 ## Bisher untersuchte TB2-Muster
 
@@ -101,3 +113,7 @@ Dieses Projekt steht unter der **MIT-Lizenz**. Den vollständigen Lizenztext fin
 ## Hinweis
 
 Dieses Projekt ist ein unabhängiges Community-Projekt zur Untersuchung von TB2-Dateien. Es ist nicht mit dem Hersteller von Signum/SignumNext verbunden, wird von diesem nicht unterstützt und ist kein offizielles Produkt.
+
+## Zentrales Buildsystem
+
+`packaging/build.py` enthält die gemeinsame PyInstaller-Konfiguration für lokale Builds und beide GitHub-Workflows. `packaging/Build_EXE.bat` bleibt als einziger Build-Starter erhalten. Alternativ: `python packaging/build.py all --local`; einzelne Ziele: `textfinder`, `negativtester`, `textcounter`. Mit `--dry-run` werden die Befehle ohne Build angezeigt.
