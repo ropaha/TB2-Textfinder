@@ -14,6 +14,7 @@ import threading
 import webbrowser
 from time import perf_counter
 from tb2_version import APP_VERSION
+from tb2_settings import load_folder, remember_folder
 from tb2_project_info import PROJECT_URL, MIT_LICENSE
 from tb2_muster import PROFILES, find_all, has_early_80_pattern, has_variable_80_pattern, has_wide_587_pattern, has_early_82_pattern, has_variable_98_pattern, has_variable_106_pattern
 from tb2_muster import (_early_80_record, _variable_marker_record, _wide_587_record, _early_82_record, _variable_98_record, _variable_106_record)
@@ -346,6 +347,7 @@ class App(tk.Tk):
         self.access_issues: list[str] = []
         self._build_ui()
         self.folder_var.trace_add("write", self._update_search_button)
+        self._update_search_button()
         self.term_var.trace_add("write", self._update_search_button)
         self.after(100, self._poll_events)
 
@@ -359,7 +361,7 @@ class App(tk.Tk):
         self.term_entry.grid(row=0, column=1, sticky="ew", padx=(10, 10))
 
         ttk.Label(frame, text="Ordner:").grid(row=1, column=0, sticky="w", pady=(12, 0))
-        self.folder_var = tk.StringVar()
+        self.folder_var = tk.StringVar(value=load_folder())
         self.folder_entry = ttk.Entry(frame, textvariable=self.folder_var)
         self.folder_entry.grid(
             row=1, column=1, sticky="ew", padx=(10, 10), pady=(12, 0)
@@ -543,9 +545,10 @@ class App(tk.Tk):
         ttk.Button(body, text="Schließen", command=dialog.destroy).pack(anchor="e", pady=(10, 0))
 
     def choose_folder(self):
-        folder = filedialog.askdirectory(title="Ordner mit TB2-/TBL-Dateien auswählen")
+        folder = filedialog.askdirectory(title="Ordner mit TB2-/TBL-Dateien auswählen", initialdir=self.folder_var.get() or None)
         if folder:
             self.folder_var.set(folder)
+            remember_folder(folder)
 
     def _update_search_button(self, *_args):
         """Suche nur mit eingetragenem Ordner starten; Abbruchmodus bewahren."""
@@ -596,6 +599,7 @@ class App(tk.Tk):
             return
         if self.scanning:
             return
+        remember_folder(folder_text)
         self.cancel_scan_event.clear()
         self.scanning = True
         self._set_inputs_locked(True)
