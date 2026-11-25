@@ -14,7 +14,7 @@ import threading
 import webbrowser
 from time import perf_counter
 from tb2_version import APP_VERSION
-from tb2_settings import load_folder, remember_folder
+from tb2_settings import load_folder, remember_folder, load_option, bind_option
 from tb2_project_info import PROJECT_URL, MIT_LICENSE
 from tb2_muster import PROFILES, find_all, has_early_80_pattern, has_variable_80_pattern, has_wide_587_pattern, has_early_82_pattern, has_variable_98_pattern, has_variable_106_pattern
 from tb2_muster import (_early_80_record, _variable_marker_record, _wide_587_record, _early_82_record, _variable_98_record, _variable_106_record)
@@ -373,10 +373,14 @@ class App(tk.Tk):
 
         options = ttk.Frame(frame)
         options.grid(row=2, column=1, columnspan=2, sticky="w", pady=(10, 2))
-        self.recursive_var = tk.BooleanVar(value=True)
-        self.case_var = tk.BooleanVar(value=False)
-        self.whole_word_var = tk.BooleanVar(value=True)
-        self.search_mode_var = tk.StringVar(value="fast")
+        self.recursive_var = tk.BooleanVar(value=load_option("recursive", True))
+        bind_option(self.recursive_var, "recursive")
+        self.case_var = tk.BooleanVar(value=load_option("case_sensitive", False))
+        bind_option(self.case_var, "case_sensitive")
+        self.whole_word_var = tk.BooleanVar(value=load_option("whole_word", True))
+        bind_option(self.whole_word_var, "whole_word")
+        self.search_mode_var = tk.StringVar(value=load_option("search_mode", "fast"))
+        bind_option(self.search_mode_var, "search_mode")
         self.recursive_check = ttk.Checkbutton(options, text="Unterordner einbeziehen", variable=self.recursive_var)
         self.recursive_check.pack(side="left", padx=(0, 20))
         self.whole_check = ttk.Checkbutton(options, text="Nur ganze Wörter", variable=self.whole_word_var)
