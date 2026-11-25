@@ -234,6 +234,19 @@ def _single_glyph(raw, data, pos):
     return False
 
 
+def _confirmed_counter_glyph(data, q, profile):
+    if q < 0 or q + 10 > len(data):
+        return False
+    g = data[q:q + 10]
+    if not (32 <= g[0] <= 126 or g[0] >= 128):
+        return False
+    if profile == "breitnut98":
+        return g[1] in (0x80, 0x81) and g[7] in (0x80, 0x81)
+    if profile == "ttf98":
+        return g[1] == 0x7F and g[7:] == b"\x81\x00\x00"
+    return g[1] in (0x84, 0x85) and g[7:] == b"\x81\x00\x00"
+
+
 def _counter_font_entries(data: bytes):
     """(Position, Schrift, erster Glyphenoffset, Abstand, Altformat).
 
@@ -276,6 +289,24 @@ def _counter_font_entries(data: bytes):
         if _LEGACY_TEXT.fullmatch(raw) is None:
             continue
         value = raw.decode("ascii")
+        # Count-bounded profiles confirmed against Signum text entry.
+        profile = None
+        if raw == b"BREITNUT":
+            profile, offset, stride, count_offset = "breitnut98", 343, 98, 285
+        elif raw.startswith(b"TTF\\") and re.fullmatch(rb"[A-Za-z0-9_. -]{3,64}", raw[4:]):
+            profile, offset, stride, count_offset = "ttf98", 343, 98, 285
+        elif raw == b"EHRFRIED":
+            profile, offset, stride, count_offset = "ehrfried80", 105, 80, 47
+        if profile and start + count_offset < len(data):
+            count = data[start + count_offset]
+            pos = start + offset
+            if (2 <= count <= 255
+                    and pos + (count - 1) * stride + 10 <= len(data)
+                    and all(_confirmed_counter_glyph(data, pos + k * stride, profile)
+                            for k in range(count))):
+                entries = [e for e in entries if e[0] != start]
+                entries.append((start, value.rsplit("\\", 1)[-1], pos, stride, profile))
+                continue
         pos = start + 343
         if (pos + 10 <= len(data) and data[start + 285] == 1
                 and _single_glyph(raw, data, pos)
@@ -385,7 +416,12 @@ def _counter_font_entries(data: bytes):
                 and data[start + 285] == 0):
             overlap = False
             for s, f, p, t, l in reversed(filtered):
-                if t != stride or l != legacy or p != s + 343:
+                if t != stride or p != s + 343:
+                    continue
+                confirmed_profile = l in ("breitnut98", "ttf98")
+                if l != legacy and not confirmed_profile:
+                    continue
+                if confirmed_profile and not (s < start < p):
                     continue
                 count = data[s + 285]
                 delta = start - s
@@ -393,6 +429,8 @@ def _counter_font_entries(data: bytes):
                         and delta % t == 0 and p + (count - 1) * t + 10 <= len(data)):
                     continue
                 def valid(q):
+                    if confirmed_profile:
+                        return _confirmed_counter_glyph(data, q, l)
                     if not (32 <= data[q] <= 126 or data[q] >= 128):
                         return False
                     if l:
@@ -467,9 +505,12 @@ def extract_counter_lines(data: bytes):
     for i, (start, font, pos, stride, legacy) in enumerate(entries):
         boundary = entries[i + 1][0] if i + 1 < len(entries) else len(data)
         glyphs = bytearray()
-        limit = data[start + 285] if stride == 587 or legacy in ('eva2p12', 'grotesk1_number', 'grotesk1_single') else 10000
+        confirmed = legacy in ("breitnut98", "ttf98", "ehrfried80")
+        limit = data[start + (47 if legacy == "ehrfried80" else 285)] if confirmed else data[start + 285] if stride == 587 or legacy in ('eva2p12', 'grotesk1_number', 'grotesk1_single') else 10000
         while pos + 10 <= len(data) and pos < boundary and len(glyphs) < limit:
-            if legacy == 'grotesk1_single':
+            if confirmed:
+                valid = _confirmed_counter_glyph(data, pos, legacy)
+            elif legacy == 'grotesk1_single':
                 valid = _single_glyph(data[start:start + data[start - 1]], data, pos)
             elif legacy == 'grotesk1_number':
                 valid = _grotesk1_number_glyph(data, pos)
@@ -494,7 +535,7 @@ def extract_counter_lines(data: bytes):
             pos += stride
         if glyphs:
             lines.append((font, bytes(glyphs)))
-            if (stride == 587 or legacy in ('eva2p12', 'grotesk1_number', 'grotesk1_single')) and len(glyphs) != limit:
+            if (confirmed or stride == 587 or legacy in ('eva2p12', 'grotesk1_number', 'grotesk1_single')) and len(glyphs) != limit:
                 warnings.append(f"{font}: historische Zeile unvollstaendig.")
             if len(glyphs) == 10000:
                 warnings.append(f"{font}: Sicherheitslimit erreicht; moeglicherweise unvollstaendig.")

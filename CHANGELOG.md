@@ -6,6 +6,15 @@ Die Versionsnummer des Gesamtpakets ist unabhängig von den Programmversionen. D
 
 ## [Unveröffentlicht] – Entwicklungsbranch dev
 
+### Oberfläche und Bedienung
+- Textfinder und Negativtester: manuell angepasste Spaltenbreiten bleiben erhalten; im Negativtester auch beim Filtern, Ignorieren und Aufheben.
+
+### Textcounter
+- Zusätzliche Schriftstrukturen für BREITNUT, EHRFRIED und FUTURA BOLD CONDENSED BT (TrueType).
+- Validierte Textstrukturen erhalten Vorrang vor überlappenden falschen Schriftkandidaten (z. B. OnActivate).
+- Regressionstest im Schnellmodus gegen 1.9.1: 28.762 Dateien, 67 neu erkannt, 166 veränderte BREITNUT-Zählungen, keine Erkennungsverluste bei unveränderten Originaldateien. 714 Dateien bleiben zu prüfen; zwei Originaldateien wurden verändert. Stichproben in Signum bestätigen die geprüften Zählungen.
+
+
 ## [1.9.2] – Release
 
 - Build-Skripte nach `packaging/` verschoben; `build/` bleibt für temporäre Artefakte reserviert.
