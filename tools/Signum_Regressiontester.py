@@ -19,6 +19,7 @@ from tb2.project_info import PROJECT_URL
 import webbrowser
 from tb2.muster import historical_resource_document
 from tb2.version import APP_VERSION
+from tb2.build_identity import window_title, info_identity
 from tb2.settings import load_folder, remember_folder, load_json_folder, remember_json_folder, load_option, bind_option
 
 def parser_hashes():
@@ -122,13 +123,14 @@ class App(tk.Tk):
         configure_app_identity("ropaha.SignumRegressiontester")
         super().__init__()
         apply_window_icon(self)
-        self.title("Signum Regressionstester – " + APP_VERSION)
+        self.title(window_title("Signum Regressionstester", APP_VERSION))
         center_window(self, 950, 600)
         self.minsize(720, 480)
         self.rootdir = tk.StringVar(value=load_folder())
         self.mode = tk.StringVar(value=load_option("search_mode", "fast"))
         bind_option(self.mode, "search_mode")
         self.status = tk.StringVar(value="Quellordner wählen.")
+        self.operation = tk.StringVar(value="Vorgang: Noch nicht gestartet")
         self.events = queue.Queue()
         self.stop = threading.Event()
         self.running = False
@@ -164,6 +166,8 @@ class App(tk.Tk):
         self.save.pack(side="left")
         self.compact = ttk.Button(bar, text="Kompakt", command=lambda: self.export(True), state="disabled")
         self.compact.pack(side="left", padx=(8,0))
+        ttk.Label(frame, textvariable=self.operation, font=("TkDefaultFont", 10, "bold"),
+                  wraplength=680).pack(fill="x", pady=(0, 5))
         self.progress = ttk.Progressbar(frame, mode="determinate")
         self.progress.pack(fill="x", pady=(0,7))
         ttk.Label(frame, textvariable=self.status, wraplength=880).pack(fill="x")
@@ -204,6 +208,7 @@ class App(tk.Tk):
         body.pack(fill="both", expand=True)
         ttk.Label(body, text="Signum Regressionstester – Version " + APP_VERSION,
                   font=("TkDefaultFont", 13, "bold")).pack(anchor="w", pady=(0,12))
+        ttk.Label(body, text=info_identity(), wraplength=580).pack(anchor="w", pady=(0, 8))
         ttk.Label(body, text="Vergleicht die Erkennung von TB2- und TBL-Dateien mit einer gespeicherten Referenz. Unterordner werden immer einbezogen. Quelldateien werden ausschließlich gelesen. JSON-Berichte werden außerhalb des Quellordners gespeichert.", wraplength=590).pack(anchor="w")
         buttons = ttk.Frame(body)
         buttons.pack(side="bottom", fill="x")
@@ -258,11 +263,29 @@ class App(tk.Tk):
             if not p: return
             try:
                 with open(p,encoding="utf-8") as f: old = json.load(f)
-                if old["schema"] != 1 or old["mode"] != mode or Path(old["root"]).resolve() != root:
-                    raise ValueError("Referenz, Ordner oder Suchmodus passt nicht.")
+                if old["schema"] != 1:
+                    raise ValueError(f"Nicht unterstütztes JSON-Schema: {old['schema']} (erwartet: 1).")
+                if old["mode"] != mode:
+                    raise ValueError(f"Suchmodus stimmt nicht überein.\nReferenz: {old['mode']}\nAktuell: {mode}")
+                reference_root = Path(old["root"]).resolve()
+                if reference_root != root:
+                    if not messagebox.askyesno(
+                        "Abweichender Quellordner",
+                        f"Quellordner der Referenz:\n{reference_root}\n\n"
+                        f"Aktuell ausgewählter Quellordner:\n{root}\n\n"
+                        "Die Dateien werden anhand ihrer relativen Pfade verglichen.\n"
+                        "Möchtest du die unterschiedlichen Datenbestände trotzdem vergleichen?",
+                        default="no", parent=self,
+                    ):
+                        return
+                remember_json_folder(Path(p).resolve().parent)
             except Exception as e:
                 messagebox.showerror("Referenz",str(e))
                 return
+        if comparison:
+            self.operation.set(f"Vorgang: Vergleich mit Referenz {old.get('version', 'unbekannt')} – {Path(p).name}")
+        else:
+            self.operation.set("Vorgang: Referenz erstellen")
         self.running = True
         self.cancel.configure(state="normal")
         self.open_button.configure(state="disabled")

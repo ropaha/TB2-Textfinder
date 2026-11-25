@@ -14,6 +14,7 @@ import threading
 import webbrowser
 from time import perf_counter
 from tb2.version import APP_VERSION
+from tb2.build_identity import window_title, info_identity
 from tb2.settings import load_folder, remember_folder, load_option, bind_option, load_export_folder, remember_export_folder
 from tb2.project_info import PROJECT_URL, MIT_LICENSE
 from tb2.muster import PROFILES, find_all, has_early_80_pattern, has_variable_80_pattern, has_wide_587_pattern, has_early_82_pattern, has_variable_98_pattern, has_variable_106_pattern
@@ -335,7 +336,7 @@ class App(tk.Tk):
         configure_app_identity("ropaha.TB2Textfinder")
         super().__init__()
         apply_window_icon(self)
-        self.title(f"{APP_TITLE} – {APP_VERSION}")
+        self.title(window_title(APP_TITLE, APP_VERSION))
         center_window(self, 800, 520)
         self.minsize(720, 420)
         self.events: queue.Queue = queue.Queue()
@@ -462,6 +463,7 @@ class App(tk.Tk):
         body.pack(fill="both", expand=True)
         ttk.Label(body, text=f"{APP_TITLE} – Version {APP_VERSION}",
                   font=("TkDefaultFont", 13, "bold")).pack(anchor="w", pady=(0, 12))
+        ttk.Label(body, text=info_identity(), wraplength=580).pack(anchor="w", pady=(0, 8))
         help_frame = ttk.Frame(body)
         help_frame.pack(fill="both", expand=True)
         help_text = tk.Text(help_frame, wrap="word", height=9, relief="flat",
