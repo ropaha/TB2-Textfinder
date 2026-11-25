@@ -246,6 +246,8 @@ def _confirmed_counter_glyph(data, q, profile):
         return g[1] in (0x7F, 0x80, 0x81) and g[7:] == b"\x81\x00\x00"
     if profile == "eva98":
         return g[1] in (0x7C, 0x7E) and g[7:] == b"\x81\x00\x00"
+    if profile == "block98":
+        return g[1] in (0x80, 0x81) and g[7:] in (b"\x81\x00\x00", b"\x81\xab\xaa")
     if profile == "named98":
         return g[1] in (0x80, 0x81) and g[7:] == b"\x81\x00\x00"
     return g[1] in (0x84, 0x85) and g[7:] == b"\x81\x00\x00"
@@ -290,21 +292,24 @@ def _counter_font_entries(data: bytes):
                 and 65 <= data[start] <= 122):
             continue
         raw = data[start:start + length]
-        if _LEGACY_TEXT.fullmatch(raw) is None:
+        if _LEGACY_TEXT.fullmatch(raw) is None and raw != b"STRASSACKER\\PR\xe4GNANT":
             continue
         if length == 2 and raw != b"EK":
             continue
-        value = raw.decode("ascii")
+        value = raw.decode("latin-1")
         # Count-bounded profiles confirmed against Signum text entry.
         profile = None
         if raw == b"BREITNUT":
             profile, offset, stride, count_offset = "breitnut98", 343, 98, 285
         elif raw.startswith(b"TTF\\") and re.fullmatch(rb"[A-Za-z0-9_. -]{3,64}", raw[4:]):
             profile, offset, stride, count_offset = "ttf98", 343, 98, 285
-        elif raw == b"EVA12":
+        elif raw in (b"EVA12", b"EVA4", b"GROTESK3"):
             profile, offset, stride, count_offset = "eva98", 343, 98, 285
-        elif raw in (b"STRASSACKER-2007\\ANTIQUA PRISMA", b"EK"):
+        elif raw in (b"STRASSACKER-2007\\ANTIQUA PRISMA", b"EK",
+                     b"STRASSACKER\\PR\xe4GNANT", b"STRASSACKER-2007\\SCHWERE BLOCK"):
             profile, offset, stride, count_offset = "named98", 343, 98, 285
+        elif raw == b"STRASSACKER\\SCHWERE BLOCK":
+            profile, offset, stride, count_offset = "block98", 343, 98, 285
         elif raw == b"EHRFRIED":
             profile, offset, stride, count_offset = "ehrfried80", 105, 80, 47
         if profile and start + count_offset < len(data):
@@ -428,7 +433,7 @@ def _counter_font_entries(data: bytes):
             for s, f, p, t, l in reversed(filtered):
                 if t != stride or p != s + 343:
                     continue
-                confirmed_profile = l in ("breitnut98", "ttf98", "eva98", "named98")
+                confirmed_profile = l in ("breitnut98", "ttf98", "eva98", "named98", "block98")
                 if l != legacy and not confirmed_profile:
                     continue
                 if confirmed_profile and not (s < start < p):
@@ -515,7 +520,7 @@ def extract_counter_lines(data: bytes):
     for i, (start, font, pos, stride, legacy) in enumerate(entries):
         boundary = entries[i + 1][0] if i + 1 < len(entries) else len(data)
         glyphs = bytearray()
-        confirmed = legacy in ("breitnut98", "ttf98", "ehrfried80", "eva98", "named98")
+        confirmed = legacy in ("breitnut98", "ttf98", "ehrfried80", "eva98", "named98", "block98")
         limit = data[start + (47 if legacy == "ehrfried80" else 285)] if confirmed else data[start + 285] if stride == 587 or legacy in ('eva2p12', 'grotesk1_number', 'grotesk1_single') else 10000
         while pos + 10 <= len(data) and pos < boundary and len(glyphs) < limit:
             if confirmed:
