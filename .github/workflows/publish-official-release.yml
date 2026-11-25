@@ -59,17 +59,8 @@ jobs:
       - name: Install build requirements
         run: python -m pip install -r requirements-build.txt
 
-      - name: Build Textfinder
-        shell: cmd
-        run: call Build_TB2_Textfinder_EXE.bat /nopause
-
-      - name: Build Negativtester
-        shell: cmd
-        run: call Build_TB2_Negativtester_EXE.bat /nopause
-
-      - name: Build Textcounter
-        shell: cmd
-        run: call Build_TB2_Textcounter_EXE.bat /nopause
+      - name: Build all three executables
+        run: python tools/build.py all
 
       - name: Verify executables
         shell: pwsh
