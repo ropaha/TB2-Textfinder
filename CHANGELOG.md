@@ -6,6 +6,8 @@ Die Versionsnummer des Gesamtpakets ist unabhängig von den Programmversionen. D
 
 ## [Unveröffentlicht] – Entwicklungsbranch dev
 
+- Regressionstester zeigt den aktuellen Vorgang (Referenzerstellung oder Vergleich mit Referenzversion und Dateiname) dauerhaft oberhalb des Fortschrittsbalkens an.
+
 - Exportordner unabhängig vom Suchordner speichern; Regressionstester merkt sich auch den Ordner erfolgreich geöffneter Referenzen. Schreibfehler werden protokolliert; zusätzliche Unit-Tests für die Ordnereinstellungen.
 
 ### Oberfläche und Bedienung
