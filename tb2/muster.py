@@ -199,7 +199,7 @@ def has_variable_106_pattern(data: bytes, minimum: int = 3) -> bool:
 
 # Textcounter: strukturell bestaetigte Schrift-Eintraege.
 import re
-from tb2.tb2_resource_paths import classify_resource_name
+from tb2.resource_paths import classify_resource_name
 
 _COUNTER_FONT = re.compile(rb"Signum Standard\\([A-Za-z0-9_. -]{1,64})")
 _LEGACY_TEXT = re.compile(rb"[A-Za-z0-9_ .\\/-]+")

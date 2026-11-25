@@ -13,17 +13,17 @@ from tkinter import ttk, filedialog, messagebox
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from TB2_Textcounter import counter_lines, SPACE_CODE, format_number, App as CounterApp
-from tb2.tb2_window_position import center_window
-from tb2.tb2_app_identity import configure_app_identity, apply_window_icon
-from tb2.tb2_project_info import PROJECT_URL
+from tb2.window_position import center_window
+from tb2.app_identity import configure_app_identity, apply_window_icon
+from tb2.project_info import PROJECT_URL
 import webbrowser
-from tb2.tb2_muster import historical_resource_document
-from tb2.tb2_version import APP_VERSION
-from tb2.tb2_settings import load_folder, remember_folder, load_json_folder, remember_json_folder, load_option, bind_option
+from tb2.muster import historical_resource_document
+from tb2.version import APP_VERSION
+from tb2.settings import load_folder, remember_folder, load_json_folder, remember_json_folder, load_option, bind_option
 
 def parser_hashes():
     base = Path(__file__).resolve().parents[1]
-    names = ("TB2_Textcounter.py", "tb2/tb2_muster.py", "tb2/tb2_jpeg_fast.py", "tb2/tb2_resource_paths.py", "tools/Signum_Regressiontester.py")
+    names = ("TB2_Textcounter.py", "tb2/muster.py", "tb2/jpeg_fast.py", "tb2/resource_paths.py", "tools/Signum_Regressiontester.py")
     return {name: hashlib.sha256((base / name).read_bytes()).hexdigest()
             for name in names if (base / name).is_file()}
 

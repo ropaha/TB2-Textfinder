@@ -13,7 +13,7 @@ from pathlib import Path
 import re
 
 ROOT = Path(__file__).resolve().parent.parent
-VERSION_FILE = "tb2/tb2_version.py"
+VERSION_FILE = "tb2/version.py"
 VERSION_RE = re.compile(r'^APP_VERSION\s*=\s*"(?P<version>\d+\.\d+\.\d+(?:-dev)?)"\s*$', re.MULTILINE)
 
 
