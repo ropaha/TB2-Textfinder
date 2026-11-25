@@ -7,7 +7,7 @@ from time import perf_counter
 from collections import Counter
 import webbrowser
 from tb2_version import APP_VERSION
-from tb2_settings import load_folder, remember_folder
+from tb2_settings import load_folder, remember_folder, load_option, bind_option
 from tb2_project_info import PROJECT_URL, MIT_LICENSE
 from tb2_window_position import center_window
 from tb2_changelog import changelog_for_version
@@ -97,7 +97,8 @@ class App(tk.Tk):
         center_window(self, 900, 560)
         self.minsize(720, 480)
         self.folder = tk.StringVar(value=load_folder())
-        self.recursive = tk.BooleanVar(value=True)
+        self.recursive = tk.BooleanVar(value=load_option("recursive", True))
+        bind_option(self.recursive, "recursive")
         self.status = tk.StringVar(value="Bereit. Ordner auswählen und Zählung starten.")
         self.summary = tk.StringVar(value="Noch keine Ergebnisse.")
         self.events = queue.Queue()
@@ -115,7 +116,8 @@ class App(tk.Tk):
         self.choose_button.grid(row=0, column=2)
         self.check = ttk.Checkbutton(frame, text="Unterordner einbeziehen", variable=self.recursive)
         self.check.grid(row=1, column=1, sticky="w", pady=(10,2))
-        self.search_mode_var = tk.StringVar(value="fast")
+        self.search_mode_var = tk.StringVar(value=load_option("search_mode", "fast"))
+        bind_option(self.search_mode_var, "search_mode")
         mode_options = ttk.Frame(frame)
         mode_options.grid(row=2, column=1, columnspan=2, sticky="w", pady=(4,2))
         ttk.Label(mode_options, text="Suchmodus:").pack(side="left", padx=(0,10))
