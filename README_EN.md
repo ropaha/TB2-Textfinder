@@ -20,7 +20,7 @@ A small Windows utility for searching text in `.TB2` files from different Signum
 
 - Negative tester: review suspicious files, filter results and export TXT/diagnostic ZIP reports.
 - Text counter: count characters (excluding spaces) and lines by font.
-- Regression tester: create and compare JSON references, including glyph sequence hashes; start with `Start_Regressiontester.bat`.
+- Regression tester: create and compare JSON references, including glyph sequence hashes; start with `tools/Start_Regressiontester.bat`.
 - Shared settings and the central SHA-256-based ignore list are stored in `%LOCALAPPDATA%\Signum Textfinder`. Existing `ignore.txt` files are imported once without modification. Changed files become eligible for review again.
 
 ## Interface preview

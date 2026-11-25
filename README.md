@@ -36,7 +36,7 @@ Die bisher untersuchten Dateien lassen sich in meinem Bestand inzwischen praktis
 
 - **Negativtester:** Auffällige Dateien prüfen, filtern, ignorieren und als TXT/Diagnose-ZIP exportieren.
 - **Textcounter:** Zeichen (ohne Leerzeichen) und Zeilen nach Schriftart zählen. Start über `TB2_Textcounter.py`, Build über `build/Build_EXE.bat`.
-- **Regressionstester:** Referenz erstellen und spätere Erkennungsergebnisse einschließlich Zeichenfolgen vergleichen. Start über `Start_Regressiontester.bat`; kompakte JSON-Berichte enthalten Abweichungen und Summen.
+- **Regressionstester:** Referenz erstellen und spätere Erkennungsergebnisse einschließlich Zeichenfolgen vergleichen. Start über `tools/Start_Regressiontester.bat`; kompakte JSON-Berichte enthalten Abweichungen und Summen.
 
 ## Einstellungen und Ignorierliste
 

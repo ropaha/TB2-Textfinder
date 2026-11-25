@@ -1,9 +1,9 @@
 @echo off
 setlocal
-cd /d "%~dp0"
+cd /d "%~dp0.."
 where py >nul 2>&1
 if not errorlevel 1 (
-    py -3 "%~dp0tools\Signum_Regressiontester.py"
+    py -3 "%~dp0Signum_Regressiontester.py"
 ) else (
     where python >nul 2>&1
     if errorlevel 1 (
@@ -12,7 +12,7 @@ if not errorlevel 1 (
         pause
         exit /b 1
     )
-    python "%~dp0tools\Signum_Regressiontester.py"
+    python "%~dp0Signum_Regressiontester.py"
 )
 if errorlevel 1 (
     echo.
