@@ -4,7 +4,7 @@ Alle wesentlichen Änderungen am TB2-Textfinder und Negativtester werden hier do
 
 Die Versionsnummer des Gesamtpakets ist unabhängig von den Programmversionen. Die Erkennung beruht auf empirisch untersuchten TB2-Dateien, nicht auf einer vollständigen offiziellen Formatspezifikation.
 
-## [Unveröffentlicht] – Entwicklungsbranch dev
+## [1.9.2] – Release
 
 - Build-Skripte nach `packaging/` verschoben; `build/` bleibt für temporäre Artefakte reserviert.
 - Benchmarks und ihre Starter in `benchmarks/` ausgelagert; Modulnamen im Paket `tb2/` vereinfacht.
@@ -29,6 +29,7 @@ Die Versionsnummer des Gesamtpakets ist unabhängig von den Programmversionen. D
 - Ignorierverwaltung schreibt nicht mehr in den Signum-Datenbestand.
 
 ### Praxistests
+- Nach dem strukturellen Refactoring: Start aller drei Programme und des Regressionstesters, Unit-Tests, lokaler EXE-Build und GitHub-Test-Build erfolgreich.
 - Regression im Schnellmodus: 28.762 Dateien, 1.189.437 Zeichen, 116.418 Zeilen, keine Abweichungen zur neuen Referenz; 780 Dateien bleiben zu prüfen.
 - Einstellungsverwaltung, Migration, Ignorieren/Aufheben, Prüfsummencheck, TXT/ZIP-Export und lokaler EXE-Build unter Windows erfolgreich praktisch getestet.
 
