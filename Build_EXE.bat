@@ -1,27 +1,16 @@
 @echo off
 setlocal
 cd /d "%~dp0"
-title TB2 - Alle drei EXE-Dateien erstellen
-echo ============================================
-echo  TB2 Finder, Negativtester und Textcounter - EXE Build
-echo ============================================
-echo.
-call "%~dp0Build_TB2_Textfinder_EXE.bat" /nopause
+where py >nul 2>&1
+if not errorlevel 1 (set "PYTHON_CMD=py -3") else (set "PYTHON_CMD=python")
+%PYTHON_CMD% tools\build.py all --local
 if errorlevel 1 goto :error
-call "%~dp0Build_TB2_Negativtester_EXE.bat" /nopause
-if errorlevel 1 goto :error
-call "%~dp0Build_TB2_Textcounter_EXE.bat" /nopause
-if errorlevel 1 goto :error
-echo.
-echo Alle drei EXE-Dateien erfolgreich erstellt:
-echo   dist\TB2_Textfinder.exe
-echo   dist\TB2_Negativtester.exe
-echo   dist\TB2_Textcounter.exe
+if /i "%~1"=="/nopause" exit /b 0
 explorer "%~dp0dist"
 pause
 exit /b 0
 :error
-echo.
-echo FEHLER: Mindestens ein Build ist fehlgeschlagen.
+echo FEHLER: Build fehlgeschlagen.
+if /i "%~1"=="/nopause" exit /b 1
 pause
 exit /b 1
