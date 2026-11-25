@@ -261,8 +261,21 @@ class App(tk.Tk):
             if not p: return
             try:
                 with open(p,encoding="utf-8") as f: old = json.load(f)
-                if old["schema"] != 1 or old["mode"] != mode or Path(old["root"]).resolve() != root:
-                    raise ValueError("Referenz, Ordner oder Suchmodus passt nicht.")
+                if old["schema"] != 1:
+                    raise ValueError(f"Nicht unterstütztes JSON-Schema: {old['schema']} (erwartet: 1).")
+                if old["mode"] != mode:
+                    raise ValueError(f"Suchmodus stimmt nicht überein.\nReferenz: {old['mode']}\nAktuell: {mode}")
+                reference_root = Path(old["root"]).resolve()
+                if reference_root != root:
+                    if not messagebox.askyesno(
+                        "Abweichender Quellordner",
+                        f"Quellordner der Referenz:\n{reference_root}\n\n"
+                        f"Aktuell ausgewählter Quellordner:\n{root}\n\n"
+                        "Die Dateien werden anhand ihrer relativen Pfade verglichen.\n"
+                        "Möchtest du die unterschiedlichen Datenbestände trotzdem vergleichen?",
+                        default="no", parent=self,
+                    ):
+                        return
                 remember_json_folder(Path(p).resolve().parent)
             except Exception as e:
                 messagebox.showerror("Referenz",str(e))
