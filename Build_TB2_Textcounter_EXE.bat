@@ -1,40 +1,16 @@
 @echo off
 setlocal
 cd /d "%~dp0"
-title TB2_Textcounter - EXE erstellen
-echo.
-echo Erstelle TB2_Textcounter.exe ...
-if not exist "%~dp0TB2_Textcounter.py" (
- echo FEHLER: TB2_Textcounter.py fehlt.
- goto :error
-)
-if not exist "%~dp0logo.ico" (
- echo FEHLER: logo.ico fehlt.
- goto :error
-)
 where py >nul 2>&1
 if not errorlevel 1 (set "PYTHON_CMD=py -3") else (set "PYTHON_CMD=python")
-%PYTHON_CMD% -c "import sys; raise SystemExit(0 if sys.version_info >= (3,10) else 1)"
+%PYTHON_CMD% tools\build.py textcounter --local
 if errorlevel 1 goto :error
-if not exist ".venv\Scripts\python.exe" (
- %PYTHON_CMD% -m venv ".venv"
- if errorlevel 1 goto :error
-)
-call ".venv\Scripts\activate.bat"
-if errorlevel 1 goto :error
-python -m pip install -r "%~dp0requirements-build.txt"
-if errorlevel 1 goto :error
-REM Alle Pfade relativ zum Projektordner; cd /d oben wechselt dorthin.
-python -m PyInstaller --noconfirm --clean --onefile --windowed --icon "logo.ico" --add-data "logo.ico;." --add-data "CHANGELOG.md;." --name "TB2_Textcounter" --distpath "dist" --workpath "build" --specpath "." "TB2_Textcounter.py"
-if errorlevel 1 goto :error
-if not exist "%~dp0dist\TB2_Textcounter.exe" goto :error
-echo ERFOLG: dist\TB2_Textcounter.exe
 if /i "%~1"=="/nopause" exit /b 0
 explorer "%~dp0dist"
 pause
 exit /b 0
 :error
-echo FEHLER: Build von TB2_Textcounter fehlgeschlagen.
+echo FEHLER: Build fehlgeschlagen.
 if /i "%~1"=="/nopause" exit /b 1
 pause
 exit /b 1
