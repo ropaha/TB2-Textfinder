@@ -19,7 +19,7 @@ from tb2_project_info import PROJECT_URL
 import webbrowser
 from tb2_muster import historical_resource_document
 from tb2_version import APP_VERSION
-from tb2_settings import load_folder, remember_folder
+from tb2_settings import load_folder, remember_folder, load_json_folder, remember_json_folder
 
 def parser_hashes():
     base = Path(__file__).resolve().parents[1]
@@ -253,7 +253,7 @@ class App(tk.Tk):
         remember_folder(root)
         old = None
         if comparison:
-            p = filedialog.askopenfilename(filetypes=[("JSON","*.json")])
+            p = filedialog.askopenfilename(filetypes=[("JSON","*.json")], initialdir=load_json_folder() or None)
             if not p: return
             try:
                 with open(p,encoding="utf-8") as f: old = json.load(f)
@@ -318,10 +318,11 @@ class App(tk.Tk):
             pass
         self.after(100,self.poll)
     def export(self, compact=False):
-        p = filedialog.asksaveasfilename(defaultextension=".json",filetypes=[("JSON","*.json")])
+        p = filedialog.asksaveasfilename(defaultextension=".json",filetypes=[("JSON","*.json")], initialdir=load_json_folder() or None)
         if p:
             try:
                 save_new(p,self.source,compact_report(self.result) if compact else self.result)
+                remember_json_folder(Path(p).resolve().parent)
                 self.status.set("Gespeichert: "+p)
             except Exception as e:
                 messagebox.showerror("Speichern",str(e))
