@@ -12,7 +12,7 @@ import re
 import webbrowser
 from pathlib import Path
 from tb2_version import APP_VERSION
-from tb2_settings import load_folder, remember_folder
+from tb2_settings import load_folder, remember_folder, load_option, bind_option
 from tb2_project_info import PROJECT_URL, MIT_LICENSE
 from tb2_muster import PROFILES, find_all, has_early_80_pattern, has_variable_80_pattern, has_wide_587_pattern, has_early_82_pattern, has_variable_98_pattern, has_variable_106_pattern, extract_counter_lines
 from tb2_window_position import center_window
@@ -194,11 +194,13 @@ class App(tk.Tk):
                                      state="readonly", width=27,
                                      values=("Textfinder-Prüfung", "Textcounter-Prüfung"))
         self.mode_box.grid(row=1, column=1, sticky="w", padx=10)
-        self.recursive_var = tk.BooleanVar(value=True)
+        self.recursive_var = tk.BooleanVar(value=load_option("recursive", True))
+        bind_option(self.recursive_var, "recursive")
         self.recursive_check = ttk.Checkbutton(frame, text="Unterordner einbeziehen", variable=self.recursive_var)
         self.recursive_check.grid(
             row=1, column=2, sticky="w", pady=(9, 2))
-        self.search_mode_var = tk.StringVar(value="fast")
+        self.search_mode_var = tk.StringVar(value=load_option("search_mode", "fast"))
+        bind_option(self.search_mode_var, "search_mode")
         ttk.Label(frame, text="Suchmodus:").grid(row=2, column=0, sticky="w")
         mode_options = ttk.Frame(frame)
         mode_options.grid(row=2, column=1, columnspan=2, sticky="w", padx=10, pady=(6, 2))
