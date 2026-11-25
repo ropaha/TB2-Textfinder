@@ -14,7 +14,7 @@ import threading
 import webbrowser
 from time import perf_counter
 from tb2_version import APP_VERSION
-from tb2_settings import load_folder, remember_folder, load_option, bind_option
+from tb2_settings import load_folder, remember_folder, load_option, bind_option, load_export_folder, remember_export_folder
 from tb2_project_info import PROJECT_URL, MIT_LICENSE
 from tb2_muster import PROFILES, find_all, has_early_80_pattern, has_variable_80_pattern, has_wide_587_pattern, has_early_82_pattern, has_variable_98_pattern, has_variable_106_pattern
 from tb2_muster import (_early_80_record, _variable_marker_record, _wide_587_record, _early_82_record, _variable_98_record, _variable_106_record)
@@ -877,6 +877,7 @@ class App(tk.Tk):
             defaultextension=".txt",
             filetypes=[("Textdatei", "*.txt"), ("Alle Dateien", "*.*")],
             initialfile="TB2_Treffer.txt",
+            initialdir=load_export_folder() or None,
         )
         if not destination:
             return
@@ -885,6 +886,7 @@ class App(tk.Tk):
         except OSError as exc:
             messagebox.showerror("Speichern fehlgeschlagen", str(exc))
             return
+        remember_export_folder(Path(destination).resolve().parent)
         self.status_var.set(f"Pfadliste gespeichert: {destination}")
 
     def clear_results(self):
