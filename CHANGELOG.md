@@ -6,6 +6,8 @@ Die Versionsnummer des Gesamtpakets ist unabhängig von den Programmversionen. D
 
 ## [Unveröffentlicht] – Entwicklungsbranch dev
 
+- Textcounter: erweiterte 98-Byte-Erkennung für EVA12, TrueType-Schriften, ANTIQUA PRISMA und EK. Regressionstest mit 28.762 Dateien: 114 zusätzliche Dateien erkannt, 600 verbleibende Prüffälle, vier manuelle Stichproben bestätigt.
+
 - Alle vier Programme zeigen Entwicklungsbranch im Fenstertitel sowie Branch und Commit im Info-Fenster; EXE-Builds enthalten die Build-Identität.
 
 - Regressionstester erlaubt nach Sicherheitsabfrage Vergleiche zwischen unterschiedlichen Quellordnern anhand relativer Dateipfade; getrennte Fehlermeldungen für inkompatibles JSON-Schema und abweichenden Suchmodus.
