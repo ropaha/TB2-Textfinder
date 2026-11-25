@@ -34,27 +34,8 @@ jobs:
       - name: PyInstaller installieren
         run: python -m pip install -r requirements-build.txt
 
-      - name: Textfinder bauen
-        run: >-
-          python -m PyInstaller --noconfirm --clean --onefile --windowed
-          --icon logo.ico --add-data "logo.ico;." --add-data "CHANGELOG.md;."
-          --name TB2_Textfinder --distpath dist --workpath build
-          --specpath . TB2_Textfinder.py
-
-      - name: Negativtester bauen
-        run: >-
-          python -m PyInstaller --noconfirm --clean --onefile --windowed
-          --icon logo.ico --add-data "logo.ico;." --add-data "CHANGELOG.md;."
-          --hidden-import TB2_Textfinder
-          --name TB2_Negativtester --distpath dist --workpath build
-          --specpath . TB2_Negativtester.py
-
-      - name: Textcounter bauen
-        run: >-
-          python -m PyInstaller --noconfirm --clean --onefile --windowed
-          --icon logo.ico --add-data "logo.ico;." --add-data "CHANGELOG.md;."
-          --name TB2_Textcounter --distpath dist --workpath build
-          --specpath . TB2_Textcounter.py
+      - name: Alle drei Programme bauen
+        run: python tools/build.py all
 
       - name: EXE-Dateien prüfen
         shell: pwsh
