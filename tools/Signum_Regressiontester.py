@@ -19,23 +19,7 @@ from tb2_project_info import PROJECT_URL
 import webbrowser
 from tb2_muster import historical_resource_document
 from tb2_version import APP_VERSION
-
-def settings_path():
-    return Path(os.environ.get("LOCALAPPDATA") or Path.home() / ".config") / "SignumRegressiontester" / "settings.json"
-
-def load_folder():
-    try:
-        return json.loads(settings_path().read_text(encoding="utf-8")).get("folder", "")
-    except (OSError, ValueError, AttributeError):
-        return ""
-
-def remember_folder(folder):
-    try:
-        path = settings_path()
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps({"folder": str(folder)}, ensure_ascii=False), encoding="utf-8")
-    except OSError:
-        pass
+from tb2_settings import load_folder, remember_folder
 
 def parser_hashes():
     base = Path(__file__).resolve().parents[1]
