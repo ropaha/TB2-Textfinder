@@ -7,6 +7,7 @@ from time import perf_counter
 from collections import Counter
 import webbrowser
 from tb2.version import APP_VERSION
+from tb2.build_identity import window_title, info_identity
 from tb2.settings import load_folder, remember_folder, load_option, bind_option
 from tb2.project_info import PROJECT_URL, MIT_LICENSE
 from tb2.window_position import center_window
@@ -93,7 +94,7 @@ class App(tk.Tk):
         configure_app_identity("ropaha.SignumTextcounter")
         super().__init__()
         apply_window_icon(self)
-        self.title(f"{APP_TITLE} – {APP_VERSION}")
+        self.title(window_title(APP_TITLE, APP_VERSION))
         center_window(self, 900, 560)
         self.minsize(720, 480)
         self.folder = tk.StringVar(value=load_folder())
@@ -306,6 +307,7 @@ class App(tk.Tk):
         body.pack(fill="both", expand=True)
         ttk.Label(body, text=f"{APP_TITLE} – Version {APP_VERSION}",
                   font=("TkDefaultFont", 13, "bold")).pack(anchor="w", pady=(0, 12))
+        ttk.Label(body, text=info_identity(), wraplength=580).pack(anchor="w", pady=(0, 8))
         help_frame = ttk.Frame(body)
         help_frame.pack(fill="both", expand=True)
         help_text = tk.Text(help_frame, wrap="word", height=9, relief="flat",
