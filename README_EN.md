@@ -44,9 +44,11 @@ No third-party packages are required to run the Python script directly.
 1. Install Python 3.10 or newer.
 2. Double-click `Build_EXE.bat`.
 3. On the first run, an internet connection is needed to install PyInstaller.
-4. The executable is created at `dist\TB2_Textfinder.exe`.
+4. The three executables are created in `dist`: `TB2_Textfinder.exe`, `TB2_Negativtester.exe` and `TB2_Textcounter.exe`.
 
 The build script creates a local virtual environment in `.venv`, installs PyInstaller there, and builds a single-file, windowed executable. The Python runtime is bundled, so Python does not need to be installed on the target computer.
+
+The manual GitHub Actions test build uploads all three executables in one artifact; official releases publish all three as individual assets. The regression tester remains an internal Python tool.
 
 ## Known format observations
 
