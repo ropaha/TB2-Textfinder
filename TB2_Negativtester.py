@@ -12,6 +12,7 @@ import re
 import webbrowser
 from pathlib import Path
 from tb2_version import APP_VERSION
+import tb2_ignore
 from tb2_settings import load_folder, remember_folder, load_option, bind_option
 from tb2_project_info import PROJECT_URL, MIT_LICENSE
 from tb2_muster import PROFILES, find_all, has_early_80_pattern, has_variable_80_pattern, has_wide_587_pattern, has_early_82_pattern, has_variable_98_pattern, has_variable_106_pattern, extract_counter_lines
@@ -470,6 +471,7 @@ class App(tk.Tk):
         if self.scanning:
             return
         remember_folder(folder_text)
+        self.scan_root = Path(folder_text).resolve()
         self.cancel_scan_event.clear()
         self.scan_started_at = perf_counter()
         self.scanning = True
@@ -534,19 +536,10 @@ class App(tk.Tk):
                         files.append(Path(directory) / name)
                 if checked_dirs % 50 == 0:
                     self.events.put(("discovery", checked_dirs, len(files)))
+            ignore_data = tb2_ignore.load()
             if not self.cancel_scan_event.is_set():
-                for directory in {path.parent for path in files}:
-                    if self.cancel_scan_event.is_set():
-                        break
-                    ignore_file = directory / "ignore.txt"
-                    try:
-                        if ignore_file.is_file():
-                            for line in ignore_file.read_text(encoding="utf-8").splitlines():
-                                entry = line.strip()
-                                if entry and not entry.startswith("#"):
-                                    ignored.add(self._path_key(directory / entry))
-                    except (OSError, UnicodeError) as exc:
-                        skipped.append(f"{ignore_file}: {exc}")
+                tb2_ignore.import_legacy(ignore_data, {path.parent for path in files},
+                                         root, self.cancel_scan_event, skipped)
             self.events.put(("discovery_done", len(files), checked_dirs))
             flagged = []
             recognized = errors = empty = fragments = probably_no_text = 0
@@ -557,6 +550,12 @@ class App(tk.Tk):
                 category, detail = (inspect_counter_file(path, search_mode) if mode == "Textcounter-Prüfung"
                                     else inspect_file(path, search_mode))
                 processed = index
+                if category not in ("Erkannt", "Fehler"):
+                    try:
+                        if tb2_ignore.matching(ignore_data, path):
+                            ignored.add(self._path_key(path))
+                    except OSError as exc:
+                        skipped.append(f"{path}: {exc}")
                 if category == "Erkannt":
                     recognized += 1
                 else:
@@ -795,31 +794,14 @@ class App(tk.Tk):
         if self.scanning or not paths or len(states) != 1:
             return
         should_ignore = True not in states
-        updated = set(self.ignored_paths)
-        folders = {}
-        for path in paths:
-            file_path = Path(path)
-            folders.setdefault(file_path.parent, set()).add(self._path_key(file_path))
-        for directory, keys in folders.items():
-            new_keys = (updated | keys) if should_ignore else (updated - keys)
-            names = sorted(
-                (Path(key).name for key in new_keys
-                 if self._path_key(Path(key).parent) == self._path_key(directory)),
-                key=str.casefold)
-            ignore_file = directory / "ignore.txt"
-            temporary = ignore_file.with_name("ignore.txt.tmp")
-            try:
-                temporary.write_text("\n".join(names) + ("\n" if names else ""),
-                                     encoding="utf-8")
-                temporary.replace(ignore_file)
-            except (OSError, ValueError) as exc:
-                messagebox.showerror("Ignorierliste nicht gespeichert",
-                                     f"{ignore_file}\n\n{exc}")
-                break
-            # Erfolgreich gespeicherte Ordner sofort übernehmen; bei einem
-            # späteren Schreibfehler bleiben Speicherstand und Anzeige konsistent.
-            updated = new_keys
-        self.ignored_paths = updated
+        try:
+            tb2_ignore.toggle(paths, should_ignore, self.scan_root)
+        except (OSError, ValueError) as exc:
+            messagebox.showerror("Ignorierliste nicht gespeichert", str(exc))
+            return
+        keys = {self._path_key(Path(path)) for path in paths}
+        self.ignored_paths = (self.ignored_paths | keys if should_ignore
+                              else self.ignored_paths - keys)
         self.apply_filter()
         self._refresh_scan_summary()
 
