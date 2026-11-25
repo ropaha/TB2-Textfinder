@@ -30,6 +30,8 @@ def identity():
     branch = git("symbolic-ref", "--quiet", "--short", "HEAD") if (ROOT / ".git").exists() else ""
     commit = git("rev-parse", "--short=8", "HEAD") if (ROOT / ".git").exists() else ""
     if commit:
+        if os.environ.get("GITHUB_ACTIONS") == "true" and os.environ.get("GITHUB_REF_TYPE") == "branch" and os.environ.get("GITHUB_SHA", "").startswith(commit):
+            branch = os.environ.get("GITHUB_REF_NAME") or branch
         return branch or "detached", commit
     try:
         lines = (ROOT / ".git-archive-info").read_text(encoding="utf-8").splitlines()
@@ -45,7 +47,7 @@ def identity():
 
 def window_title(name, version):
     branch, _ = identity()
-    return f"{name} – {version}" + (f" [{branch}]" if version.endswith("-dev") or branch not in ("main", "unbekannt") and branch.startswith("release/") else "")
+    return f"{name} – {version}" + (f" [{branch}]" if version.endswith("-dev") or branch.startswith("release/") else "")
 
 
 def info_identity():
