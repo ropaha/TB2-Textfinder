@@ -81,3 +81,7 @@ This project is licensed under the MIT License. See [LICENSE](LICENSE).
 ## Disclaimer
 
 This is an independent community project for investigating TB2 files. It is not affiliated with, endorsed by, or an official product of the Signum / SignumNext vendor.
+
+## Central build system
+
+`tools/build.py` defines the shared PyInstaller configuration for local builds and both GitHub workflows. Existing batch launchers remain available. Alternatively use `python tools/build.py all --local`; individual targets are `textfinder`, `negativtester`, and `textcounter`. Use `--dry-run` to preview commands without building.
