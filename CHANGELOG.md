@@ -4,7 +4,10 @@ Alle wesentlichen Änderungen am TB2-Textfinder und Negativtester werden hier do
 
 Die Versionsnummer des Gesamtpakets ist unabhängig von den Programmversionen. Die Erkennung beruht auf empirisch untersuchten TB2-Dateien, nicht auf einer vollständigen offiziellen Formatspezifikation.
 
-## [Unveröffentlicht]
+## [Unveröffentlicht] – Entwicklungsbranch dev
+
+### Build und Release
+- Windows-Test-Build und offizieller Release-Workflow bauen, prüfen und veröffentlichen nun alle drei EXE-Dateien; Regressionstester bleibt internes Python-Werkzeug.
 
 ### Erkennung und Werkzeuge
 - Gemeinsame Mustererkennung in `tb2_muster.py`; zusätzliche historische Glyphenstrukturen und Ressourcenvarianten.
