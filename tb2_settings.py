@@ -26,6 +26,16 @@ def load_folder():
     return folder if isinstance(folder, str) else ""
 
 def remember_folder(folder):
+    remember_directory("folder", folder)
+
+def load_json_folder():
+    folder = load_settings().get("regression_json_folder", "")
+    return folder if isinstance(folder, str) and Path(folder).is_dir() else ""
+
+def remember_json_folder(folder):
+    remember_directory("regression_json_folder", folder)
+
+def remember_directory(key, folder):
     path = settings_path()
     temporary = None
     try:
@@ -33,7 +43,7 @@ def remember_folder(folder):
         if not folder.is_dir() or path.resolve() == folder or folder in path.resolve().parents:
             return
         data = load_settings()
-        data["folder"] = str(folder)
+        data[key] = str(folder)
         path.parent.mkdir(parents=True, exist_ok=True)
         with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=path.parent,
                                          prefix=".settings-", suffix=".tmp", delete=False) as f:
