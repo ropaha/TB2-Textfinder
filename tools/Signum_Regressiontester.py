@@ -19,6 +19,7 @@ from tb2.project_info import PROJECT_URL
 import webbrowser
 from tb2.muster import historical_resource_document
 from tb2.version import APP_VERSION
+from tb2.build_identity import window_title, info_identity
 from tb2.settings import load_folder, remember_folder, load_json_folder, remember_json_folder, load_option, bind_option
 
 def parser_hashes():
@@ -122,7 +123,7 @@ class App(tk.Tk):
         configure_app_identity("ropaha.SignumRegressiontester")
         super().__init__()
         apply_window_icon(self)
-        self.title("Signum Regressionstester – " + APP_VERSION)
+        self.title(window_title("Signum Regressionstester", APP_VERSION))
         center_window(self, 950, 600)
         self.minsize(720, 480)
         self.rootdir = tk.StringVar(value=load_folder())
@@ -207,6 +208,7 @@ class App(tk.Tk):
         body.pack(fill="both", expand=True)
         ttk.Label(body, text="Signum Regressionstester – Version " + APP_VERSION,
                   font=("TkDefaultFont", 13, "bold")).pack(anchor="w", pady=(0,12))
+        ttk.Label(body, text=info_identity(), wraplength=580).pack(anchor="w", pady=(0, 8))
         ttk.Label(body, text="Vergleicht die Erkennung von TB2- und TBL-Dateien mit einer gespeicherten Referenz. Unterordner werden immer einbezogen. Quelldateien werden ausschließlich gelesen. JSON-Berichte werden außerhalb des Quellordners gespeichert.", wraplength=590).pack(anchor="w")
         buttons = ttk.Frame(body)
         buttons.pack(side="bottom", fill="x")
