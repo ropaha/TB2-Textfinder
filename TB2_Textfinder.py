@@ -13,6 +13,11 @@ import queue
 import threading
 import webbrowser
 from time import perf_counter
+from tb2_version import APP_VERSION
+from tb2_settings import load_folder, remember_folder, load_option, bind_option, load_export_folder, remember_export_folder
+from tb2_project_info import PROJECT_URL, MIT_LICENSE
+from tb2_muster import PROFILES, find_all, has_early_80_pattern, has_variable_80_pattern, has_wide_587_pattern, has_early_82_pattern, has_variable_98_pattern, has_variable_106_pattern
+from tb2_muster import (_early_80_record, _variable_marker_record, _wide_587_record, _early_82_record, _variable_98_record, _variable_106_record)
 from tb2_resource_paths import mask_resource_paths
 from tb2_whole_words import contains_whole_word
 from pathlib import Path
@@ -23,9 +28,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk, font as tkfont
 
 APP_TITLE = "TB2-Textfinder"
-APP_VERSION = "1.9.1"
-PROJECT_URL = "https://github.com/ropaha/TB2-Textfinder"
-MIT_LICENSE = "MIT License\n\nCopyright (c) 2026 Roga Hagen (roga@hagen.me)\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE.\n"
+
 
 INFO_TEXT = (
     "Schnell überspringt JPEG-Daten und kann Treffer übersehen; Vollständig entspricht der bisherigen Suche. "
@@ -40,30 +43,12 @@ INFO_TEXT = (
     "kann sie Treffer übersehen. Bindestriche gelten als Wortgrenzen."
 )
 
-PROFILES = (
-    # Neue und mittlere Generation: Zeichen + Marker, Abstand 106 Bytes.
-    ("SignumNext-Profil A", b"\x81\x00\x00", (0x6A,)),
-    ("SignumNext-Profil B", b"\x81\x67\x66\x66\x66\x66\x81", (0x6A,)),
-    # Ältere Generation (z. B. Datei 9500036.TB2, Jahrgang 1995):
-    # gleicher Zeichenmarker, aber nur 80 Bytes Abstand.
-    ("Signum-Altformat", b"\x81\x00\x00", (0x50,)),
-    # Sehr frühe Generation (z. B. 8900001.TB2):
-    # eigener Marker direkt hinter jedem Zeichen; ebenfalls 80 Bytes Abstand.
-    ("Signum-Frühformat", b"\x81\x7C\xE9\xE4\x58\x09", (0x50,)),
-    # 1990–1993: 98-Byte-Datensaetze, variabler 6-Byte-Vorspann
-    # zwischen Zeichen und festem Marker 81 00 00.
-    ("Signum-90er-Profil", b"\x81\x00\x00", (0x62,)),
-)
+_find_all = find_all
 
 
-def _find_all(data: bytes, needle: bytes):
-    start = 0
-    while True:
-        pos = data.find(needle, start)
-        if pos < 0:
-            return
-        yield pos
-        start = pos + 1
+def format_number(value, decimals=0):
+    """German display formatting, independent of the system locale."""
+    return format(value, f",.{decimals}f").translate(str.maketrans(",.", ".,"))
 
 
 def _plain_needles(term: str, case_sensitive: bool) -> list[bytes]:
@@ -157,28 +142,6 @@ def _matches_glyph_profile(data: bytes, term: str, marker: bytes,
 
 
 
-def _variable_marker_record(data: bytes, pos: int) -> bool:
-    """Ältere 80-Byte-Glyphen: variable 5-Byte-Felder nach 0x81.
-
-    Beobachtet bei 9005016.TB2. Das Folgesteuerbyte an +7 ist
-    0x80 oder 0x81. Diese Struktur vermeidet blindes Stride-Matching.
-    """
-    return (pos >= 0 and pos + 8 <= len(data)
-            and data[pos + 1] == 0x81
-            and data[pos + 7] in (0x80, 0x81))
-
-
-def _early_80_record(data: bytes, pos: int) -> bool:
-    """Frühes 80-Byte-Profil mit 0x80 direkt nach dem Zeichen.
-
-    Beobachtet in 9518311I.TB2 (Kl.Gladebrügge). Die 5 variablen
-    Steuerbytes werden nicht als feste Signatur interpretiert.
-    """
-    return (0 <= pos and pos + 8 <= len(data)
-            and data[pos + 1] == 0x80
-            and data[pos + 7] in (0x80, 0x81))
-
-
 def _matches_early_80(data: bytes, term: str, case_sensitive: bool) -> bool:
     if not term:
         return False
@@ -194,20 +157,6 @@ def _matches_early_80(data: bytes, term: str, case_sensitive: bool) -> bool:
         if all(data[start + i * 80] in allowed
                and _early_80_record(data, start + i * 80)
                for i, allowed in enumerate(codes)):
-            return True
-    return False
-
-
-def has_early_80_pattern(data: bytes, minimum: int = 3) -> bool:
-    minimum = max(3, minimum)
-    for marker_pos in _find_all(data, b"\x80"):
-        start = marker_pos - 1
-        if start < 0 or start + (minimum - 1) * 80 + 8 > len(data):
-            continue
-        if all(_early_80_record(data, start + i * 80)
-               and (32 <= data[start + i * 80] <= 126
-                    or data[start + i * 80] >= 0x80)
-               for i in range(minimum)):
             return True
     return False
 
@@ -231,30 +180,6 @@ def _matches_variable_80(data: bytes, term: str, case_sensitive: bool) -> bool:
     return False
 
 
-def has_variable_80_pattern(data: bytes, minimum: int = 3) -> bool:
-    """Mindestens drei plausible Datensätze mit variablem Marker."""
-    if minimum < 3:
-        minimum = 3
-    for marker_pos in _find_all(data, b"\x81"):
-        start = marker_pos - 1
-        if start < 0:
-            continue
-        if all(_variable_marker_record(data, start + i * 80)
-               and (32 <= data[start + i * 80] <= 126
-                    or data[start + i * 80] >= 0x80)
-               for i in range(minimum)
-               if start + i * 80 < len(data)):
-            if start + (minimum - 1) * 80 + 8 <= len(data):
-                return True
-    return False
-
-def _wide_587_record(data: bytes, pos: int) -> bool:
-    """587-Byte-Glyphen mit beobachteten Steuerbytes 7E/7F/80/81/84."""
-    return (0 <= pos and pos + 8 <= len(data)
-            and data[pos + 1] in (0x7E, 0x7F, 0x80, 0x81, 0x84)
-            and data[pos + 7] in (0x80, 0x81))
-
-
 def _matches_wide_587(data: bytes, term: str, case_sensitive: bool) -> bool:
     if not term:
         return False
@@ -276,35 +201,6 @@ def _matches_wide_587(data: bytes, term: str, case_sensitive: bool) -> bool:
     return False
 
 
-def has_wide_587_pattern(data: bytes, minimum: int = 3) -> bool:
-    """Mindestens drei aufeinanderfolgende plausible 587-Byte-Zeichen."""
-    minimum = max(3, minimum)
-    for marker in (b"\x7e", b"\x7f", b"\x80", b"\x81", b"\x84"):
-        for marker_pos in _find_all(data, marker):
-            start = marker_pos - 1
-            if start < 0 or start + (minimum - 1) * 587 + 8 > len(data):
-                continue
-            if all(_wide_587_record(data, start + i * 587)
-                   and (32 <= data[start + i * 587] <= 126
-                        or data[start + i * 587] >= 0x80)
-                   for i in range(minimum)):
-                return True
-    return False
-
-
-
-
-def _early_82_record(data: bytes, pos: int) -> bool:
-    """80-Byte-Zeichendatensatz mit 0x82 nach dem Zeichen.
-
-    Referenz: 9600246.TB2 (HANDELSHAUS). Der Vorspann an +2..+6
-    kann variieren; +7 ist bei diesem Datensatz 0x80 oder 0x81.
-    """
-    return (0 <= pos and pos + 8 <= len(data)
-            and data[pos + 1] == 0x82
-            and data[pos + 7] in (0x80, 0x81))
-
-
 def _matches_early_82(data: bytes, term: str, case_sensitive: bool) -> bool:
     if not term:
         return False
@@ -322,32 +218,6 @@ def _matches_early_82(data: bytes, term: str, case_sensitive: bool) -> bool:
                for i, allowed in enumerate(codes)):
             return True
     return False
-
-
-def has_early_82_pattern(data: bytes, minimum: int = 3) -> bool:
-    minimum = max(3, minimum)
-    for marker_pos in _find_all(data, b"\x82"):
-        start = marker_pos - 1
-        if start < 0 or start + (minimum - 1) * 80 + 8 > len(data):
-            continue
-        if all(_early_82_record(data, start + i * 80)
-               and (32 <= data[start + i * 80] <= 126
-                    or data[start + i * 80] >= 0x80)
-               for i in range(minimum)):
-            return True
-    return False
-
-
-
-def _variable_98_record(data: bytes, pos: int) -> bool:
-    """98-Byte-Zeichen: variables Steuerfeld und 0x80/0x81 an Position +7.
-
-    Referenz 2006 18 178d.TB2 (1923 INGEBORG 2006).
-    Erfordert 0x80/0x81 an +1 und 0x80/0x81 an +7; kein blindes Stride-Matching.
-    """
-    return (0 <= pos and pos + 8 <= len(data)
-            and data[pos + 1] in (0x80, 0x81)
-            and data[pos + 7] in (0x80, 0x81))
 
 
 def _matches_variable_98(data: bytes, term: str, case_sensitive: bool) -> bool:
@@ -370,33 +240,6 @@ def _matches_variable_98(data: bytes, term: str, case_sensitive: bool) -> bool:
     return False
 
 
-def has_variable_98_pattern(data: bytes, minimum: int = 3) -> bool:
-    minimum = max(3, minimum)
-    for marker in (b"\x80", b"\x81"):
-        for marker_pos in _find_all(data, marker):
-            start = marker_pos - 1
-            if start < 0 or start + (minimum - 1) * 98 + 8 > len(data):
-                continue
-            if all(_variable_98_record(data, start + i * 98)
-                   and (32 <= data[start + i * 98] <= 126
-                        or data[start + i * 98] >= 0x80)
-                   for i in range(minimum)):
-                return True
-    return False
-
-def _variable_106_record(data: bytes, pos: int) -> bool:
-    """106-Byte-Glyphen mit variablen Steuerdaten.
-
-    Referenzen: 2018-00-149.TB2 (Fuchs) und 2020-01-012.TB2
-    (Oma, Felicitas). Das Steuerbyte an +1 darf 0x81 oder 0x82
-    sein; die 5 folgenden Bytes sind variabel. Die beobachtete
-    Abschlussstruktur +7..+9 bleibt verpflichtend.
-    """
-    return (0 <= pos and pos + 10 <= len(data)
-            and data[pos + 1] in (0x81, 0x82)
-            and data[pos + 7:pos + 10] == b"\x81\x00\x00")
-
-
 def _matches_variable_106(data: bytes, term: str, case_sensitive: bool) -> bool:
     if not term:
         return False
@@ -415,22 +258,6 @@ def _matches_variable_106(data: bytes, term: str, case_sensitive: bool) -> bool:
                    for i, allowed in enumerate(codes)):
                 return True
     return False
-
-
-def has_variable_106_pattern(data: bytes, minimum: int = 3) -> bool:
-    minimum = max(3, minimum)
-    for marker in (b"\x81", b"\x82"):
-        for marker_pos in _find_all(data, marker):
-            start = marker_pos - 1
-            if start < 0 or start + (minimum - 1) * 106 + 10 > len(data):
-                continue
-            if all(_variable_106_record(data, start + i * 106)
-                   and (32 <= data[start + i * 106] <= 126
-                        or data[start + i * 106] >= 0x80)
-                   for i in range(minimum)):
-                return True
-    return False
-
 
 
 def _matches_legacy_mixed_records(data: bytes, term: str, case_sensitive: bool) -> bool:
@@ -520,6 +347,7 @@ class App(tk.Tk):
         self.access_issues: list[str] = []
         self._build_ui()
         self.folder_var.trace_add("write", self._update_search_button)
+        self._update_search_button()
         self.term_var.trace_add("write", self._update_search_button)
         self.after(100, self._poll_events)
 
@@ -533,31 +361,42 @@ class App(tk.Tk):
         self.term_entry.grid(row=0, column=1, sticky="ew", padx=(10, 10))
 
         ttk.Label(frame, text="Ordner:").grid(row=1, column=0, sticky="w", pady=(12, 0))
-        self.folder_var = tk.StringVar()
-        ttk.Entry(frame, textvariable=self.folder_var).grid(
+        self.folder_var = tk.StringVar(value=load_folder())
+        self.folder_entry = ttk.Entry(frame, textvariable=self.folder_var)
+        self.folder_entry.grid(
             row=1, column=1, sticky="ew", padx=(10, 10), pady=(12, 0)
         )
-        ttk.Button(frame, text="Ordner wählen …", command=self.choose_folder).grid(
+        self.folder_button = ttk.Button(frame, text="Ordner wählen …", command=self.choose_folder)
+        self.folder_button.grid(
             row=1, column=2, pady=(12, 0)
         )
 
         options = ttk.Frame(frame)
         options.grid(row=2, column=1, columnspan=2, sticky="w", pady=(10, 2))
-        self.recursive_var = tk.BooleanVar(value=True)
-        self.case_var = tk.BooleanVar(value=False)
-        self.whole_word_var = tk.BooleanVar(value=True)
-        self.search_mode_var = tk.StringVar(value="fast")
-        ttk.Checkbutton(options, text="Unterordner einbeziehen", variable=self.recursive_var).pack(side="left", padx=(0, 20))
-        ttk.Checkbutton(options, text="Nur ganze Wörter", variable=self.whole_word_var).pack(side="left", padx=(0, 20))
-        ttk.Checkbutton(options, text="Groß-/Kleinschreibung beachten", variable=self.case_var).pack(side="left")
+        self.recursive_var = tk.BooleanVar(value=load_option("recursive", True))
+        bind_option(self.recursive_var, "recursive")
+        self.case_var = tk.BooleanVar(value=load_option("case_sensitive", False))
+        bind_option(self.case_var, "case_sensitive")
+        self.whole_word_var = tk.BooleanVar(value=load_option("whole_word", True))
+        bind_option(self.whole_word_var, "whole_word")
+        self.search_mode_var = tk.StringVar(value=load_option("search_mode", "fast"))
+        bind_option(self.search_mode_var, "search_mode")
+        self.recursive_check = ttk.Checkbutton(options, text="Unterordner einbeziehen", variable=self.recursive_var)
+        self.recursive_check.pack(side="left", padx=(0, 20))
+        self.whole_check = ttk.Checkbutton(options, text="Nur ganze Wörter", variable=self.whole_word_var)
+        self.whole_check.pack(side="left", padx=(0, 20))
+        self.case_check = ttk.Checkbutton(options, text="Groß-/Kleinschreibung beachten", variable=self.case_var)
+        self.case_check.pack(side="left")
 
         mode_options = ttk.Frame(frame)
         mode_options.grid(row=3, column=1, columnspan=2, sticky="w", pady=(4, 2))
         ttk.Label(mode_options, text="Suchmodus:").pack(side="left", padx=(0, 10))
-        ttk.Radiobutton(mode_options, text="Schnell (JPEG überspringen)",
-                        variable=self.search_mode_var, value="fast").pack(side="left", padx=(0, 14))
-        ttk.Radiobutton(mode_options, text="Vollständig (alle Bytes)", variable=self.search_mode_var,
-                        value="full").pack(side="left")
+        self.fast_radio = ttk.Radiobutton(mode_options, text="Schnell (JPEG überspringen)",
+                        variable=self.search_mode_var, value="fast")
+        self.fast_radio.pack(side="left", padx=(0, 14))
+        self.full_radio = ttk.Radiobutton(mode_options, text="Vollständig (alle Bytes)", variable=self.search_mode_var,
+                        value="full")
+        self.full_radio.pack(side="left")
 
         actions = ttk.Frame(frame)
         actions.grid(row=4, column=0, columnspan=3, sticky="w", pady=(12, 10))
@@ -696,7 +535,7 @@ class App(tk.Tk):
         dialog.transient(self)
         body = ttk.Frame(dialog, padding=14)
         body.pack(fill="both", expand=True)
-        ttk.Label(body, text=f"{len(self.access_issues)} übersprungene Verzeichnisse",
+        ttk.Label(body, text=f"{format_number(len(self.access_issues))} übersprungene Verzeichnisse",
                   font=("TkDefaultFont", 12, "bold")).pack(anchor="w", pady=(0, 10))
         text_frame = ttk.Frame(body)
         text_frame.pack(fill="both", expand=True)
@@ -710,9 +549,10 @@ class App(tk.Tk):
         ttk.Button(body, text="Schließen", command=dialog.destroy).pack(anchor="e", pady=(10, 0))
 
     def choose_folder(self):
-        folder = filedialog.askdirectory(title="Ordner mit TB2-/TBL-Dateien auswählen")
+        folder = filedialog.askdirectory(title="Ordner mit TB2-/TBL-Dateien auswählen", initialdir=self.folder_var.get() or None)
         if folder:
             self.folder_var.set(folder)
+            remember_folder(folder)
 
     def _update_search_button(self, *_args):
         """Suche nur mit eingetragenem Ordner starten; Abbruchmodus bewahren."""
@@ -748,6 +588,10 @@ class App(tk.Tk):
             return
         self.start_scan()
 
+    def _set_inputs_locked(self, locked):
+        for widget in (self.term_entry, self.folder_entry, self.folder_button, self.recursive_check, self.whole_check, self.case_check, self.fast_radio, self.full_radio):
+            widget.configure(state="disabled" if locked else "normal")
+
     def start_scan(self):
         folder_text = self.folder_var.get().strip()
         term = self.term_var.get().strip()
@@ -759,8 +603,10 @@ class App(tk.Tk):
             return
         if self.scanning:
             return
+        remember_folder(folder_text)
         self.cancel_scan_event.clear()
         self.scanning = True
+        self._set_inputs_locked(True)
         self.result_paths = []
         self.access_issues = []
         self.issues_button.pack_forget()
@@ -879,8 +725,8 @@ class App(tk.Tk):
                     _, directories, found = event
                     if not self.cancel_scan_event.is_set():
                         self.status_var.set(
-                            f"Durchsuche Verzeichnisse: {directories} Ordner, "
-                            f"{found} TB2-/TBL-Datei(en) gefunden …")
+                            f"Durchsuche Verzeichnisse: {format_number(directories)} Ordner, "
+                            f"{format_number(found)} TB2-/TBL-Datei(en) gefunden …")
                 elif event[0] == "discovery_done":
                     _, total, directories, skipped = event
                     self.access_issues = skipped
@@ -888,13 +734,13 @@ class App(tk.Tk):
                     self.progress.configure(mode="determinate", maximum=max(total, 1), value=0)
                     if not self.cancel_scan_event.is_set():
                         self.status_var.set(
-                            f"Dateisuche abgeschlossen: {directories} Ordner, "
-                            f"{total} TB2-/TBL-Datei(en). Suche läuft …")
+                            f"Dateisuche abgeschlossen: {format_number(directories)} Ordner, "
+                            f"{format_number(total)} TB2-/TBL-Datei(en). Suche läuft …")
                 elif event[0] == "progress":
                     _, current, total, filename = event
                     self.progress.configure(value=current)
                     if not self.cancel_scan_event.is_set():
-                        self.status_var.set(f"Datei {current}/{total}: {filename}")
+                        self.status_var.set(f"Datei {format_number(current)}/{format_number(total)}: {filename}")
                 elif event[0] == "finished":
                     if self.exit_after_scan:
                         self.destroy()
@@ -906,6 +752,7 @@ class App(tk.Tk):
                         self.tree.insert("", "end", values=(path,))
                     self._fit_path_column(found)
                     self.scanning = False
+                    self._set_inputs_locked(False)
                     self._update_search_button()
                     self.clear_button.configure(state="normal" if found else "disabled")
                     state = "normal" if found else "disabled"
@@ -915,18 +762,18 @@ class App(tk.Tk):
                     self.open_button.configure(state="disabled")
                     if cancelled:
                         msg = (f"Abgebrochen ({'Schnell' if mode == 'fast' else 'Vollständig'}): "
-                               f"{processed}/{total} Dateien geprüft, {len(found)} Treffer – {seconds:.2f} s.")
+                               f"{format_number(processed)}/{format_number(total)} Dateien geprüft, {format_number(len(found))} Treffer – {format_number(seconds, 2)} s.")
                     else:
-                        msg = f"Fertig ({'Schnell' if mode == 'fast' else 'Vollständig'}): {len(found)} Treffer in {total} Datei(en) – {seconds:.2f} s."
+                        msg = f"Fertig ({'Schnell' if mode == 'fast' else 'Vollständig'}): {format_number(len(found))} Treffer in {format_number(total)} Datei(en) – {format_number(seconds, 2)} s."
                     if errors:
-                        msg += f" {errors} Datei(en) konnten nicht gelesen werden."
+                        msg += f" {format_number(errors)} Datei(en) konnten nicht gelesen werden."
                     self.summary_var.set(msg)
                     self.status_var.set("Suche abgebrochen." if cancelled else "Suche abgeschlossen.")
                     if not cancelled and not total:
                         self.status_var.set("Keine TB2-/TBL-Dateien gefunden.")
                     if self.access_issues:
                         self.issues_button.configure(
-                            text=f"Zugriffsprobleme ({len(self.access_issues)})")
+                            text=f"Zugriffsprobleme ({format_number(len(self.access_issues))})")
                         self.issues_button.pack(side="left", padx=(8, 0), after=self.search_button)
                 elif event[0] == "worker_error":
                     if self.exit_after_scan:
@@ -934,8 +781,10 @@ class App(tk.Tk):
                         return
                     self.progress.stop()
                     self.scanning = False
+                    self._set_inputs_locked(False)
                     self._update_search_button()
                     self.status_var.set("Suche fehlgeschlagen.")
+                    self.summary_var.set("Keine Ergebnisse – Suche fehlgeschlagen.")
                     messagebox.showerror("Suche fehlgeschlagen", event[1])
         except queue.Empty:
             pass
@@ -1018,7 +867,7 @@ class App(tk.Tk):
             return
         self.clipboard_clear()
         self.clipboard_append("\n".join(self.result_paths))
-        self.status_var.set(f"{len(self.result_paths)} Pfad/Pfade in die Zwischenablage kopiert.")
+        self.status_var.set(f"{format_number(len(self.result_paths))} Pfad/Pfade in die Zwischenablage kopiert.")
 
     def save_paths(self):
         if not self.result_paths:
@@ -1028,6 +877,7 @@ class App(tk.Tk):
             defaultextension=".txt",
             filetypes=[("Textdatei", "*.txt"), ("Alle Dateien", "*.*")],
             initialfile="TB2_Treffer.txt",
+            initialdir=load_export_folder() or None,
         )
         if not destination:
             return
@@ -1036,6 +886,7 @@ class App(tk.Tk):
         except OSError as exc:
             messagebox.showerror("Speichern fehlgeschlagen", str(exc))
             return
+        remember_export_folder(Path(destination).resolve().parent)
         self.status_var.set(f"Pfadliste gespeichert: {destination}")
 
     def clear_results(self):
