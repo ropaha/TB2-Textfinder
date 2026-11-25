@@ -260,6 +260,7 @@ class App(tk.Tk):
                 with open(p,encoding="utf-8") as f: old = json.load(f)
                 if old["schema"] != 1 or old["mode"] != mode or Path(old["root"]).resolve() != root:
                     raise ValueError("Referenz, Ordner oder Suchmodus passt nicht.")
+                remember_json_folder(Path(p).resolve().parent)
             except Exception as e:
                 messagebox.showerror("Referenz",str(e))
                 return
