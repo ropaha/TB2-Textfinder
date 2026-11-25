@@ -4,7 +4,7 @@
 
 Ein kleines Windows-Programm zum Durchsuchen von `.TB2`-Dateien nach Texten, die in unterschiedlichen Signum-/SignumNext-Dateigenerationen gespeichert sein können.
 
-**Aktuelle Version:** 1.9.1. · [Änderungsverlauf](CHANGELOG.md) · [English version](README_EN.md)
+**Aktueller Entwicklungsstand:** 1.9.2-dev (letztes Release: 1.9.1). · [Änderungsverlauf](CHANGELOG.md) · [English version](README_EN.md)
 
 ![TB2-Textfinder Projektbanner](banner.svg)
 
@@ -32,6 +32,16 @@ Die bisher untersuchten Dateien lassen sich in meinem Bestand inzwischen praktis
 - Treffer lassen sich per Doppelklick oder über **Datei öffnen** mit der in Windows verknüpften Anwendung öffnen.
 - TB2-Dateien werden nur gelesen und nicht verändert.
 
+## Weitere Werkzeuge
+
+- **Negativtester:** Auffällige Dateien prüfen, filtern, ignorieren und als TXT/Diagnose-ZIP exportieren.
+- **Textcounter:** Zeichen (ohne Leerzeichen) und Zeilen nach Schriftart zählen. Start über `TB2_Textcounter.py`, Build über `Build_TB2_Textcounter_EXE.bat`.
+- **Regressionstester:** Referenz erstellen und spätere Erkennungsergebnisse einschließlich Zeichenfolgen vergleichen. Start über `Start_Regressiontester.bat`; kompakte JSON-Berichte enthalten Abweichungen und Summen.
+
+## Einstellungen und Ignorierliste
+
+Unter `%LOCALAPPDATA%\Signum Textfinder` liegen die gemeinsamen Einstellungen (`TB2-Textfinder.json`) und die zentrale Ignorierliste (`TB2-Ignore.json`). Suchordner, Suchoptionen und Exportordner werden gespeichert. Die Ignorierliste enthält absolute Dateipfade und SHA-256-Prüfsummen. Geänderte Dateien werden bei Auffälligkeiten erneut angezeigt. Vorhandene `ignore.txt` werden einmalig übernommen, ohne sie zu verändern oder zu löschen. Die zentrale Liste ist benutzer- und rechnerbezogen.
+
 ## Programmoberfläche
 
 ![Schematische Vorschau der Programmoberfläche](docs/screenshot.svg)
@@ -46,7 +56,7 @@ Voraussetzung: Windows und Python 3.10 oder neuer mit Tkinter.
 2. `Start_TB2_Textfinder.bat` doppelt anklicken.
 3. Suchbegriff und Ordner auswählen und auf **Suchen** klicken.
 
-Für den direkten Start des Python-Skripts werden keine zusätzlichen Pakete benötigt. Die Dateien `TB2_Textfinder.py`, `tb2_jpeg_fast.py` und `tb2_resource_paths.py` müssen im selben Verzeichnis liegen.
+Für den direkten Start des Python-Skripts werden keine zusätzlichen Pakete benötigt. Die Python-Module müssen gemeinsam im Projektordner verbleiben.
 
 ## Windows-EXE herunterladen oder selbst erstellen
 
