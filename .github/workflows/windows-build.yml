@@ -49,10 +49,17 @@ jobs:
           --name TB2_Negativtester --distpath dist --workpath build
           --specpath . TB2_Negativtester.py
 
+      - name: Textcounter bauen
+        run: >-
+          python -m PyInstaller --noconfirm --clean --onefile --windowed
+          --icon logo.ico --add-data "logo.ico;." --add-data "CHANGELOG.md;."
+          --name TB2_Textcounter --distpath dist --workpath build
+          --specpath . TB2_Textcounter.py
+
       - name: EXE-Dateien prüfen
         shell: pwsh
         run: |
-          foreach ($file in @("dist/TB2_Textfinder.exe", "dist/TB2_Negativtester.exe")) {
+          foreach ($file in @("dist/TB2_Textfinder.exe", "dist/TB2_Negativtester.exe", "dist/TB2_Textcounter.exe")) {
             if (!(Test-Path $file)) { throw "Build-Datei fehlt: $file" }
             Write-Host "$file ($((Get-Item $file).Length) Bytes)"
           }
@@ -64,5 +71,6 @@ jobs:
           path: |
             dist/TB2_Textfinder.exe
             dist/TB2_Negativtester.exe
+            dist/TB2_Textcounter.exe
           if-no-files-found: error
           retention-days: 14
