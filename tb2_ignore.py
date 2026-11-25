@@ -65,7 +65,7 @@ def import_legacy(data, directories, root, stop, skipped):
             additions = {}
             for line in legacy.read_text(encoding="utf-8").splitlines():
                 if stop.is_set():
-                    return
+                    break
                 name = line.strip()
                 if not name or name.startswith("#"):
                     continue
@@ -76,6 +76,8 @@ def import_legacy(data, directories, root, stop, skipped):
                     k = path_key(candidate)
                     if k not in data["files"]:
                         additions[k] = fingerprint(candidate)
+            if stop.is_set():
+                break
             data["files"].update(additions)
             imported.add(key)
             changed = True
