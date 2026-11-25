@@ -20,11 +20,48 @@ import webbrowser
 from tb2_muster import historical_resource_document
 from tb2_version import APP_VERSION
 
+def settings_path():
+    return Path(os.environ.get("LOCALAPPDATA") or Path.home() / ".config") / "SignumRegressiontester" / "settings.json"
+
+def load_folder():
+    try:
+        return json.loads(settings_path().read_text(encoding="utf-8")).get("folder", "")
+    except (OSError, ValueError, AttributeError):
+        return ""
+
+def remember_folder(folder):
+    try:
+        path = settings_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({"folder": str(folder)}, ensure_ascii=False), encoding="utf-8")
+    except OSError:
+        pass
+
+def parser_hashes():
+    base = Path(__file__).resolve().parents[1]
+    names = ("TB2_Textcounter.py", "tb2_muster.py", "tb2_jpeg_fast.py", "tb2_resource_paths.py", "tools/Signum_Regressiontester.py")
+    return {name: hashlib.sha256((base / name).read_bytes()).hexdigest()
+            for name in names if (base / name).is_file()}
+
+def compact_report(result):
+    current = result["current"]
+    rows = current["files"].values()
+    summary = dict(file_count=len(current["files"]),
+                   statuses=dict(Counter(row["status"] for row in rows)),
+                   characters=sum(sum(row.get("fonts", {}).values()) for row in rows),
+                   lines=sum(row.get("lines", 0) for row in rows),
+                   bytes=sum(row.get("size", 0) for row in rows))
+    return dict(report_type="compact_comparison", reference_version=result["reference_version"],
+                reference_parser_hashes=result.get("reference_parser_hashes"),
+                current={k: v for k, v in current.items() if k != "files"},
+                summary=summary, changes=result["changes"])
+
 def scan(root, mode, stop, notify):
     rows = {}
     errors = []
     paths = []
     started = perf_counter()
+    hashes = parser_hashes()
     for base, dirs, names in os.walk(root, followlinks=False, onerror=lambda e: errors.append(str(e))):
         if stop.is_set():
             return None
@@ -45,9 +82,13 @@ def scan(root, mode, stop, notify):
             resources = historical_resource_document(data)
             lines, warnings = ([], []) if resources is not None else counter_lines(data, mode)
             counts = Counter()
+            sequence = hashlib.sha256()
             for font, glyphs in lines:
                 counts[font.upper()] += sum(c != SPACE_CODE for c in glyphs)
+                sequence.update(json.dumps([font.upper(), list(glyphs)], ensure_ascii=True, separators=(",", ":")).encode("ascii"))
+                sequence.update(b"\n")
             row.update(fonts=dict(counts), lines=len(lines), warnings=warnings,
+                       sequence_sha256=sequence.hexdigest(),
                        status="Ressourcen" if resources is not None else
                        "Leer" if not data else "Prüfen" if warnings or not lines else "Gezählt")
         except Exception as exc:
@@ -57,7 +98,7 @@ def scan(root, mode, stop, notify):
         if i == 1 or i % 10 == 0 or i == len(paths):
             notify(("progress", i, len(paths)))
     return dict(schema=1, version=APP_VERSION, mode=mode, root=str(root),
-                seconds=perf_counter()-started, walk_errors=errors, files=rows)
+                seconds=perf_counter()-started, walk_errors=errors, files=rows, parser_hashes=hashes)
 
 def compare(old, new):
     if old["schema"] != new["schema"] or old["mode"] != new["mode"]:
@@ -74,7 +115,9 @@ def compare(old, new):
             kind = "Lesefehler"
         elif x.get("sha256") != y.get("sha256"):
             kind = "Datei verändert"
-        elif any(x.get(k) != y.get(k) for k in ("fonts", "lines", "warnings", "status")):
+        elif (any(x.get(k) != y.get(k) for k in ("fonts", "lines", "warnings", "status"))
+              or (x.get("sequence_sha256") is not None and y.get("sequence_sha256") is not None
+                  and x["sequence_sha256"] != y["sequence_sha256"])):
             kind = ("Neu erkannt" if x["status"] == "Prüfen" and y["status"] == "Gezählt"
                     else "Nicht mehr sicher erkannt" if x["status"] == "Gezählt" and y["status"] != "Gezählt"
                     else "Ergebnis verändert")
@@ -98,7 +141,7 @@ class App(tk.Tk):
         self.title("Signum Regressionstester – " + APP_VERSION)
         center_window(self, 950, 600)
         self.minsize(720, 480)
-        self.rootdir = tk.StringVar()
+        self.rootdir = tk.StringVar(value=load_folder())
         self.mode = tk.StringVar(value="fast")
         self.status = tk.StringVar(value="Quellordner wählen.")
         self.events = queue.Queue()
@@ -134,6 +177,8 @@ class App(tk.Tk):
         self.cancel.pack(side="left", padx=(0,8))
         self.save = ttk.Button(bar, text="JSON speichern", command=self.export, state="disabled")
         self.save.pack(side="left")
+        self.compact = ttk.Button(bar, text="Kompakt", command=lambda: self.export(True), state="disabled")
+        self.compact.pack(side="left", padx=(8,0))
         self.progress = ttk.Progressbar(frame, mode="determinate")
         self.progress.pack(fill="x", pady=(0,7))
         ttk.Label(frame, textvariable=self.status, wraplength=880).pack(fill="x")
@@ -205,7 +250,9 @@ class App(tk.Tk):
 
     def pick(self):
         p = filedialog.askdirectory(title="Ordner mit TB2-/TBL-Dateien auswählen", initialdir=self.rootdir.get() or None)
-        if p: self.rootdir.set(p)
+        if p:
+            self.rootdir.set(p)
+            remember_folder(p)
     def close(self):
         if self.running:
             self.stop.set()
@@ -219,6 +266,7 @@ class App(tk.Tk):
             return
         root = Path(self.rootdir.get()).resolve()
         mode = self.mode.get()
+        remember_folder(root)
         old = None
         if comparison:
             p = filedialog.askopenfilename(filetypes=[("JSON","*.json")])
@@ -238,6 +286,7 @@ class App(tk.Tk):
         self.stop.clear()
         self.result = None
         self.save.configure(state="disabled")
+        self.compact.configure(state="disabled")
         for w in self.controls: w.configure(state="disabled")
         self.tree.delete(*self.tree.get_children())
         self.status.set("Dateien werden ermittelt …")
@@ -248,7 +297,7 @@ class App(tk.Tk):
                 if new is None or self.stop.is_set():
                     self.events.put(("done",None,root))
                 else:
-                    result = new if old is None else dict(reference_version=old["version"], current=new, changes=compare(old,new))
+                    result = new if old is None else dict(reference_version=old["version"], reference_parser_hashes=old.get("parser_hashes"), current=new, changes=compare(old,new))
                     self.events.put(("done",result,root))
             except Exception as e:
                 self.events.put(("error",str(e)))
@@ -272,6 +321,7 @@ class App(tk.Tk):
                         self.status.set("Abgebrochen – kein Ergebnis gespeichert.")
                         continue
                     self.save.configure(state="normal")
+                    self.compact.configure(state="normal" if "changes" in self.result else "disabled")
                     current = self.result.get("current",self.result)
                     changes = self.result.get("changes",[])
                     counts = Counter(c["category"] for c in changes)
@@ -281,11 +331,11 @@ class App(tk.Tk):
         except queue.Empty:
             pass
         self.after(100,self.poll)
-    def export(self):
+    def export(self, compact=False):
         p = filedialog.asksaveasfilename(defaultextension=".json",filetypes=[("JSON","*.json")])
         if p:
             try:
-                save_new(p,self.source,self.result)
+                save_new(p,self.source,compact_report(self.result) if compact else self.result)
                 self.status.set("Gespeichert: "+p)
             except Exception as e:
                 messagebox.showerror("Speichern",str(e))
