@@ -1,7 +1,7 @@
 EXE-Builder fuer Windows
 
 ZIP komplett entpacken. Build_EXE.bat baut alle drei Programme.
-Die einzelnen Build_TB2_*_EXE.bat bauen weiterhin jeweils ein Programm.
+Einzelne Programme: python build/build.py textfinder --local (alternativ negativtester oder textcounter).
 Python 3.10+ und Internet fuer die Build-Abhaengigkeiten erforderlich.
 Die Batch-Dateien verwenden build/build.py und eine lokale .venv.
 Alternativ: python build/build.py all --local
