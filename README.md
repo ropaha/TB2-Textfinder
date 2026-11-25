@@ -63,7 +63,7 @@ Für den direkten Start des Python-Skripts werden keine zusätzlichen Pakete ben
 ### Fertige EXE aus einem GitHub-Release
 
 1. Unter [Releases](https://github.com/ropaha/TB2-Textfinder/releases) die gewünschte Version öffnen.
-2. Unter **Assets** `TB2_Textfinder.exe` oder `TB2_Negativtester.exe` herunterladen.
+2. Unter **Assets** `TB2_Textfinder.exe`, `TB2_Negativtester.exe` oder `TB2_Textcounter.exe` herunterladen.
 3. Die heruntergeladene EXE unter Windows starten. Eine Python-Installation ist dafür nicht erforderlich.
 
 **Hinweis zu Microsoft Defender SmartScreen:** Windows kann beim Start einer heruntergeladenen EXE die Meldung **„Der Computer wurde durch Windows geschützt“** mit **„Unbekannter Herausgeber“** anzeigen. Die Programme sind derzeit nicht digital signiert. Außerdem können Browser Downloads als Dateien aus dem Internet kennzeichnen (Mark of the Web), wodurch Windows eine Reputationsprüfung auslöst. Eine solche Warnung bedeutet nicht automatisch, dass die Datei schädlich ist. Prüfe die Downloadquelle und führe nur Dateien aus, denen du vertraust.
@@ -72,13 +72,15 @@ Für den direkten Start des Python-Skripts werden keine zusätzlichen Pakete ben
 
 1. Auf der [Repository-Startseite](https://github.com/ropaha/TB2-Textfinder) **Code → Download ZIP** wählen und das ZIP entpacken (alternativ das Repository klonen).
 2. Python 3.10 oder neuer installieren.
-3. `Build_TB2_Textfinder_EXE.bat` beziehungsweise `Build_TB2_Negativtester_EXE.bat` im entpackten Projektordner doppelt anklicken.
+3. `Build_EXE.bat` (alle drei Programme) oder das jeweilige `Build_TB2_*_EXE.bat` im entpackten Projektordner doppelt anklicken.
 4. Beim ersten Lauf wird eine Internetverbindung benötigt, um die Build-Abhängigkeiten zu installieren.
-5. Die fertigen Dateien liegen unter `dist\\TB2_Textfinder.exe` beziehungsweise `dist\\TB2_Negativtester.exe`.
+5. Die fertigen Dateien liegen unter `dist\\TB2_Textfinder.exe`, `dist\\TB2_Negativtester.exe` und `dist\\TB2_Textcounter.exe`.
 
 Die Build-Skripte verwenden eine lokale virtuelle Umgebung unter `.venv`, installieren PyInstaller und erstellen eigenständige EXE-Dateien ohne zusätzliches Konsolenfenster.
 
 **Warum lokal oft keine SmartScreen-Warnung erscheint:** Eine selbst erstellte EXE trägt normalerweise keine Internet-Downloadkennzeichnung. Das bedeutet jedoch **nicht**, dass sie automatisch sicherer ist. Je nach Windows-Konfiguration und Dateibehandlung kann auch bei lokal erstellten Dateien eine Sicherheitswarnung auftreten. Die Build-Skripte führen Python-Code aus und installieren Abhängigkeiten; verwende daher nur eine vertrauenswürdige Quelle.
+
+Der manuelle GitHub-Actions-Test-Build stellt alle drei EXE-Dateien als gemeinsames Artefakt bereit. Der offizielle Release-Workflow veröffentlicht alle drei als einzelne Release-Assets. Der Regressionstester wird nicht als EXE ausgeliefert.
 
 ## Bisher untersuchte TB2-Muster
 
