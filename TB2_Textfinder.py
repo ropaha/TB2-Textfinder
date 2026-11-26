@@ -16,7 +16,6 @@ from time import perf_counter
 from tb2.version import APP_VERSION
 from tb2.build_identity import window_title, info_identity
 from tb2.result_rows import configure_result_rows, row_tags
-from tb2.resource_catalog_dialog import show_resource_catalog
 from tb2.settings import load_folder, remember_folder, load_option, bind_option, load_export_folder, remember_export_folder
 from tb2.project_info import PROJECT_URL, MIT_LICENSE
 from tb2.muster import PROFILES, find_all, has_early_80_pattern, has_variable_80_pattern, has_wide_587_pattern, has_early_82_pattern, has_variable_98_pattern, has_variable_106_pattern
@@ -450,7 +449,6 @@ class App(tk.Tk):
         footer.grid(row=10, column=0, columnspan=3, sticky="ew", pady=(10, 0))
         ttk.Button(footer, text="Programm beenden", command=self.request_exit).pack(side="right")
         ttk.Button(footer, text="Info", command=self.show_info).pack(side="right", padx=(0, 8))
-        ttk.Button(footer, text="Ressourcen", command=lambda: show_resource_catalog(self)).pack(side="right", padx=(0, 8))
 
         frame.columnconfigure(1, weight=1)
         frame.rowconfigure(9, weight=1)
