@@ -6,6 +6,8 @@ Die Versionsnummer des Gesamtpakets ist unabhängig von den Programmversionen. D
 
 ## [Unveröffentlicht] – Entwicklungsbranch dev
 
+- Regressionstester: optionaler lokaler Ressourcenkatalog für FNT, FN2, FN3, ORN, BAU und STN mit SHA-256, Fortschrittsanzeige, Anzahl unterschiedlicher Inhalte und JSON-Export (Schema 2, Schema 1 weiterhin lesbar).
+
 - Textcounter: Erweiterte historische 98-Byte-Schriftformate für EVA4, GROTESK3, PRÄGNANT und SCHWERE BLOCK; 264 weitere Dateien erkannt, 336 verbleibende Prüffälle im Referenzbestand.
 
 - Einheitliche alternierende Hintergrundfarben in den Ergebnislisten aller vier Werkzeuge; Textcounter-Gesamtzeile hellblau und fett hervorgehoben.
