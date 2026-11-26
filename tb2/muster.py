@@ -245,7 +245,8 @@ def _confirmed_counter_glyph(data, q, profile):
     if profile == "ttf98":
         return g[1] in (0x7F, 0x80, 0x81) and g[7:] == b"\x81\x00\x00"
     if profile == "eva106":
-        return g[1] in (0x7D, 0x80) and g[7:] == b"\x81\x00\x00"
+        return ((g[1] in (0x7D, 0x80) and g[7:] == b"\x81\x00\x00")
+                or (g[1] == 0x7D and g[7:] == b"\x80\x27\xb7"))
     if profile == "eva98":
         return g[1] in (0x7C, 0x7E) and g[7:] == b"\x81\x00\x00"
     if profile == "block98":
