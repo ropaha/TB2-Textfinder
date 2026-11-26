@@ -21,6 +21,7 @@ from tb2.muster import historical_resource_document
 from tb2.version import APP_VERSION
 from tb2.build_identity import window_title, info_identity
 from tb2.result_rows import configure_result_rows, row_tags
+from tb2.resource_catalog_dialog import show_resource_catalog
 from tb2.settings import load_folder, remember_folder, load_json_folder, remember_json_folder, load_option, bind_option
 
 def parser_hashes():
@@ -183,6 +184,7 @@ class App(tk.Tk):
         footer.pack(side="bottom", fill="x", pady=(10,0))
         ttk.Button(footer, text="Programm beenden", command=self.close).pack(side="right")
         ttk.Button(footer, text="Info", command=self.show_info).pack(side="right", padx=(0,8))
+        ttk.Button(footer, text="Ressourcen", command=lambda: show_resource_catalog(self)).pack(side="right", padx=(0, 8))
         results = ttk.Frame(frame)
         results.pack(fill="both", expand=True)
         self.tree = ttk.Treeview(results, columns=("category","path","old","new"), show="headings")
