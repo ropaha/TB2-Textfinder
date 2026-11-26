@@ -17,7 +17,8 @@ from tb2.formatting import format_number
 from tb2.result_rows import configure_result_rows, row_tags
 from tb2 import ignore as tb2_ignore
 from tb2.settings import load_folder, remember_folder, load_option, bind_option, load_export_folder, remember_export_folder
-from tb2.muster import PROFILES, find_all, has_early_80_pattern, has_variable_80_pattern, has_wide_587_pattern, has_early_82_pattern, has_variable_98_pattern, has_variable_106_pattern, extract_counter_lines
+from tb2.muster import PROFILES, find_all, has_early_80_pattern, has_variable_80_pattern, has_wide_587_pattern, has_early_82_pattern, has_variable_98_pattern, has_variable_106_pattern
+from tb2.counter import counter_lines, SPACE_CODE
 from tb2.window_position import center_window
 from tb2.app_identity import configure_app_identity, apply_window_icon
 import tkinter as tk
@@ -106,9 +107,8 @@ def inspect_counter_file(path: Path, search_mode: str = "full") -> tuple[str, st
         detail = ", ".join(f"{resources.count(kind)} {kind}"
                            for kind in ("STN", "ORN", "BAU") if kind in resources)
         return "Kein Text erkannt", f"Historisches Ressourcendokument: {detail}; keine Schriftobjekte."
-    from TB2_Textcounter import counter_lines
     lines, warnings = counter_lines(data, search_mode)
-    count = sum(sum(code != 0xFA for code in glyphs) for _, glyphs in lines)
+    count = sum(sum(code != SPACE_CODE for code in glyphs) for _, glyphs in lines)
     if warnings:
         return counter_warning_category(warnings), f"{format_number(len(lines))} Zeile(n), {format_number(count)} Zeichen; " + "; ".join(warnings[:3])
     if lines:
