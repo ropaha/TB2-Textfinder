@@ -12,14 +12,14 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from TB2_Textcounter import counter_lines, SPACE_CODE, format_number, App as CounterApp
+from TB2_Textcounter import counter_lines, SPACE_CODE
 from tb2.window_position import center_window
 from tb2.app_identity import configure_app_identity, apply_window_icon
-from tb2.project_info import PROJECT_URL
-import webbrowser
 from tb2.muster import historical_resource_document
 from tb2.version import APP_VERSION
-from tb2.build_identity import window_title, info_identity
+from tb2.build_identity import window_title
+from tb2 import dialogs
+from tb2.formatting import format_number
 from tb2.result_rows import configure_result_rows, row_tags
 from tb2.resource_catalog_dialog import show_resource_catalog
 from tb2.settings import load_folder, remember_folder, load_json_folder, remember_json_folder, load_option, bind_option
@@ -200,25 +200,9 @@ class App(tk.Tk):
         self.tree.bind("<Double-1>", lambda _: self.open_selected())
         self.protocol("WM_DELETE_WINDOW", self.close)
         self.after(100,self.poll)
-    show_license = CounterApp.show_license
-    show_changelog = CounterApp.show_changelog
 
     def show_info(self):
-        dialog = tk.Toplevel(self)
-        dialog.title("Info – Signum Regressionstester")
-        center_window(dialog, 650, 380, parent=self)
-        dialog.transient(self)
-        body = ttk.Frame(dialog, padding=18)
-        body.pack(fill="both", expand=True)
-        ttk.Label(body, text="Signum Regressionstester – Version " + APP_VERSION,
-                  font=("TkDefaultFont", 13, "bold")).pack(anchor="w", pady=(0,12))
-        ttk.Label(body, text=info_identity(), wraplength=580).pack(anchor="w", pady=(0, 8))
-        ttk.Label(body, text="Vergleicht die Erkennung von TB2- und TBL-Dateien mit einer gespeicherten Referenz. Unterordner werden immer einbezogen. Quelldateien werden ausschließlich gelesen. JSON-Berichte werden außerhalb des Quellordners gespeichert.", wraplength=590).pack(anchor="w")
-        buttons = ttk.Frame(body)
-        buttons.pack(side="bottom", fill="x")
-        ttk.Button(buttons, text="GitHub", command=lambda: webbrowser.open(PROJECT_URL)).pack(side="left")
-        ttk.Button(buttons, text="MIT-Lizenz", command=lambda: self.show_license(dialog)).pack(side="left", padx=8)
-        ttk.Button(buttons, text="Schließen", command=dialog.destroy).pack(side="right")
+        dialogs.show_info(self, "Signum Regressionstester", "Vergleicht die Erkennung von TB2- und TBL-Dateien mit einer gespeicherten Referenz. Unterordner werden immer einbezogen. Quelldateien werden ausschließlich gelesen. JSON-Berichte werden außerhalb des Quellordners gespeichert.", compact=True)
 
     def open_selected(self):
         if self.running or not self.result or not self.tree.selection():
