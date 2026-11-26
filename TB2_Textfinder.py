@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""TB2-Textfinder 1.8.8
+"""TB2-Textfinder
 
 Durchsucht .TB2-Dateien nach lesbarem Text und bislang beobachteten
 SignumNext-Glyphenprofilen mehrerer Formatgenerationen. Treffer werden
@@ -662,7 +662,7 @@ class App(tk.Tk):
                 directories_checked += 1
                 if recursive:
                     subdirs[:] = [name for name in subdirs
-                                  if not os.path.isjunction(os.path.join(directory, name))]
+                                  if not getattr(os.path, "isjunction", lambda p: False)(os.path.join(directory, name))]
                 for name in names:
                     if name.lower().endswith((".tb2", ".tbl")):
                         files.append(Path(directory) / name)
@@ -898,7 +898,6 @@ class App(tk.Tk):
         self.result_paths = []
         self.access_issues = []
         self.issues_button.pack_forget()
-        self.clear_button.configure(state="disabled")
         self.clear_button.configure(state="disabled")
         for item in self.tree.get_children():
             self.tree.delete(item)
