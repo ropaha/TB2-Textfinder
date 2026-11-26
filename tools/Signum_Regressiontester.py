@@ -12,18 +12,22 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from TB2_Textcounter import counter_lines, SPACE_CODE, format_number, App as CounterApp
+from tb2.counter import counter_lines, SPACE_CODE
 from tb2.window_position import center_window
 from tb2.app_identity import configure_app_identity, apply_window_icon
-from tb2.project_info import PROJECT_URL
-import webbrowser
 from tb2.muster import historical_resource_document
+from tb2.scanner import discover_files
 from tb2.version import APP_VERSION
+from tb2.build_identity import window_title
+from tb2 import dialogs
+from tb2.formatting import format_number
+from tb2.result_rows import configure_result_rows, row_tags
+from tb2.resource_catalog_dialog import show_resource_catalog
 from tb2.settings import load_folder, remember_folder, load_json_folder, remember_json_folder, load_option, bind_option
 
 def parser_hashes():
     base = Path(__file__).resolve().parents[1]
-    names = ("TB2_Textcounter.py", "tb2/muster.py", "tb2/jpeg_fast.py", "tb2/resource_paths.py", "tools/Signum_Regressiontester.py")
+    names = ("TB2_Textcounter.py", "tb2/counter.py", "tb2/scanner.py", "tb2/muster.py", "tb2/jpeg_fast.py", "tb2/resource_paths.py", "tools/Signum_Regressiontester.py")
     return {name: hashlib.sha256((base / name).read_bytes()).hexdigest()
             for name in names if (base / name).is_file()}
 
@@ -43,16 +47,11 @@ def compact_report(result):
 def scan(root, mode, stop, notify):
     rows = {}
     errors = []
-    paths = []
     started = perf_counter()
     hashes = parser_hashes()
-    for base, dirs, names in os.walk(root, followlinks=False, onerror=lambda e: errors.append(str(e))):
-        if stop.is_set():
-            return None
-        dirs[:] = [d for d in dirs if not os.path.islink(os.path.join(base, d))
-                   and not getattr(os.path, "isjunction", lambda p: False)(os.path.join(base, d))]
-        paths.extend(Path(base)/n for n in names if Path(n).suffix.lower() in (".tb2", ".tbl")
-                     and not (Path(base)/n).is_symlink())
+    paths, _ = discover_files(root, True, stop, lambda e: errors.append(str(e)))
+    if stop.is_set():
+        return None
     for i, path in enumerate(sorted(paths), 1):
         if stop.is_set():
             return None
@@ -122,13 +121,14 @@ class App(tk.Tk):
         configure_app_identity("ropaha.SignumRegressiontester")
         super().__init__()
         apply_window_icon(self)
-        self.title("Signum Regressionstester – " + APP_VERSION)
+        self.title(window_title("Signum Regressionstester", APP_VERSION))
         center_window(self, 950, 600)
         self.minsize(720, 480)
         self.rootdir = tk.StringVar(value=load_folder())
         self.mode = tk.StringVar(value=load_option("search_mode", "fast"))
         bind_option(self.mode, "search_mode")
         self.status = tk.StringVar(value="Quellordner wählen.")
+        self.operation = tk.StringVar(value="Vorgang: Noch nicht gestartet")
         self.events = queue.Queue()
         self.stop = threading.Event()
         self.running = False
@@ -164,6 +164,8 @@ class App(tk.Tk):
         self.save.pack(side="left")
         self.compact = ttk.Button(bar, text="Kompakt", command=lambda: self.export(True), state="disabled")
         self.compact.pack(side="left", padx=(8,0))
+        ttk.Label(frame, textvariable=self.operation, font=("TkDefaultFont", 10, "bold"),
+                  wraplength=680).pack(fill="x", pady=(0, 5))
         self.progress = ttk.Progressbar(frame, mode="determinate")
         self.progress.pack(fill="x", pady=(0,7))
         ttk.Label(frame, textvariable=self.status, wraplength=880).pack(fill="x")
@@ -178,9 +180,11 @@ class App(tk.Tk):
         footer.pack(side="bottom", fill="x", pady=(10,0))
         ttk.Button(footer, text="Programm beenden", command=self.close).pack(side="right")
         ttk.Button(footer, text="Info", command=self.show_info).pack(side="right", padx=(0,8))
+        ttk.Button(footer, text="Ressourcen", command=lambda: show_resource_catalog(self)).pack(side="right", padx=(0, 8))
         results = ttk.Frame(frame)
         results.pack(fill="both", expand=True)
         self.tree = ttk.Treeview(results, columns=("category","path","old","new"), show="headings")
+        configure_result_rows(self.tree)
         for k, label, width in [("category","Kategorie",180),("path","Datei",420),("old","Vorher",90),("new","Nachher",90)]:
             self.tree.heading(k,text=label)
             self.tree.column(k,width=width, anchor="e" if k in ("old","new") else "w")
@@ -192,24 +196,9 @@ class App(tk.Tk):
         self.tree.bind("<Double-1>", lambda _: self.open_selected())
         self.protocol("WM_DELETE_WINDOW", self.close)
         self.after(100,self.poll)
-    show_license = CounterApp.show_license
-    show_changelog = CounterApp.show_changelog
 
     def show_info(self):
-        dialog = tk.Toplevel(self)
-        dialog.title("Info – Signum Regressionstester")
-        center_window(dialog, 650, 380, parent=self)
-        dialog.transient(self)
-        body = ttk.Frame(dialog, padding=18)
-        body.pack(fill="both", expand=True)
-        ttk.Label(body, text="Signum Regressionstester – Version " + APP_VERSION,
-                  font=("TkDefaultFont", 13, "bold")).pack(anchor="w", pady=(0,12))
-        ttk.Label(body, text="Vergleicht die Erkennung von TB2- und TBL-Dateien mit einer gespeicherten Referenz. Unterordner werden immer einbezogen. Quelldateien werden ausschließlich gelesen. JSON-Berichte werden außerhalb des Quellordners gespeichert.", wraplength=590).pack(anchor="w")
-        buttons = ttk.Frame(body)
-        buttons.pack(side="bottom", fill="x")
-        ttk.Button(buttons, text="GitHub", command=lambda: webbrowser.open(PROJECT_URL)).pack(side="left")
-        ttk.Button(buttons, text="MIT-Lizenz", command=lambda: self.show_license(dialog)).pack(side="left", padx=8)
-        ttk.Button(buttons, text="Schließen", command=dialog.destroy).pack(side="right")
+        dialogs.show_info(self, "Signum Regressionstester", "Vergleicht die Erkennung von TB2- und TBL-Dateien mit einer gespeicherten Referenz. Unterordner werden immer einbezogen. Quelldateien werden ausschließlich gelesen. JSON-Berichte werden außerhalb des Quellordners gespeichert.", compact=True)
 
     def open_selected(self):
         if self.running or not self.result or not self.tree.selection():
@@ -227,11 +216,13 @@ class App(tk.Tk):
     def render_results(self):
         self.tree.delete(*self.tree.get_children())
         self.open_button.configure(state="disabled")
+        index = 0
         for c in (self.result or {}).get("changes", []):
             if self.filter.get() not in ("Alle", c["category"]):
                 continue
             total = lambda r: format_number(sum((r or {}).get("fonts", {}).values()))
-            self.tree.insert("", "end", values=(c["category"], c["path"], total(c["before"]), total(c["after"])))
+            self.tree.insert("", "end", values=(c["category"], c["path"], total(c["before"]), total(c["after"])), tags=row_tags(index))
+            index += 1
 
     def pick(self):
         p = filedialog.askdirectory(title="Ordner mit TB2-/TBL-Dateien auswählen", initialdir=self.rootdir.get() or None)
@@ -258,11 +249,29 @@ class App(tk.Tk):
             if not p: return
             try:
                 with open(p,encoding="utf-8") as f: old = json.load(f)
-                if old["schema"] != 1 or old["mode"] != mode or Path(old["root"]).resolve() != root:
-                    raise ValueError("Referenz, Ordner oder Suchmodus passt nicht.")
+                if old["schema"] != 1:
+                    raise ValueError(f"Nicht unterstütztes JSON-Schema: {old['schema']} (erwartet: 1).")
+                if old["mode"] != mode:
+                    raise ValueError(f"Suchmodus stimmt nicht überein.\nReferenz: {old['mode']}\nAktuell: {mode}")
+                reference_root = Path(old["root"]).resolve()
+                if reference_root != root:
+                    if not messagebox.askyesno(
+                        "Abweichender Quellordner",
+                        f"Quellordner der Referenz:\n{reference_root}\n\n"
+                        f"Aktuell ausgewählter Quellordner:\n{root}\n\n"
+                        "Die Dateien werden anhand ihrer relativen Pfade verglichen.\n"
+                        "Möchtest du die unterschiedlichen Datenbestände trotzdem vergleichen?",
+                        default="no", parent=self,
+                    ):
+                        return
+                remember_json_folder(Path(p).resolve().parent)
             except Exception as e:
                 messagebox.showerror("Referenz",str(e))
                 return
+        if comparison:
+            self.operation.set(f"Vorgang: Vergleich mit Referenz {old.get('version', 'unbekannt')} – {Path(p).name}")
+        else:
+            self.operation.set("Vorgang: Referenz erstellen")
         self.running = True
         self.cancel.configure(state="normal")
         self.open_button.configure(state="disabled")

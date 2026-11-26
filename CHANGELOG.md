@@ -4,6 +4,49 @@ Alle wesentlichen Änderungen am TB2-Textfinder und Negativtester werden hier do
 
 Die Versionsnummer des Gesamtpakets ist unabhängig von den Programmversionen. Die Erkennung beruht auf empirisch untersuchten TB2-Dateien, nicht auf einer vollständigen offiziellen Formatspezifikation.
 
+## [1.9.3] – Release (2026-11-26)
+
+- Gemeinsame TB2/TBL-Dateisuche in `tb2/scanner.py` für alle vier Programme, mit bisherigen Link-Regeln, Abbruch, Fehlerbehandlung und automatischen Scanner-Tests. Vollständiger Regressionstest ohne Abweichungen.
+
+- Continuous Integration: automatische Syntax- und Unit-Tests unter Windows mit Python 3.10, 3.11 und 3.12 sowie Ruff-Codeanalyse unter Ubuntu.
+
+- GUI-unabhängiger Zeichenzählkern in `tb2/counter.py`; gemeinsame Leerzeichenkonstante, entfallener GUI-Hidden-Import und ergänzte Parser-Prüfsummen. Regressionstest mit 28.762 Dateien ohne Abweichungen.
+
+- Gemeinsame Info-, Lizenz-, Changelog- und Zugriffsdialoge sowie zentrale Zahlenformatierung für alle vier Programme; bisherige Dialoggestaltung bleibt erhalten.
+
+- Codepflege: kompatible Junction-Abfrage, korrigierter PyInstaller-Hidden-Import, Python-Setup vor Versionsprüfung, unveränderlicher Export-Snapshot und kleinere GUI-/Build-Korrekturen.
+
+- Textcounter: zusätzliche EVA2NEU-, EVA2NEU V1.1- und PRÄGNANT-Formate; Regressionstest mit 28.762 Dateien, 63 neu erkannten Dateien und 273 verbleibenden Prüffällen.
+
+- Regressionstester: optionaler lokaler Ressourcenkatalog für FNT, FN2, FN3, ORN, BAU und STN mit SHA-256, Fortschrittsanzeige, Anzahl unterschiedlicher Inhalte und JSON-Export (Schema 2, Schema 1 weiterhin lesbar).
+
+- Textcounter: Erweiterte historische 98-Byte-Schriftformate für EVA4, GROTESK3, PRÄGNANT und SCHWERE BLOCK; 264 weitere Dateien erkannt, 336 verbleibende Prüffälle im Referenzbestand.
+
+- Einheitliche alternierende Hintergrundfarben in den Ergebnislisten aller vier Werkzeuge; Textcounter-Gesamtzeile hellblau und fett hervorgehoben.
+
+- Textcounter: Die Gesamtzahl der erkannten Zeichen steht unabhängig von der Sortierung in der ersten Ergebniszeile.
+
+- Windows-EXE-Builds enthalten automatisch Versionsressourcen mit Dateibeschreibung, Produkt- und Dateiversion, Copyright, Sprache sowie Branch- und Commit-Informationen.
+
+- Textcounter: erweiterte 98-Byte-Erkennung für EVA12, TrueType-Schriften, ANTIQUA PRISMA und EK. Regressionstest mit 28.762 Dateien: 114 zusätzliche Dateien erkannt, 600 verbleibende Prüffälle, vier manuelle Stichproben bestätigt.
+
+- Alle vier Programme zeigen Entwicklungsbranch im Fenstertitel sowie Branch und Commit im Info-Fenster; EXE-Builds enthalten die Build-Identität.
+
+- Regressionstester erlaubt nach Sicherheitsabfrage Vergleiche zwischen unterschiedlichen Quellordnern anhand relativer Dateipfade; getrennte Fehlermeldungen für inkompatibles JSON-Schema und abweichenden Suchmodus.
+
+- Regressionstester zeigt den aktuellen Vorgang (Referenzerstellung oder Vergleich mit Referenzversion und Dateiname) dauerhaft oberhalb des Fortschrittsbalkens an.
+
+- Exportordner unabhängig vom Suchordner speichern; Regressionstester merkt sich auch den Ordner erfolgreich geöffneter Referenzen. Schreibfehler werden protokolliert; zusätzliche Unit-Tests für die Ordnereinstellungen.
+
+### Oberfläche und Bedienung
+- Textfinder und Negativtester: manuell angepasste Spaltenbreiten bleiben erhalten; im Negativtester auch beim Filtern, Ignorieren und Aufheben.
+
+### Textcounter
+- Zusätzliche Schriftstrukturen für BREITNUT, EHRFRIED und FUTURA BOLD CONDENSED BT (TrueType).
+- Validierte Textstrukturen erhalten Vorrang vor überlappenden falschen Schriftkandidaten (z. B. OnActivate).
+- Regressionstest im Schnellmodus gegen 1.9.1: 28.762 Dateien, 67 neu erkannt, 166 veränderte BREITNUT-Zählungen, keine Erkennungsverluste bei unveränderten Originaldateien. 714 Dateien bleiben zu prüfen; zwei Originaldateien wurden verändert. Stichproben in Signum bestätigen die geprüften Zählungen.
+
+
 ## [1.9.2] – Release
 
 - Build-Skripte nach `packaging/` verschoben; `build/` bleibt für temporäre Artefakte reserviert.

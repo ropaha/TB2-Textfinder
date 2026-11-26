@@ -9,15 +9,18 @@ import threading
 from time import perf_counter
 import zipfile
 import re
-import webbrowser
 from pathlib import Path
+from tb2.scanner import discover_files
 from tb2.version import APP_VERSION
+from tb2.build_identity import window_title
+from tb2 import dialogs
+from tb2.formatting import format_number
+from tb2.result_rows import configure_result_rows, row_tags
 from tb2 import ignore as tb2_ignore
 from tb2.settings import load_folder, remember_folder, load_option, bind_option, load_export_folder, remember_export_folder
-from tb2.project_info import PROJECT_URL, MIT_LICENSE
-from tb2.muster import PROFILES, find_all, has_early_80_pattern, has_variable_80_pattern, has_wide_587_pattern, has_early_82_pattern, has_variable_98_pattern, has_variable_106_pattern, extract_counter_lines
+from tb2.muster import PROFILES, find_all, has_early_80_pattern, has_variable_80_pattern, has_wide_587_pattern, has_early_82_pattern, has_variable_98_pattern, has_variable_106_pattern
+from tb2.counter import counter_lines, SPACE_CODE
 from tb2.window_position import center_window
-from tb2.changelog import changelog_for_version
 from tb2.app_identity import configure_app_identity, apply_window_icon
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk, font as tkfont
@@ -31,11 +34,6 @@ INFO_TEXT = ("Schnell überspringt erkannte JPEG-Daten und kann Textmuster über
              "unbekannte Kodierungen können übersehen werden. Leer und Fehler werden separat gemeldet.")
 
 _find_all = find_all
-
-
-def format_number(value, decimals=0):
-    """German display formatting, independent of the system locale."""
-    return format(value, f",.{decimals}f").translate(str.maketrans(",.", ".,"))
 
 
 def _printable_codes() -> set[int]:
@@ -110,9 +108,8 @@ def inspect_counter_file(path: Path, search_mode: str = "full") -> tuple[str, st
         detail = ", ".join(f"{resources.count(kind)} {kind}"
                            for kind in ("STN", "ORN", "BAU") if kind in resources)
         return "Kein Text erkannt", f"Historisches Ressourcendokument: {detail}; keine Schriftobjekte."
-    from TB2_Textcounter import counter_lines
     lines, warnings = counter_lines(data, search_mode)
-    count = sum(sum(code != 0xFA for code in glyphs) for _, glyphs in lines)
+    count = sum(sum(code != SPACE_CODE for code in glyphs) for _, glyphs in lines)
     if warnings:
         return counter_warning_category(warnings), f"{format_number(len(lines))} Zeile(n), {format_number(count)} Zeichen; " + "; ".join(warnings[:3])
     if lines:
@@ -153,7 +150,7 @@ class App(tk.Tk):
         configure_app_identity("ropaha.TB2Negativtester")
         super().__init__()
         apply_window_icon(self)
-        self.title(f"TB2-Negativtester – {APP_VERSION}")
+        self.title(window_title("TB2-Negativtester", APP_VERSION))
         center_window(self, 900, 560)
         self.minsize(800, 480)
         self.events: queue.Queue = queue.Queue()
@@ -252,11 +249,12 @@ class App(tk.Tk):
         results_frame.columnconfigure(0, weight=1)
         results_frame.rowconfigure(0, weight=1)
         self.tree = ttk.Treeview(results_frame, columns=("category", "path", "detail"), show="headings")
+        configure_result_rows(self.tree)
         self.tree.heading("category", text="Status")
         self.tree.heading("path", text="Dateipfad")
         self.tree.heading("detail", text="Hinweis")
         self.tree.column("category", width=150, minwidth=120, stretch=False, anchor="w")
-        self.tree.column("path", width=100, minwidth=100, stretch=True, anchor="w")
+        self.tree.column("path", width=100, minwidth=100, stretch=False, anchor="w")
         self.tree.column("detail", width=190, minwidth=130, stretch=False, anchor="w")
         self.tree.tag_configure("ignored", foreground="#777777")
         self.tree.grid(row=0, column=0, sticky="nsew")
@@ -307,104 +305,10 @@ class App(tk.Tk):
         self.status_var.set("Prüfmodus gewechselt. Bitte Ordner erneut prüfen.")
 
     def show_info(self):
-        """Show application details and the former footer help text."""
-        dialog = tk.Toplevel(self)
-        dialog.title("Info – TB2-Negativtester")
-        center_window(dialog, 650, 380, parent=self)
-        dialog.minsize(480, 300)
-        dialog.transient(self)
-        body = ttk.Frame(dialog, padding=18)
-        body.pack(fill="both", expand=True)
-        ttk.Label(body, text=f"{'TB2-Negativtester'} – Version {APP_VERSION}",
-                  font=("TkDefaultFont", 13, "bold")).pack(anchor="w", pady=(0, 12))
-        help_frame = ttk.Frame(body)
-        help_frame.pack(fill="both", expand=True)
-        help_text = tk.Text(help_frame, wrap="word", height=9, relief="flat",
-                            font=("TkDefaultFont", 10),
-                            background=dialog.cget("background"), padx=2, pady=2)
-        help_text.insert("1.0", INFO_TEXT)
-        help_text.configure(state="disabled")
-        help_text.pack(side="left", fill="both", expand=True)
-        scrollbar = ttk.Scrollbar(help_frame, orient="vertical", command=help_text.yview)
-        scrollbar.pack(side="right", fill="y")
-        help_text.configure(yscrollcommand=scrollbar.set)
-        buttons = ttk.Frame(body)
-        buttons.pack(fill="x", pady=(14, 0))
-        ttk.Button(buttons, text="Was ist neu?",
-                   command=lambda: self.show_changelog(dialog)).pack(side="left")
-        ttk.Button(buttons, text="GitHub",
-                   command=lambda: webbrowser.open(PROJECT_URL)).pack(side="left", padx=(8, 0))
-        ttk.Button(buttons, text="MIT-Lizenz",
-                   command=lambda: self.show_license(dialog)).pack(side="left", padx=(8, 0))
-        ttk.Button(buttons, text="Schließen", command=dialog.destroy).pack(side="right")
-
-    def show_changelog(self, parent):
-        """Display the bundled version history, including this installed version."""
-        dialog = tk.Toplevel(parent)
-        dialog.title(f"Was ist neu? – TB2-Negativtester {APP_VERSION}")
-        center_window(dialog, 720, 500, parent=parent)
-        dialog.minsize(450, 320)
-        dialog.transient(parent)
-        body = ttk.Frame(dialog, padding=14)
-        body.pack(fill="both", expand=True)
-        ttk.Label(body, text=f"Versionsverlauf bis {APP_VERSION}",
-                  font=("TkDefaultFont", 12, "bold")).pack(anchor="w", pady=(0, 10))
-        text_frame = ttk.Frame(body)
-        text_frame.pack(fill="both", expand=True)
-        history = tk.Text(text_frame, wrap="word", font=("TkDefaultFont", 10), padx=8, pady=8)
-        history.insert("1.0", changelog_for_version(APP_VERSION))
-        history.configure(state="disabled")
-        history.pack(side="left", fill="both", expand=True)
-        scrollbar = ttk.Scrollbar(text_frame, orient="vertical", command=history.yview)
-        scrollbar.pack(side="right", fill="y")
-        history.configure(yscrollcommand=scrollbar.set)
-        ttk.Button(body, text="Schließen", command=dialog.destroy).pack(anchor="e", pady=(10, 0))
-
-    def show_license(self, parent):
-        """Display the complete license bundled with this program."""
-        dialog = tk.Toplevel(parent)
-        dialog.title("MIT-Lizenz – TB2-Negativtester")
-        center_window(dialog, 720, 450, parent=parent)
-        dialog.minsize(450, 300)
-        dialog.transient(parent)
-        body = ttk.Frame(dialog, padding=14)
-        body.pack(fill="both", expand=True)
-        text_frame = ttk.Frame(body)
-        text_frame.pack(fill="both", expand=True)
-        license_text = tk.Text(text_frame, wrap="word", font=("TkDefaultFont", 10))
-        license_text.insert("1.0", MIT_LICENSE)
-        license_text.configure(state="disabled")
-        license_text.pack(side="left", fill="both", expand=True)
-        scrollbar = ttk.Scrollbar(text_frame, orient="vertical", command=license_text.yview)
-        scrollbar.pack(side="right", fill="y")
-        license_text.configure(yscrollcommand=scrollbar.set)
-        ttk.Button(body, text="Schließen", command=dialog.destroy).pack(anchor="e", pady=(10, 0))
+        dialogs.show_info(self, "TB2-Negativtester", INFO_TEXT)
 
     def show_access_issues(self):
-        """Alle übersprungenen Verzeichnisse/Listen bei Bedarf anzeigen."""
-        if not self.access_issues:
-            return
-        dialog = tk.Toplevel(self)
-        dialog.title("Zugriffsprobleme – TB2-Negativtester")
-        center_window(dialog, 780, 500, parent=self)
-        dialog.minsize(480, 300)
-        dialog.transient(self)
-        body = ttk.Frame(dialog, padding=14)
-        body.pack(fill="both", expand=True)
-        ttk.Label(body, text=f"{format_number(len(self.access_issues))} übersprungene Verzeichnisse/Listen",
-                  font=("TkDefaultFont", 12, "bold")).pack(anchor="w", pady=(0, 10))
-        text_frame = ttk.Frame(body)
-        text_frame.pack(fill="both", expand=True)
-        details = tk.Text(text_frame, wrap="word", font=("TkDefaultFont", 10),
-                          padx=8, pady=8)
-        details.insert("1.0", "\n\n".join(self.access_issues))
-        details.configure(state="disabled")
-        details.pack(side="left", fill="both", expand=True)
-        scrollbar = ttk.Scrollbar(text_frame, orient="vertical", command=details.yview)
-        scrollbar.pack(side="right", fill="y")
-        details.configure(yscrollcommand=scrollbar.set)
-        ttk.Button(body, text="Schließen", command=dialog.destroy).pack(
-            anchor="e", pady=(10, 0))
+        dialogs.show_access_issues(self, "TB2-Negativtester", self.access_issues, "übersprungene Verzeichnisse/Listen")
 
     def choose_folder(self):
         folder = filedialog.askdirectory(title="Ordner mit TB2-/TBL-Dateien auswählen", initialdir=self.folder_var.get() or None)
@@ -500,42 +404,17 @@ class App(tk.Tk):
 
     def _worker(self, root: Path, recursive: bool, mode: str, search_mode: str):
         """Dateisuche, Ignorierlisten und Prüfung vollständig außerhalb der GUI."""
-        files = []
         ignored = set()
         skipped = []
-        checked_dirs = 0
 
         def on_walk_error(exc):
             skipped.append(f"{exc.filename or 'Unbekannter Ordner'}: {exc}")
 
         try:
-            if recursive:
-                directories = os.walk(root, topdown=True, followlinks=False,
-                                      onerror=on_walk_error)
-            else:
-                # Dieselbe Ereignisstruktur für die Suche ohne Unterordner.
-                def one_directory():
-                    try:
-                        with os.scandir(root) as entries:
-                            yield str(root), [], [entry.name for entry in entries
-                                                   if entry.is_file(follow_symlinks=False)]
-                    except OSError as exc:
-                        on_walk_error(exc)
-                directories = one_directory()
-
-            for directory, subdirs, names in directories:
-                if self.cancel_scan_event.is_set():
-                    break
-                checked_dirs += 1
-                # Windows-Junctions/Reparse-Points nicht rekursiv durchlaufen.
-                if recursive:
-                    subdirs[:] = [name for name in subdirs
-                                  if not os.path.isjunction(os.path.join(directory, name))]
-                for name in names:
-                    if name.lower().endswith((".tb2", ".tbl")):
-                        files.append(Path(directory) / name)
-                if checked_dirs % 50 == 0:
-                    self.events.put(("discovery", checked_dirs, len(files)))
+            files, checked_dirs = discover_files(
+                root, recursive, self.cancel_scan_event, on_walk_error,
+                legacy_links=True,
+                progress=lambda dirs, total: self.events.put(("discovery", dirs, total)))
             ignore_data = tb2_ignore.load()
             if not self.cancel_scan_event.is_set():
                 tb2_ignore.import_legacy(ignore_data, {path.parent for path in files},
@@ -614,6 +493,7 @@ class App(tk.Tk):
                     self.scanning = False
                     self._set_inputs_locked(False)
                     self.apply_filter()
+                    self._fit_result_columns()
                     self._update_scan_button()
                     self.scan_totals = (processed, recognized, fragments,
                                         probably_no_text, empty, errors)
@@ -717,16 +597,15 @@ class App(tk.Tk):
             self.tree.delete(item)
         self.filter_box.configure(state="readonly" if self.rows and not self.scanning and not self.exporting else "disabled")
         visible = self.filtered_rows()
-        for category, path, detail in visible:
+        for index, (category, path, detail) in enumerate(visible):
             ignored = self.is_ignored(path)
             iid = self.tree.insert("", "end", values=(
                 "Ignoriert" if ignored else category, path, detail),
-                tags=("ignored",) if ignored else ())
+                tags=row_tags(index, "ignored") if ignored else row_tags(index))
             if path in selected_paths:
                 self.tree.selection_add(iid)
         self.visible_count_var.set(f"{format_number(len(visible))} von {format_number(len(self.rows))} angezeigt")
         self.clear_button.configure(state="normal" if self.rows and not self.scanning and not self.exporting else "disabled")
-        self._fit_result_columns(visible)
         state = "normal" if self.rows and not self.scanning and not self.exporting else "disabled"
         self.copy_button.configure(state=state)
         self.save_button.configure(state=state)
@@ -753,7 +632,7 @@ class App(tk.Tk):
             content_width = max((font.measure(str(value)) for value in values[column]),
                                 default=0) + 24
             self.tree.column(column, width=max(heading_width, content_width, 80),
-                             stretch=(column == "path"))
+                             stretch=False)
 
     def selected_paths(self):
         """Dateipfade aller ausgewählten Zeilen, auch bei Mehrfachauswahl."""
@@ -905,10 +784,10 @@ class App(tk.Tk):
         self.status_var.set("TXT und Diagnose-ZIP werden erstellt …")
         threading.Thread(
             target=self._export_worker,
-            args=(txt_path, zip_path, report, rows, root),
+            args=(txt_path, zip_path, report, rows, root, frozenset(self.ignored_paths)),
             daemon=True).start()
 
-    def _export_worker(self, txt_path, zip_path, report, rows, root):
+    def _export_worker(self, txt_path, zip_path, report, rows, root, ignored_paths):
         """ZIP mit max. 300 Dateien / 100 MiB Originaldaten, ohne erneuten Scan."""
         max_files = 300
         max_bytes = 100 * 1024 * 1024
@@ -933,7 +812,7 @@ class App(tk.Tk):
 
             buckets = {}
             for row in rows:
-                if row[0] in ("Fehler", "Leer") or self._path_key(Path(row[1])) in self.ignored_paths:
+                if row[0] in ("Fehler", "Leer") or self._path_key(Path(row[1])) in ignored_paths:
                     continue
                 buckets.setdefault((priority(row), year(row)), []).append(row)
             # Beide Diagnosegruppen abwechselnd berücksichtigen:

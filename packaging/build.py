@@ -1,6 +1,7 @@
 """Central Windows executable build for the three public TB2 tools."""
 import argparse
 import importlib.util
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -8,9 +9,14 @@ import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+from tb2.build_identity import identity
+from tb2.version import APP_VERSION
+from windows_version import version_resource
+
 TARGETS = {
     "textfinder": ("TB2_Textfinder", ()),
-    "negativtester": ("TB2_Negativtester", ("TB2_Textfinder",)),
+    "negativtester": ("TB2_Negativtester", ()),
     "textcounter": ("TB2_Textcounter", ()),
 }
 RESOURCES = ("images/logo.ico", "CHANGELOG.md")
@@ -25,6 +31,8 @@ def command(key, output, work):
            "--onefile", "--windowed", "--icon", str(ROOT / "images/logo.ico")]
     for filename in RESOURCES:
         cmd.extend(["--add-data", str(ROOT / filename) + ";" + str(Path(filename).parent)])
+    cmd.extend(["--add-data", str(work.parent / "build_identity.json") + ";."])
+    cmd.extend(["--version-file", str(work / "version_info.txt")])
     for module in hidden:
         cmd.extend(["--hidden-import", module])
     return cmd + ["--name", name, "--distpath", str(output),
@@ -66,17 +74,24 @@ def main():
         return
     if importlib.util.find_spec("PyInstaller") is None:
         parser.error("Install packaging/requirements-build.txt first")
+    copyright_line = next((line for line in (ROOT / "LICENSE").read_text(encoding="utf-8").splitlines() if line.startswith("Copyright ")), None)
+    if copyright_line is None:
+        raise RuntimeError("Missing copyright notice in LICENSE")
+    copyright_notice = copyright_line.replace("(c)", "©")
     dist = ROOT / "dist"
     dist.mkdir(exist_ok=True)
     # A fresh staging directory prevents stale executables passing verification.
     # Only this newly created temporary directory is cleaned up.
     with tempfile.TemporaryDirectory(prefix=".tb2-build-", dir=dist) as temp:
         stage = Path(temp)
+        branch, commit = identity()
+        (stage / "build_identity.json").write_text(json.dumps({"branch": branch, "commit": commit}), encoding="utf-8")
         for key in keys:
             name, _ = TARGETS[key]
             output = stage / "output"
             work = stage / key
             work.mkdir()
+            (work / "version_info.txt").write_text(version_resource(key, name, APP_VERSION, branch, commit, copyright_notice), encoding="utf-8")
             cmd = command(key, output, work)
             print(subprocess.list2cmdline(cmd), flush=True)
             run(cmd)

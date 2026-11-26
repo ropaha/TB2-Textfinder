@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""TB2-Textfinder 1.8.8
+"""TB2-Textfinder
 
 Durchsucht .TB2-Dateien nach lesbarem Text und bislang beobachteten
 SignumNext-Glyphenprofilen mehrerer Formatgenerationen. Treffer werden
@@ -11,18 +11,20 @@ from __future__ import annotations
 import os
 import queue
 import threading
-import webbrowser
 from time import perf_counter
+from tb2.scanner import discover_files
 from tb2.version import APP_VERSION
+from tb2.build_identity import window_title
+from tb2 import dialogs
+from tb2.formatting import format_number
+from tb2.result_rows import configure_result_rows, row_tags
 from tb2.settings import load_folder, remember_folder, load_option, bind_option, load_export_folder, remember_export_folder
-from tb2.project_info import PROJECT_URL, MIT_LICENSE
 from tb2.muster import PROFILES, find_all, has_early_80_pattern, has_variable_80_pattern, has_wide_587_pattern, has_early_82_pattern, has_variable_98_pattern, has_variable_106_pattern
 from tb2.muster import (_early_80_record, _variable_marker_record, _wide_587_record, _early_82_record, _variable_98_record, _variable_106_record)
 from tb2.resource_paths import mask_resource_paths
 from tb2.whole_words import contains_whole_word
 from pathlib import Path
 from tb2.window_position import center_window
-from tb2.changelog import changelog_for_version
 from tb2.app_identity import configure_app_identity, apply_window_icon
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk, font as tkfont
@@ -44,11 +46,6 @@ INFO_TEXT = (
 )
 
 _find_all = find_all
-
-
-def format_number(value, decimals=0):
-    """German display formatting, independent of the system locale."""
-    return format(value, f",.{decimals}f").translate(str.maketrans(",.", ".,"))
 
 
 def _plain_needles(term: str, case_sensitive: bool) -> list[bytes]:
@@ -335,7 +332,7 @@ class App(tk.Tk):
         configure_app_identity("ropaha.TB2Textfinder")
         super().__init__()
         apply_window_icon(self)
-        self.title(f"{APP_TITLE} – {APP_VERSION}")
+        self.title(window_title(APP_TITLE, APP_VERSION))
         center_window(self, 800, 520)
         self.minsize(720, 420)
         self.events: queue.Queue = queue.Queue()
@@ -428,8 +425,9 @@ class App(tk.Tk):
         results_frame.rowconfigure(0, weight=1)
 
         self.tree = ttk.Treeview(results_frame, columns=("path",), show="headings")
+        configure_result_rows(self.tree)
         self.tree.heading("path", text="Dateipfad")
-        self.tree.column("path", width=80, minwidth=80, anchor="w", stretch=True)
+        self.tree.column("path", width=80, minwidth=80, anchor="w", stretch=False)
         self.tree.grid(row=0, column=0, sticky="nsew")
         yscroll = ttk.Scrollbar(results_frame, orient="vertical", command=self.tree.yview)
         yscroll.grid(row=0, column=1, sticky="ns")
@@ -452,101 +450,10 @@ class App(tk.Tk):
         self.term_entry.focus_set()
 
     def show_info(self):
-        """Show application details and the former footer help text."""
-        dialog = tk.Toplevel(self)
-        dialog.title("Info – TB2-Textfinder")
-        center_window(dialog, 650, 380, parent=self)
-        dialog.minsize(480, 300)
-        dialog.transient(self)
-        body = ttk.Frame(dialog, padding=18)
-        body.pack(fill="both", expand=True)
-        ttk.Label(body, text=f"{APP_TITLE} – Version {APP_VERSION}",
-                  font=("TkDefaultFont", 13, "bold")).pack(anchor="w", pady=(0, 12))
-        help_frame = ttk.Frame(body)
-        help_frame.pack(fill="both", expand=True)
-        help_text = tk.Text(help_frame, wrap="word", height=9, relief="flat",
-                            font=("TkDefaultFont", 10),
-                            background=dialog.cget("background"), padx=2, pady=2)
-        help_text.insert("1.0", INFO_TEXT)
-        help_text.configure(state="disabled")
-        help_text.pack(side="left", fill="both", expand=True)
-        scrollbar = ttk.Scrollbar(help_frame, orient="vertical", command=help_text.yview)
-        scrollbar.pack(side="right", fill="y")
-        help_text.configure(yscrollcommand=scrollbar.set)
-        buttons = ttk.Frame(body)
-        buttons.pack(fill="x", pady=(14, 0))
-        ttk.Button(buttons, text="Was ist neu?",
-                   command=lambda: self.show_changelog(dialog)).pack(side="left")
-        ttk.Button(buttons, text="GitHub",
-                   command=lambda: webbrowser.open(PROJECT_URL)).pack(side="left", padx=(8, 0))
-        ttk.Button(buttons, text="MIT-Lizenz",
-                   command=lambda: self.show_license(dialog)).pack(side="left", padx=(8, 0))
-        ttk.Button(buttons, text="Schließen", command=dialog.destroy).pack(side="right")
-
-    def show_changelog(self, parent):
-        """Display the bundled version history, including this installed version."""
-        dialog = tk.Toplevel(parent)
-        dialog.title(f"Was ist neu? – TB2-Textfinder {APP_VERSION}")
-        center_window(dialog, 720, 500, parent=parent)
-        dialog.minsize(450, 320)
-        dialog.transient(parent)
-        body = ttk.Frame(dialog, padding=14)
-        body.pack(fill="both", expand=True)
-        ttk.Label(body, text=f"Versionsverlauf bis {APP_VERSION}",
-                  font=("TkDefaultFont", 12, "bold")).pack(anchor="w", pady=(0, 10))
-        text_frame = ttk.Frame(body)
-        text_frame.pack(fill="both", expand=True)
-        history = tk.Text(text_frame, wrap="word", font=("TkDefaultFont", 10), padx=8, pady=8)
-        history.insert("1.0", changelog_for_version(APP_VERSION))
-        history.configure(state="disabled")
-        history.pack(side="left", fill="both", expand=True)
-        scrollbar = ttk.Scrollbar(text_frame, orient="vertical", command=history.yview)
-        scrollbar.pack(side="right", fill="y")
-        history.configure(yscrollcommand=scrollbar.set)
-        ttk.Button(body, text="Schließen", command=dialog.destroy).pack(anchor="e", pady=(10, 0))
-
-    def show_license(self, parent):
-        """Display the complete license bundled with this program."""
-        dialog = tk.Toplevel(parent)
-        dialog.title("MIT-Lizenz – TB2-Textfinder")
-        center_window(dialog, 720, 450, parent=parent)
-        dialog.minsize(450, 300)
-        dialog.transient(parent)
-        body = ttk.Frame(dialog, padding=14)
-        body.pack(fill="both", expand=True)
-        text_frame = ttk.Frame(body)
-        text_frame.pack(fill="both", expand=True)
-        license_text = tk.Text(text_frame, wrap="word", font=("TkDefaultFont", 10))
-        license_text.insert("1.0", MIT_LICENSE)
-        license_text.configure(state="disabled")
-        license_text.pack(side="left", fill="both", expand=True)
-        scrollbar = ttk.Scrollbar(text_frame, orient="vertical", command=license_text.yview)
-        scrollbar.pack(side="right", fill="y")
-        license_text.configure(yscrollcommand=scrollbar.set)
-        ttk.Button(body, text="Schließen", command=dialog.destroy).pack(anchor="e", pady=(10, 0))
+        dialogs.show_info(self, APP_TITLE, INFO_TEXT)
 
     def show_access_issues(self):
-        if not self.access_issues:
-            return
-        dialog = tk.Toplevel(self)
-        dialog.title("Zugriffsprobleme – TB2-Textfinder")
-        center_window(dialog, 780, 500, parent=self)
-        dialog.minsize(480, 300)
-        dialog.transient(self)
-        body = ttk.Frame(dialog, padding=14)
-        body.pack(fill="both", expand=True)
-        ttk.Label(body, text=f"{format_number(len(self.access_issues))} übersprungene Verzeichnisse",
-                  font=("TkDefaultFont", 12, "bold")).pack(anchor="w", pady=(0, 10))
-        text_frame = ttk.Frame(body)
-        text_frame.pack(fill="both", expand=True)
-        details = tk.Text(text_frame, wrap="word", font=("TkDefaultFont", 10), padx=8, pady=8)
-        details.insert("1.0", "\n\n".join(self.access_issues))
-        details.configure(state="disabled")
-        details.pack(side="left", fill="both", expand=True)
-        scrollbar = ttk.Scrollbar(text_frame, orient="vertical", command=details.yview)
-        scrollbar.pack(side="right", fill="y")
-        details.configure(yscrollcommand=scrollbar.set)
-        ttk.Button(body, text="Schließen", command=dialog.destroy).pack(anchor="e", pady=(10, 0))
+        dialogs.show_access_issues(self, APP_TITLE, self.access_issues, "übersprungene Verzeichnisse")
 
     def choose_folder(self):
         folder = filedialog.askdirectory(title="Ordner mit TB2-/TBL-Dateien auswählen", initialdir=self.folder_var.get() or None)
@@ -631,39 +538,16 @@ class App(tk.Tk):
 
     def _discover_and_scan(self, root: Path, recursive: bool, term: str,
                            case_sensitive: bool, mode: str, whole_word: bool):
-        files = []
         skipped = []
-        directories_checked = 0
 
         def on_walk_error(exc):
             skipped.append(f"{exc.filename or 'Unbekannter Ordner'}: {exc}")
 
         try:
-            if recursive:
-                directories = os.walk(root, topdown=True, followlinks=False,
-                                      onerror=on_walk_error)
-            else:
-                def one_directory():
-                    try:
-                        with os.scandir(root) as entries:
-                            yield str(root), [], [entry.name for entry in entries
-                                                   if entry.is_file(follow_symlinks=False)]
-                    except OSError as exc:
-                        on_walk_error(exc)
-                directories = one_directory()
-
-            for directory, subdirs, names in directories:
-                if self.cancel_scan_event.is_set():
-                    break
-                directories_checked += 1
-                if recursive:
-                    subdirs[:] = [name for name in subdirs
-                                  if not os.path.isjunction(os.path.join(directory, name))]
-                for name in names:
-                    if name.lower().endswith((".tb2", ".tbl")):
-                        files.append(Path(directory) / name)
-                if directories_checked % 50 == 0:
-                    self.events.put(("discovery", directories_checked, len(files)))
+            files, directories_checked = discover_files(
+                root, recursive, self.cancel_scan_event, on_walk_error,
+                legacy_links=True,
+                progress=lambda dirs, total: self.events.put(("discovery", dirs, total)))
             self.events.put(("discovery_done", len(files), directories_checked, skipped))
             if self.cancel_scan_event.is_set() or not files:
                 self.events.put(("finished", [], len(files), 0, mode, 0.0, 0,
@@ -748,8 +632,8 @@ class App(tk.Tk):
                     _, found, total, errors, mode, seconds, processed, cancelled = event
                     self.progress.stop()
                     self.result_paths = found
-                    for path in found:
-                        self.tree.insert("", "end", values=(path,))
+                    for index, path in enumerate(found):
+                        self.tree.insert("", "end", values=(path,), tags=row_tags(index))
                     self._fit_path_column(found)
                     self.scanning = False
                     self._set_inputs_locked(False)
@@ -799,9 +683,8 @@ class App(tk.Tk):
         font = tkfont.nametofont(font_name) if font_name in tkfont.names(self) else tkfont.nametofont("TkDefaultFont")
         heading_width = font.measure("Dateipfad") + 32
         content_width = max((font.measure(path) for path in paths), default=0) + 24
-        # Treeview dehnt die Spalte selbst auf den verfügbaren Platz aus.
-        # Die Widgetbreite darf nicht als Spaltenbreite verwendet werden:
-        # Rahmen und Innenabstände würden sonst unnötiges Scrollen auslösen.
+        # Feste Spaltenbreite: manuelle Änderungen bleiben erhalten;
+        # lange Pfade können horizontal gescrollt werden.
         self.tree.column("path", width=max(heading_width, content_width, 80))
 
     def _update_open_button_state(self, _event=None):
@@ -895,7 +778,6 @@ class App(tk.Tk):
         self.result_paths = []
         self.access_issues = []
         self.issues_button.pack_forget()
-        self.clear_button.configure(state="disabled")
         self.clear_button.configure(state="disabled")
         for item in self.tree.get_children():
             self.tree.delete(item)
