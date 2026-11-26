@@ -2,7 +2,7 @@
 
 A small Windows utility for searching text in `.TB2` files from different Signum / SignumNext file-format generations.
 
-**Current version:** 1.9.3
+**Current development version:** 1.9.4-dev (latest release: 1.9.3)
 
 ![TB2-Textfinder project banner](images/banner.svg)
 

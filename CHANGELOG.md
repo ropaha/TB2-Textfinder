@@ -4,6 +4,8 @@ Alle wesentlichen Änderungen am TB2-Textfinder und Negativtester werden hier do
 
 Die Versionsnummer des Gesamtpakets ist unabhängig von den Programmversionen. Die Erkennung beruht auf empirisch untersuchten TB2-Dateien, nicht auf einer vollständigen offiziellen Formatspezifikation.
 
+## [Unveröffentlicht] – Entwicklungsbranch dev
+
 ## [1.9.3] – Release (2026-11-26)
 
 - Gemeinsame TB2/TBL-Dateisuche in `tb2/scanner.py` für alle vier Programme, mit bisherigen Link-Regeln, Abbruch, Fehlerbehandlung und automatischen Scanner-Tests. Vollständiger Regressionstest ohne Abweichungen.
