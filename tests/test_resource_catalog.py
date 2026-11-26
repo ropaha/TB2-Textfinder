@@ -1,3 +1,5 @@
+import hashlib
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -13,10 +15,13 @@ class ResourceCatalogTests(unittest.TestCase):
             (root / "EVA4.FN3").write_bytes(b"x")
             (root / "test.ORN").write_bytes(b"")
             (root / "ignore.TB2").write_bytes(b"")
-            data = scan_resources(root)
+            progress = []
+            data = scan_resources(root, progress=lambda done, total: progress.append((done, total)))
+            self.assertEqual(data["schema"], 2)
+            self.assertEqual(progress, [(0, 3), (1, 3), (2, 3), (3, 3)])
             self.assertEqual(len(data["resources"]["FN3"]), 2)
             self.assertEqual(data["resources"]["ORN"][0]["size"], 0)
-            self.assertIn({"name": "EVA4.fn3", "path": "sub/EVA4.fn3", "size": 3}, data["resources"]["FN3"])
+            self.assertIn({"name": "EVA4.fn3", "path": "sub/EVA4.fn3", "size": 3, "sha256": hashlib.sha256(b"abc").hexdigest()}, data["resources"]["FN3"])
             self.assertEqual(sum(map(len, data["resources"].values())), 3)
             self.assertEqual(data["errors"], [])
             path = root / "settings" / "resources.json"
@@ -24,6 +29,9 @@ class ResourceCatalogTests(unittest.TestCase):
                 self.assertIsNone(load_catalog())
                 save_catalog(data)
                 self.assertEqual(load_catalog(), data)
+                legacy = dict(data, schema=1)
+                path.write_text(json.dumps(legacy), encoding="utf-8")
+                self.assertEqual(load_catalog(), legacy)
                 path.write_text("invalid", encoding="utf-8")
                 self.assertIsNone(load_catalog())
 
