@@ -11,6 +11,8 @@ import tempfile
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 from tb2.build_identity import identity
+from tb2.version import APP_VERSION
+from windows_version import version_resource
 
 TARGETS = {
     "textfinder": ("TB2_Textfinder", ()),
@@ -30,6 +32,7 @@ def command(key, output, work):
     for filename in RESOURCES:
         cmd.extend(["--add-data", str(ROOT / filename) + ";" + str(Path(filename).parent)])
     cmd.extend(["--add-data", str(work.parent / "build_identity.json") + ";."])
+    cmd.extend(["--version-file", str(work / "version_info.txt")])
     for module in hidden:
         cmd.extend(["--hidden-import", module])
     return cmd + ["--name", name, "--distpath", str(output),
@@ -84,6 +87,8 @@ def main():
             output = stage / "output"
             work = stage / key
             work.mkdir()
+            copyright_notice = next(line for line in (ROOT / "LICENSE").read_text(encoding="utf-8").splitlines() if line.startswith("Copyright ")).replace("(c)", "©")
+            (work / "version_info.txt").write_text(version_resource(key, name, APP_VERSION, branch, commit, copyright_notice), encoding="utf-8")
             cmd = command(key, output, work)
             print(subprocess.list2cmdline(cmd), flush=True)
             run(cmd)
