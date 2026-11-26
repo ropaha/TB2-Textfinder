@@ -6,6 +6,8 @@ Die Versionsnummer des Gesamtpakets ist unabhängig von den Programmversionen. D
 
 ## [Unveröffentlicht] – Entwicklungsbranch dev
 
+- Textcounter: zusätzliche EVA2NEU-, EVA2NEU V1.1- und PRÄGNANT-Formate; Regressionstest mit 28.762 Dateien, 63 neu erkannten Dateien und 273 verbleibenden Prüffällen.
+
 - Regressionstester: optionaler lokaler Ressourcenkatalog für FNT, FN2, FN3, ORN, BAU und STN mit SHA-256, Fortschrittsanzeige, Anzahl unterschiedlicher Inhalte und JSON-Export (Schema 2, Schema 1 weiterhin lesbar).
 
 - Textcounter: Erweiterte historische 98-Byte-Schriftformate für EVA4, GROTESK3, PRÄGNANT und SCHWERE BLOCK; 264 weitere Dateien erkannt, 336 verbleibende Prüffälle im Referenzbestand.
