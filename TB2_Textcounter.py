@@ -5,6 +5,7 @@ import queue
 import threading
 from time import perf_counter
 from collections import Counter
+from tb2.scanner import discover_files
 from tb2.version import APP_VERSION
 from tb2.build_identity import window_title
 from tb2 import dialogs
@@ -23,21 +24,12 @@ from tb2.counter import counter_lines, SPACE_CODE
 def scan(root, recursive, stop, events, mode="fast"):
     counts = Counter()
     files = lines_total = uncertain = errors = 0
-    paths = []
     def walk_error(exc):
         events.put(("error", str(exc)))
     try:
-        for base, dirs, names in os.walk(root, followlinks=False, onerror=walk_error):
-            if stop.is_set():
-                return
-            dirs[:] = [d for d in dirs if recursive and not os.path.islink(os.path.join(base,d))
-                       and not getattr(os.path, "isjunction", lambda p: False)(os.path.join(base,d))]
-            for name in names:
-                if stop.is_set():
-                    return
-                path = Path(base) / name
-                if path.suffix.lower() in (".tb2", ".tbl") and not path.is_symlink():
-                    paths.append(path)
+        paths, _ = discover_files(root, recursive, stop, walk_error)
+        if stop.is_set():
+            return
         total = len(paths)
         events.put(("discovered", total))
         for path in paths:

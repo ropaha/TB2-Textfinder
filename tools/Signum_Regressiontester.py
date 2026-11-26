@@ -16,6 +16,7 @@ from tb2.counter import counter_lines, SPACE_CODE
 from tb2.window_position import center_window
 from tb2.app_identity import configure_app_identity, apply_window_icon
 from tb2.muster import historical_resource_document
+from tb2.scanner import discover_files
 from tb2.version import APP_VERSION
 from tb2.build_identity import window_title
 from tb2 import dialogs
@@ -26,7 +27,7 @@ from tb2.settings import load_folder, remember_folder, load_json_folder, remembe
 
 def parser_hashes():
     base = Path(__file__).resolve().parents[1]
-    names = ("TB2_Textcounter.py", "tb2/counter.py", "tb2/muster.py", "tb2/jpeg_fast.py", "tb2/resource_paths.py", "tools/Signum_Regressiontester.py")
+    names = ("TB2_Textcounter.py", "tb2/counter.py", "tb2/scanner.py", "tb2/muster.py", "tb2/jpeg_fast.py", "tb2/resource_paths.py", "tools/Signum_Regressiontester.py")
     return {name: hashlib.sha256((base / name).read_bytes()).hexdigest()
             for name in names if (base / name).is_file()}
 
@@ -46,16 +47,11 @@ def compact_report(result):
 def scan(root, mode, stop, notify):
     rows = {}
     errors = []
-    paths = []
     started = perf_counter()
     hashes = parser_hashes()
-    for base, dirs, names in os.walk(root, followlinks=False, onerror=lambda e: errors.append(str(e))):
-        if stop.is_set():
-            return None
-        dirs[:] = [d for d in dirs if not os.path.islink(os.path.join(base, d))
-                   and not getattr(os.path, "isjunction", lambda p: False)(os.path.join(base, d))]
-        paths.extend(Path(base)/n for n in names if Path(n).suffix.lower() in (".tb2", ".tbl")
-                     and not (Path(base)/n).is_symlink())
+    paths, _ = discover_files(root, True, stop, lambda e: errors.append(str(e)))
+    if stop.is_set():
+        return None
     for i, path in enumerate(sorted(paths), 1):
         if stop.is_set():
             return None

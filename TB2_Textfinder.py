@@ -12,6 +12,7 @@ import os
 import queue
 import threading
 from time import perf_counter
+from tb2.scanner import discover_files
 from tb2.version import APP_VERSION
 from tb2.build_identity import window_title
 from tb2 import dialogs
@@ -537,39 +538,16 @@ class App(tk.Tk):
 
     def _discover_and_scan(self, root: Path, recursive: bool, term: str,
                            case_sensitive: bool, mode: str, whole_word: bool):
-        files = []
         skipped = []
-        directories_checked = 0
 
         def on_walk_error(exc):
             skipped.append(f"{exc.filename or 'Unbekannter Ordner'}: {exc}")
 
         try:
-            if recursive:
-                directories = os.walk(root, topdown=True, followlinks=False,
-                                      onerror=on_walk_error)
-            else:
-                def one_directory():
-                    try:
-                        with os.scandir(root) as entries:
-                            yield str(root), [], [entry.name for entry in entries
-                                                   if entry.is_file(follow_symlinks=False)]
-                    except OSError as exc:
-                        on_walk_error(exc)
-                directories = one_directory()
-
-            for directory, subdirs, names in directories:
-                if self.cancel_scan_event.is_set():
-                    break
-                directories_checked += 1
-                if recursive:
-                    subdirs[:] = [name for name in subdirs
-                                  if not getattr(os.path, "isjunction", lambda p: False)(os.path.join(directory, name))]
-                for name in names:
-                    if name.lower().endswith((".tb2", ".tbl")):
-                        files.append(Path(directory) / name)
-                if directories_checked % 50 == 0:
-                    self.events.put(("discovery", directories_checked, len(files)))
+            files, directories_checked = discover_files(
+                root, recursive, self.cancel_scan_event, on_walk_error,
+                legacy_links=True,
+                progress=lambda dirs, total: self.events.put(("discovery", dirs, total)))
             self.events.put(("discovery_done", len(files), directories_checked, skipped))
             if self.cancel_scan_event.is_set() or not files:
                 self.events.put(("finished", [], len(files), 0, mode, 0.0, 0,

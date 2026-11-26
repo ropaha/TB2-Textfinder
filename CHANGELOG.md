@@ -6,6 +6,8 @@ Die Versionsnummer des Gesamtpakets ist unabhängig von den Programmversionen. D
 
 ## [Unveröffentlicht] – Entwicklungsbranch dev
 
+- Gemeinsame TB2/TBL-Dateisuche in `tb2/scanner.py` für alle vier Programme, mit bisherigen Link-Regeln, Abbruch, Fehlerbehandlung und automatischen Scanner-Tests. Vollständiger Regressionstest ohne Abweichungen.
+
 - Continuous Integration: automatische Syntax- und Unit-Tests unter Windows mit Python 3.10, 3.11 und 3.12 sowie Ruff-Codeanalyse unter Ubuntu.
 
 - GUI-unabhängiger Zeichenzählkern in `tb2/counter.py`; gemeinsame Leerzeichenkonstante, entfallener GUI-Hidden-Import und ergänzte Parser-Prüfsummen. Regressionstest mit 28.762 Dateien ohne Abweichungen.
