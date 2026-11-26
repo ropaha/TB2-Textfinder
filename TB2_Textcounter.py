@@ -8,6 +8,7 @@ from collections import Counter
 import webbrowser
 from tb2.version import APP_VERSION
 from tb2.build_identity import window_title, info_identity
+from tb2.result_rows import configure_result_rows, row_tags
 from tb2.settings import load_folder, remember_folder, load_option, bind_option
 from tb2.project_info import PROJECT_URL, MIT_LICENSE
 from tb2.window_position import center_window
@@ -143,6 +144,7 @@ class App(tk.Tk):
         results.columnconfigure(0, weight=1)
         results.rowconfigure(0, weight=1)
         self.tree = ttk.Treeview(results, columns=("font","count"), show="headings")
+        configure_result_rows(self.tree, total=True)
         self.result_counts = {}
         self.has_results = False
         self.sort_column = "count"
@@ -202,9 +204,9 @@ class App(tk.Tk):
         elif self.sort_descending:
             rows.reverse()
         self.tree.insert("", "end", values=("GESAMT (erkannte Zeichen)",
-                                             format_number(sum(self.result_counts.values()))))
-        for font, count in rows:
-            self.tree.insert("", "end", values=(font, format_number(count)))
+                                             format_number(sum(self.result_counts.values()))), tags=("row_total",))
+        for index, (font, count) in enumerate(rows):
+            self.tree.insert("", "end", values=(font, format_number(count)), tags=row_tags(index))
 
     def clear(self):
         self.result_counts = {}
