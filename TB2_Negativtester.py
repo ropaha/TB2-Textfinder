@@ -10,6 +10,7 @@ from time import perf_counter
 import zipfile
 import re
 from pathlib import Path
+from tb2.scanner import discover_files
 from tb2.version import APP_VERSION
 from tb2.build_identity import window_title
 from tb2 import dialogs
@@ -403,42 +404,17 @@ class App(tk.Tk):
 
     def _worker(self, root: Path, recursive: bool, mode: str, search_mode: str):
         """Dateisuche, Ignorierlisten und Prüfung vollständig außerhalb der GUI."""
-        files = []
         ignored = set()
         skipped = []
-        checked_dirs = 0
 
         def on_walk_error(exc):
             skipped.append(f"{exc.filename or 'Unbekannter Ordner'}: {exc}")
 
         try:
-            if recursive:
-                directories = os.walk(root, topdown=True, followlinks=False,
-                                      onerror=on_walk_error)
-            else:
-                # Dieselbe Ereignisstruktur für die Suche ohne Unterordner.
-                def one_directory():
-                    try:
-                        with os.scandir(root) as entries:
-                            yield str(root), [], [entry.name for entry in entries
-                                                   if entry.is_file(follow_symlinks=False)]
-                    except OSError as exc:
-                        on_walk_error(exc)
-                directories = one_directory()
-
-            for directory, subdirs, names in directories:
-                if self.cancel_scan_event.is_set():
-                    break
-                checked_dirs += 1
-                # Windows-Junctions/Reparse-Points nicht rekursiv durchlaufen.
-                if recursive:
-                    subdirs[:] = [name for name in subdirs
-                                  if not getattr(os.path, "isjunction", lambda p: False)(os.path.join(directory, name))]
-                for name in names:
-                    if name.lower().endswith((".tb2", ".tbl")):
-                        files.append(Path(directory) / name)
-                if checked_dirs % 50 == 0:
-                    self.events.put(("discovery", checked_dirs, len(files)))
+            files, checked_dirs = discover_files(
+                root, recursive, self.cancel_scan_event, on_walk_error,
+                legacy_links=True,
+                progress=lambda dirs, total: self.events.put(("discovery", dirs, total)))
             ignore_data = tb2_ignore.load()
             if not self.cancel_scan_event.is_set():
                 tb2_ignore.import_legacy(ignore_data, {path.parent for path in files},
