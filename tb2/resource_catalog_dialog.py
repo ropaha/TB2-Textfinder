@@ -31,27 +31,42 @@ def show_resource_catalog(parent):
             root.set(folder)
     choose_button = ttk.Button(row, text="Ordner wählen …", command=choose)
     choose_button.pack(side="left", padx=(5, 0))
-    tree = ttk.Treeview(body, columns=("type", "count"), show="headings", height=6)
+    tree = ttk.Treeview(body, columns=("type", "count", "unique"), show="headings", height=6)
     tree.heading("type", text="Dateityp")
     tree.heading("count", text="Anzahl")
+    tree.heading("unique", text="Unterschiedliche Inhalte")
+    tree.column("unique", width=180, anchor="e")
     tree.column("type", width=160)
     tree.column("count", width=100, anchor="e")
     tree.pack(fill="x", pady=5)
     ttk.Label(body, textvariable=status, wraplength=480).pack(anchor="w", pady=5)
+    progress_bar = ttk.Progressbar(body, mode="determinate")
+    progress_bar.pack(fill="x", pady=(0, 5))
     actions = ttk.Frame(body)
     actions.pack(fill="x")
     results = queue.Queue()
+    progress_updates = queue.Queue(maxsize=1)
     running = False
     def refresh():
         tree.delete(*tree.get_children())
         for ext in EXTENSIONS:
-            tree.insert("", "end", values=(ext, len(data["resources"].get(ext, [])) if data else 0))
+            entries = data["resources"].get(ext, []) if data else []
+            unique = len({item["sha256"] for item in entries}) if data and data.get("schema") == 2 else "–"
+            tree.insert("", "end", values=(ext, len(entries), unique))
         status.set(("Katalog: " + data["resource_root"] + "\nStand: " + data["created_at"] +
                     " | Zugriffsprobleme: " + str(len(data.get("errors", [])))) if data else "Noch kein Katalog vorhanden.")
+        if data and data.get("schema") == 1:
+            status.set(status.get() + "\nNoch ohne Prüfsummen – bitte neu erfassen.")
         export_button.configure(state="normal" if data else "disabled")
+    def report_progress(done, total):
+        try:
+            progress_updates.get_nowait()
+        except queue.Empty:
+            pass
+        progress_updates.put_nowait((done, total))
     def worker(folder):
         try:
-            result = scan_resources(folder)
+            result = scan_resources(folder, progress=report_progress)
             save_catalog(result)
             results.put((result, None))
         except Exception as exc:
@@ -59,11 +74,20 @@ def show_resource_catalog(parent):
     def poll():
         nonlocal data, running
         try:
+            done, total = progress_updates.get_nowait()
+            progress_bar.stop()
+            progress_bar.configure(mode="determinate", maximum=max(total, 1), value=done)
+            status.set(f"Prüfsummen: {done:,} / {total:,}".replace(",", "."))
+        except queue.Empty:
+            pass
+        try:
             result, error = results.get_nowait()
         except queue.Empty:
             dialog.after(100, poll)
             return
         running = False
+        progress_bar.stop()
+        progress_bar.configure(mode="determinate", value=0)
         for widget in (entry, choose_button, scan_button):
             widget.configure(state="normal")
         if error is not None:
@@ -80,7 +104,9 @@ def show_resource_catalog(parent):
         running = True
         for widget in (entry, choose_button, scan_button, export_button):
             widget.configure(state="disabled")
-        status.set("Ressourcen werden erfasst …")
+        status.set("Ressourcendateien werden gesucht …")
+        progress_bar.configure(mode="indeterminate")
+        progress_bar.start(15)
         threading.Thread(target=worker, args=(root.get(),), daemon=True).start()
         dialog.after(100, poll)
     def export():
