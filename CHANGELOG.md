@@ -6,6 +6,8 @@ Die Versionsnummer des Gesamtpakets ist unabhängig von den Programmversionen. D
 
 ## [Unveröffentlicht] – Entwicklungsbranch dev
 
+- Textcounter: Erweiterte historische 98-Byte-Schriftformate für EVA4, GROTESK3, PRÄGNANT und SCHWERE BLOCK; 264 weitere Dateien erkannt, 336 verbleibende Prüffälle im Referenzbestand.
+
 - Textcounter: erweiterte 98-Byte-Erkennung für EVA12, TrueType-Schriften, ANTIQUA PRISMA und EK. Regressionstest mit 28.762 Dateien: 114 zusätzliche Dateien erkannt, 600 verbleibende Prüffälle, vier manuelle Stichproben bestätigt.
 
 - Alle vier Programme zeigen Entwicklungsbranch im Fenstertitel sowie Branch und Commit im Info-Fenster; EXE-Builds enthalten die Build-Identität.
