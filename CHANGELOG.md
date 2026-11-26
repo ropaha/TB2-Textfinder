@@ -6,6 +6,8 @@ Die Versionsnummer des Gesamtpakets ist unabhängig von den Programmversionen. D
 
 ## [Unveröffentlicht] – Entwicklungsbranch dev
 
+- Textcounter: Die Gesamtzahl der erkannten Zeichen steht unabhängig von der Sortierung in der ersten Ergebniszeile.
+
 - Windows-EXE-Builds enthalten automatisch Versionsressourcen mit Dateibeschreibung, Produkt- und Dateiversion, Copyright, Sprache sowie Branch- und Commit-Informationen.
 
 - Textcounter: erweiterte 98-Byte-Erkennung für EVA12, TrueType-Schriften, ANTIQUA PRISMA und EK. Regressionstest mit 28.762 Dateien: 114 zusätzliche Dateien erkannt, 600 verbleibende Prüffälle, vier manuelle Stichproben bestätigt.
