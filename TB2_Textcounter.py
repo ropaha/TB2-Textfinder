@@ -9,6 +9,7 @@ import webbrowser
 from tb2.version import APP_VERSION
 from tb2.build_identity import window_title, info_identity
 from tb2.result_rows import configure_result_rows, row_tags
+from tb2.resource_catalog_dialog import show_resource_catalog
 from tb2.settings import load_folder, remember_folder, load_option, bind_option
 from tb2.project_info import PROJECT_URL, MIT_LICENSE
 from tb2.window_position import center_window
@@ -160,6 +161,7 @@ class App(tk.Tk):
         footer.grid(row=8, column=0, columnspan=3, sticky="ew", pady=(10,0))
         ttk.Button(footer, text="Programm beenden", command=self.request_exit).pack(side="right")
         ttk.Button(footer, text="Info", command=self.show_info).pack(side="right", padx=(0,8))
+        ttk.Button(footer, text="Ressourcen", command=lambda: show_resource_catalog(self)).pack(side="right", padx=(0, 8))
         frame.columnconfigure(1, weight=1)
         frame.rowconfigure(7, weight=1)
         self.folder.trace_add("write", self.update_button)
