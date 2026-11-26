@@ -16,7 +16,7 @@ from windows_version import version_resource
 
 TARGETS = {
     "textfinder": ("TB2_Textfinder", ()),
-    "negativtester": ("TB2_Negativtester", ("TB2_Textfinder",)),
+    "negativtester": ("TB2_Negativtester", ("TB2_Textcounter",)),
     "textcounter": ("TB2_Textcounter", ()),
 }
 RESOURCES = ("images/logo.ico", "CHANGELOG.md")
@@ -74,6 +74,10 @@ def main():
         return
     if importlib.util.find_spec("PyInstaller") is None:
         parser.error("Install packaging/requirements-build.txt first")
+    copyright_line = next((line for line in (ROOT / "LICENSE").read_text(encoding="utf-8").splitlines() if line.startswith("Copyright ")), None)
+    if copyright_line is None:
+        raise RuntimeError("Missing copyright notice in LICENSE")
+    copyright_notice = copyright_line.replace("(c)", "©")
     dist = ROOT / "dist"
     dist.mkdir(exist_ok=True)
     # A fresh staging directory prevents stale executables passing verification.
@@ -87,7 +91,6 @@ def main():
             output = stage / "output"
             work = stage / key
             work.mkdir()
-            copyright_notice = next(line for line in (ROOT / "LICENSE").read_text(encoding="utf-8").splitlines() if line.startswith("Copyright ")).replace("(c)", "©")
             (work / "version_info.txt").write_text(version_resource(key, name, APP_VERSION, branch, commit, copyright_notice), encoding="utf-8")
             cmd = command(key, output, work)
             print(subprocess.list2cmdline(cmd), flush=True)
