@@ -6,6 +6,8 @@ Die Versionsnummer des Gesamtpakets ist unabhängig von den Programmversionen. D
 
 ## [Unveröffentlicht] – Entwicklungsbranch dev
 
+- GUI-unabhängiger Zeichenzählkern in `tb2/counter.py`; gemeinsame Leerzeichenkonstante, entfallener GUI-Hidden-Import und ergänzte Parser-Prüfsummen. Regressionstest mit 28.762 Dateien ohne Abweichungen.
+
 - Gemeinsame Info-, Lizenz-, Changelog- und Zugriffsdialoge sowie zentrale Zahlenformatierung für alle vier Programme; bisherige Dialoggestaltung bleibt erhalten.
 
 - Codepflege: kompatible Junction-Abfrage, korrigierter PyInstaller-Hidden-Import, Python-Setup vor Versionsprüfung, unveränderlicher Export-Snapshot und kleinere GUI-/Build-Korrekturen.

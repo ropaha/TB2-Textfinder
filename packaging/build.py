@@ -16,7 +16,7 @@ from windows_version import version_resource
 
 TARGETS = {
     "textfinder": ("TB2_Textfinder", ()),
-    "negativtester": ("TB2_Negativtester", ("TB2_Textcounter",)),
+    "negativtester": ("TB2_Negativtester", ()),
     "textcounter": ("TB2_Textcounter", ()),
 }
 RESOURCES = ("images/logo.ico", "CHANGELOG.md")

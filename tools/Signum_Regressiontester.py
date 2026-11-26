@@ -12,7 +12,7 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from TB2_Textcounter import counter_lines, SPACE_CODE
+from tb2.counter import counter_lines, SPACE_CODE
 from tb2.window_position import center_window
 from tb2.app_identity import configure_app_identity, apply_window_icon
 from tb2.muster import historical_resource_document
@@ -26,7 +26,7 @@ from tb2.settings import load_folder, remember_folder, load_json_folder, remembe
 
 def parser_hashes():
     base = Path(__file__).resolve().parents[1]
-    names = ("TB2_Textcounter.py", "tb2/muster.py", "tb2/jpeg_fast.py", "tb2/resource_paths.py", "tools/Signum_Regressiontester.py")
+    names = ("TB2_Textcounter.py", "tb2/counter.py", "tb2/muster.py", "tb2/jpeg_fast.py", "tb2/resource_paths.py", "tools/Signum_Regressiontester.py")
     return {name: hashlib.sha256((base / name).read_bytes()).hexdigest()
             for name in names if (base / name).is_file()}
 
