@@ -201,10 +201,10 @@ class App(tk.Tk):
             rows.sort(key=lambda x: x[1], reverse=self.sort_descending)
         elif self.sort_descending:
             rows.reverse()
-        for font, count in rows:
-            self.tree.insert("", "end", values=(font, format_number(count)))
         self.tree.insert("", "end", values=("GESAMT (erkannte Zeichen)",
                                              format_number(sum(self.result_counts.values()))))
+        for font, count in rows:
+            self.tree.insert("", "end", values=(font, format_number(count)))
 
     def clear(self):
         self.result_counts = {}
