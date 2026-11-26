@@ -6,6 +6,8 @@ Die Versionsnummer des Gesamtpakets ist unabhängig von den Programmversionen. D
 
 ## [Unveröffentlicht] – Entwicklungsbranch dev
 
+- Textcounter: Erweiterte historische 98-Byte-Schriftformate für EVA4, GROTESK3, PRÄGNANT und SCHWERE BLOCK; 264 weitere Dateien erkannt, 336 verbleibende Prüffälle im Referenzbestand.
+
 - Einheitliche alternierende Hintergrundfarben in den Ergebnislisten aller vier Werkzeuge; Textcounter-Gesamtzeile hellblau und fett hervorgehoben.
 
 - Textcounter: Die Gesamtzahl der erkannten Zeichen steht unabhängig von der Sortierung in der ersten Ergebniszeile.
