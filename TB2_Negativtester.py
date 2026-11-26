@@ -534,7 +534,7 @@ class App(tk.Tk):
                 # Windows-Junctions/Reparse-Points nicht rekursiv durchlaufen.
                 if recursive:
                     subdirs[:] = [name for name in subdirs
-                                  if not os.path.isjunction(os.path.join(directory, name))]
+                                  if not getattr(os.path, "isjunction", lambda p: False)(os.path.join(directory, name))]
                 for name in names:
                     if name.lower().endswith((".tb2", ".tbl")):
                         files.append(Path(directory) / name)
@@ -909,10 +909,10 @@ class App(tk.Tk):
         self.status_var.set("TXT und Diagnose-ZIP werden erstellt …")
         threading.Thread(
             target=self._export_worker,
-            args=(txt_path, zip_path, report, rows, root),
+            args=(txt_path, zip_path, report, rows, root, frozenset(self.ignored_paths)),
             daemon=True).start()
 
-    def _export_worker(self, txt_path, zip_path, report, rows, root):
+    def _export_worker(self, txt_path, zip_path, report, rows, root, ignored_paths):
         """ZIP mit max. 300 Dateien / 100 MiB Originaldaten, ohne erneuten Scan."""
         max_files = 300
         max_bytes = 100 * 1024 * 1024
@@ -937,7 +937,7 @@ class App(tk.Tk):
 
             buckets = {}
             for row in rows:
-                if row[0] in ("Fehler", "Leer") or self._path_key(Path(row[1])) in self.ignored_paths:
+                if row[0] in ("Fehler", "Leer") or self._path_key(Path(row[1])) in ignored_paths:
                     continue
                 buckets.setdefault((priority(row), year(row)), []).append(row)
             # Beide Diagnosegruppen abwechselnd berücksichtigen:
