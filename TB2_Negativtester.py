@@ -13,6 +13,7 @@ import webbrowser
 from pathlib import Path
 from tb2.version import APP_VERSION
 from tb2.build_identity import window_title, info_identity
+from tb2.result_rows import configure_result_rows, row_tags
 from tb2 import ignore as tb2_ignore
 from tb2.settings import load_folder, remember_folder, load_option, bind_option, load_export_folder, remember_export_folder
 from tb2.project_info import PROJECT_URL, MIT_LICENSE
@@ -253,6 +254,7 @@ class App(tk.Tk):
         results_frame.columnconfigure(0, weight=1)
         results_frame.rowconfigure(0, weight=1)
         self.tree = ttk.Treeview(results_frame, columns=("category", "path", "detail"), show="headings")
+        configure_result_rows(self.tree)
         self.tree.heading("category", text="Status")
         self.tree.heading("path", text="Dateipfad")
         self.tree.heading("detail", text="Hinweis")
@@ -720,11 +722,11 @@ class App(tk.Tk):
             self.tree.delete(item)
         self.filter_box.configure(state="readonly" if self.rows and not self.scanning and not self.exporting else "disabled")
         visible = self.filtered_rows()
-        for category, path, detail in visible:
+        for index, (category, path, detail) in enumerate(visible):
             ignored = self.is_ignored(path)
             iid = self.tree.insert("", "end", values=(
                 "Ignoriert" if ignored else category, path, detail),
-                tags=("ignored",) if ignored else ())
+                tags=row_tags(index, "ignored") if ignored else row_tags(index))
             if path in selected_paths:
                 self.tree.selection_add(iid)
         self.visible_count_var.set(f"{format_number(len(visible))} von {format_number(len(self.rows))} angezeigt")
