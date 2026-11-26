@@ -15,6 +15,7 @@ import webbrowser
 from time import perf_counter
 from tb2.version import APP_VERSION
 from tb2.build_identity import window_title, info_identity
+from tb2.result_rows import configure_result_rows, row_tags
 from tb2.settings import load_folder, remember_folder, load_option, bind_option, load_export_folder, remember_export_folder
 from tb2.project_info import PROJECT_URL, MIT_LICENSE
 from tb2.muster import PROFILES, find_all, has_early_80_pattern, has_variable_80_pattern, has_wide_587_pattern, has_early_82_pattern, has_variable_98_pattern, has_variable_106_pattern
@@ -429,6 +430,7 @@ class App(tk.Tk):
         results_frame.rowconfigure(0, weight=1)
 
         self.tree = ttk.Treeview(results_frame, columns=("path",), show="headings")
+        configure_result_rows(self.tree)
         self.tree.heading("path", text="Dateipfad")
         self.tree.column("path", width=80, minwidth=80, anchor="w", stretch=False)
         self.tree.grid(row=0, column=0, sticky="nsew")
@@ -750,8 +752,8 @@ class App(tk.Tk):
                     _, found, total, errors, mode, seconds, processed, cancelled = event
                     self.progress.stop()
                     self.result_paths = found
-                    for path in found:
-                        self.tree.insert("", "end", values=(path,))
+                    for index, path in enumerate(found):
+                        self.tree.insert("", "end", values=(path,), tags=row_tags(index))
                     self._fit_path_column(found)
                     self.scanning = False
                     self._set_inputs_locked(False)

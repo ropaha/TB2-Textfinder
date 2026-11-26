@@ -6,6 +6,8 @@ Die Versionsnummer des Gesamtpakets ist unabhängig von den Programmversionen. D
 
 ## [Unveröffentlicht] – Entwicklungsbranch dev
 
+- Einheitliche alternierende Hintergrundfarben in den Ergebnislisten aller vier Werkzeuge; Textcounter-Gesamtzeile hellblau und fett hervorgehoben.
+
 - Textcounter: Die Gesamtzahl der erkannten Zeichen steht unabhängig von der Sortierung in der ersten Ergebniszeile.
 
 - Windows-EXE-Builds enthalten automatisch Versionsressourcen mit Dateibeschreibung, Produkt- und Dateiversion, Copyright, Sprache sowie Branch- und Commit-Informationen.

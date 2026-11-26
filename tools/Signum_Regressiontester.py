@@ -20,6 +20,7 @@ import webbrowser
 from tb2.muster import historical_resource_document
 from tb2.version import APP_VERSION
 from tb2.build_identity import window_title, info_identity
+from tb2.result_rows import configure_result_rows, row_tags
 from tb2.settings import load_folder, remember_folder, load_json_folder, remember_json_folder, load_option, bind_option
 
 def parser_hashes():
@@ -185,6 +186,7 @@ class App(tk.Tk):
         results = ttk.Frame(frame)
         results.pack(fill="both", expand=True)
         self.tree = ttk.Treeview(results, columns=("category","path","old","new"), show="headings")
+        configure_result_rows(self.tree)
         for k, label, width in [("category","Kategorie",180),("path","Datei",420),("old","Vorher",90),("new","Nachher",90)]:
             self.tree.heading(k,text=label)
             self.tree.column(k,width=width, anchor="e" if k in ("old","new") else "w")
@@ -232,11 +234,13 @@ class App(tk.Tk):
     def render_results(self):
         self.tree.delete(*self.tree.get_children())
         self.open_button.configure(state="disabled")
+        index = 0
         for c in (self.result or {}).get("changes", []):
             if self.filter.get() not in ("Alle", c["category"]):
                 continue
             total = lambda r: format_number(sum((r or {}).get("fonts", {}).values()))
-            self.tree.insert("", "end", values=(c["category"], c["path"], total(c["before"]), total(c["after"])))
+            self.tree.insert("", "end", values=(c["category"], c["path"], total(c["before"]), total(c["after"])), tags=row_tags(index))
+            index += 1
 
     def pick(self):
         p = filedialog.askdirectory(title="Ordner mit TB2-/TBL-Dateien auswählen", initialdir=self.rootdir.get() or None)
