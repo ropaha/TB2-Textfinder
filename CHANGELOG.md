@@ -6,6 +6,8 @@ Die Versionsnummer des Gesamtpakets ist unabhängig von den Programmversionen. D
 
 ## [Unveröffentlicht] – Entwicklungsbranch dev
 
+- Continuous Integration: automatische Syntax- und Unit-Tests unter Windows mit Python 3.10, 3.11 und 3.12 sowie Ruff-Codeanalyse unter Ubuntu.
+
 - GUI-unabhängiger Zeichenzählkern in `tb2/counter.py`; gemeinsame Leerzeichenkonstante, entfallener GUI-Hidden-Import und ergänzte Parser-Prüfsummen. Regressionstest mit 28.762 Dateien ohne Abweichungen.
 
 - Gemeinsame Info-, Lizenz-, Changelog- und Zugriffsdialoge sowie zentrale Zahlenformatierung für alle vier Programme; bisherige Dialoggestaltung bleibt erhalten.
