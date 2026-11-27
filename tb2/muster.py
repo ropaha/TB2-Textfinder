@@ -539,9 +539,9 @@ def historical_resource_613(data):
         if (ext is None or data[p+41:p+53] != bytes(12)
                 or data[p+53] not in (0, 0x02, 0x20)
                 or data[p+54:p+57] != b'\x02\x00\x00'
-                or not 5 <= n <= 255 or data[p+57+n] != 0):
+                or not 5 <= n <= 255 or data[p+58+n] != 0):
             return None
-        path = data[p+58:p+57+n].decode('latin-1').upper()
+        path = data[p+58:p+58+n].decode('latin-1').upper()
         if not re.fullmatch(r'[A-Z]:\\STEIN\\SIGNUM\\' + ext + r'\\(?:[A-ZÄÖÜ0-9_ .#-]+\\)*[A-ZÄÖÜ0-9_ .#-]+\.' + ext, path):
             return None
         result.append(ext)
