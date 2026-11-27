@@ -6,6 +6,8 @@ Die Versionsnummer des Gesamtpakets ist unabhängig von den Programmversionen. D
 
 ## [Unveröffentlicht] – Entwicklungsbranch dev
 
+- Textcounter: ABCD0854-Schriftprofile für EVA2NEU, KAPTALIS und ANTIQUA PARABEL; Erkennung historischer 613-Byte-Ressourcenblöcke auch nach eingebetteten JPEG-Objekten. Schriftlose Ressourcendokumente werden nicht mehr als unsicher gezählt. Automatische Format- und Negativtests ergänzt. Dateiweiser Regressionstest mit 14.540 unveränderten Dateien: 7 neu gezählte Schriftdateien, 23 zusätzliche Ressourcendateien, 95 verbleibende Prüffälle, keine Regressionen; 622.303 Zeichen und 60.435 Zeilen.
+
 - Metadatenanalyse für TB2/TBL: Dateiversion sowie bei ABCD1114 erzeugende Programmversion und Programmname. Versionsstatistik im Regressionstester, Versionsfilter und Metadatenberichte im Negativtester, gefilterter Diagnose-ZIP-Export mit optionaler SHA-256-Deduplizierung. Zentrierte Dialoge und eindeutige JSON-Exportbeschriftungen. Das Format-Feld bleibt vorerst unbekannt.
 
 - Textcounter: sechs anhand von Signum bestätigte Schriftformatvarianten (LUCIDA CALLIGRAPHY, CG TIMES (W1), KAPTAL2, SCHWERE BLOCK, EVA4, LAPIDAR1). Eigenes Lucida-98-Profil für zusätzliche Glyphenmarker. Regressionstest im bereinigten Bestand mit 14.540 Dateien: 25 neu erkannte Dateien, 125 verbleibende Prüffälle, 621.640 Zeichen und 60.393 Zeilen. Entwicklungsstand 2.0.0-dev.
