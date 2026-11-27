@@ -529,11 +529,34 @@ def historical_resource_613(data):
     if len(data) < 1158 or data[:4] != bytes.fromhex('5408cdab'):
         return None
     count = data[544]
-    if not count or len(data) != 545 + count * 613:
+    if not count:
         return None
+    p = 545
+    images = 0
+    # Consume complete image objects from the beginning, never search
+    # backwards from an arbitrary JPEG end marker.
+    while images < count and p + 1162 <= len(data):
+        kind = data[p+40]
+        if kind != (1 if images == 0 else 4):
+            break
+        start = p + 1162
+        if data[start:start+3] != b'\xff\xd8\xff':
+            break
+        size = int.from_bytes(data[p+902:p+906], 'little')
+        end = start + size
+        if (size < 4 or end + 268 > len(data)
+                or data[end-2:end] != b'\xff\xd9'
+                or data[end:end+268] != bytes(260) + b'\xff\xff\xff\xff\x78\x00\x00\x00'):
+            return None
+        p = end + 268
+        images += 1
+    # Keep image-only documents pending independent confirmation.
+    if count <= images or len(data) != p + (count - images) * 613:
+        return None
+    resource_start = p
     types = {1: 'STN', 2: 'ORN', 3: 'BAU'}
     result = []
-    for p in range(545, len(data), 613):
+    for p in range(resource_start, len(data), 613):
         ext = types.get(data[p+40])
         n = data[p+57]
         if (ext is None or data[p+41:p+53] != bytes(12)
