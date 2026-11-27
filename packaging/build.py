@@ -1,4 +1,4 @@
-"""Central Windows executable build for the three public TB2 tools."""
+"""Central Windows executable build for the two public TB2 tools."""
 import argparse
 import importlib.util
 import json
@@ -16,7 +16,6 @@ from windows_version import version_resource
 
 TARGETS = {
     "textfinder": ("TB2_Textfinder", ()),
-    "negativtester": ("TB2_Negativtester", ()),
     "textcounter": ("TB2_Textcounter", ()),
 }
 RESOURCES = ("images/logo.ico", "CHANGELOG.md")
@@ -47,7 +46,7 @@ def run(cmd):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("targets", nargs="*", metavar="TARGET",
-                        help="all, textfinder, negativtester, textcounter")
+                        help="all, textfinder, textcounter")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--local", action="store_true",
                         help="Use the project's virtual environment and install build requirements")
