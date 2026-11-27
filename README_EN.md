@@ -18,8 +18,11 @@ A small Windows utility for searching text in `.TB2` files from different Signum
 
 ## Additional tools and settings
 
-- Negative tester: review suspicious files, filter results and export TXT/diagnostic ZIP reports.
 - Text counter: count characters (excluding spaces) and lines by font.
+
+### Internal developer tools
+
+- Negative tester: review suspicious files, filter results and export TXT/diagnostic ZIP reports; start with `tools/Start_Negativtester.bat`.
 - Regression tester: create and compare JSON references, including glyph sequence hashes; start with `tools/Start_Regressiontester.bat`.
 - Shared settings and the central SHA-256-based ignore list are stored in `%LOCALAPPDATA%\Signum Textfinder`. Existing `ignore.txt` files are imported once without modification. Changed files become eligible for review again.
 
@@ -44,11 +47,11 @@ No third-party packages are required to run the Python script directly. Keep the
 1. Install Python 3.10 or newer.
 2. Double-click `packaging/Build_EXE.bat`.
 3. On the first run, an internet connection is needed to install PyInstaller.
-4. The three executables are created in `dist`: `TB2_Textfinder.exe`, `TB2_Negativtester.exe` and `TB2_Textcounter.exe`.
+4. The two executables are created in `dist`: `TB2_Textfinder.exe` and `TB2_Textcounter.exe`.
 
 The build script creates a local virtual environment in `.venv`, installs PyInstaller there, and builds a single-file, windowed executable. The Python runtime is bundled, so Python does not need to be installed on the target computer.
 
-The manual GitHub Actions test build uploads all three executables in one artifact; official releases publish all three as individual assets. The regression tester remains an internal Python tool.
+The manual GitHub Actions test build uploads both executables in one artifact; official releases publish both as individual assets. Starting with 1.9.4, both the negative tester and regression tester are internal Python tools. Previous releases remain unchanged. Old executables in `dist` are not automatically deleted.
 
 ## Known format observations
 
@@ -84,4 +87,4 @@ This is an independent community project for investigating TB2 files. It is not 
 
 ## Central build system
 
-`packaging/build.py` defines the shared PyInstaller configuration for local builds and both GitHub workflows. `packaging/Build_EXE.bat` is the single batch build launcher. Alternatively use `python packaging/build.py all --local`; individual targets are `textfinder`, `negativtester`, and `textcounter`. Use `--dry-run` to preview commands without building.
+`packaging/build.py` defines the shared PyInstaller configuration for local builds and both GitHub workflows. `packaging/Build_EXE.bat` is the single batch build launcher. Alternatively use `python packaging/build.py all --local`; individual targets are `textfinder` and `textcounter`. Use `--dry-run` to preview commands without building.

@@ -1,9 +1,12 @@
 EXE-Builder fuer Windows
 
-ZIP komplett entpacken. Build_EXE.bat baut alle drei Programme.
-Einzelne Programme: python packaging/build.py textfinder --local (alternativ negativtester oder textcounter).
+ZIP komplett entpacken. Build_EXE.bat baut beide Anwenderprogramme.
+Einzelne Programme: python packaging/build.py textfinder --local (alternativ textcounter).
 Python 3.10+ und Internet fuer die Build-Abhaengigkeiten erforderlich.
 Die Batch-Dateien verwenden packaging/build.py und eine lokale .venv.
 Alternativ: python packaging/build.py all --local
 Vorschau: python packaging/build.py all --dry-run
 Die fertigen EXEs liegen in dist und brauchen kein Python.
+
+Negativtester und Regressionstester werden aus tools per Batch-Datei gestartet.
+Alte EXEs in dist werden nicht automatisch geloescht.
