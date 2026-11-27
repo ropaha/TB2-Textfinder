@@ -9,6 +9,7 @@ import queue
 import threading
 from time import perf_counter
 import zipfile
+import hashlib
 import re
 from pathlib import Path
 
@@ -792,6 +793,31 @@ class App(tk.Tk):
             icon="warning", default="no", parent=self)
         if not consent:
             return
+        options = tk.Toplevel(self)
+        options.title("Diagnose-ZIP – Exportoptionen")
+        options.transient(self)
+        scope = tk.StringVar(value="all")
+        deduplicate = tk.BooleanVar(value=True)
+        accepted = []
+        panel = ttk.Frame(options, padding=16)
+        panel.pack(fill="both", expand=True)
+        ttk.Label(panel, text="Dateien im Diagnose-ZIP").pack(anchor="w")
+        ttk.Radiobutton(panel, text="Alle auffälligen Dateien", variable=scope, value="all").pack(anchor="w")
+        ttk.Radiobutton(panel, text="Nur gefilterte Dateien", variable=scope, value="filtered").pack(anchor="w")
+        ttk.Checkbutton(panel, text="Inhaltsgleiche Duplikate überspringen (SHA-256)", variable=deduplicate).pack(anchor="w", pady=8)
+        ttk.Label(panel, text="Der TXT-Bericht bleibt vollständig.").pack(anchor="w")
+        buttons = ttk.Frame(panel)
+        buttons.pack(fill="x", pady=(12, 0))
+        def accept():
+            accepted.append((scope.get(), deduplicate.get()))
+            options.destroy()
+        ttk.Button(buttons, text="Weiter", command=accept).pack(side="right")
+        ttk.Button(buttons, text="Abbrechen", command=options.destroy).pack(side="right", padx=8)
+        options.grab_set()
+        self.wait_window(options)
+        if not accepted:
+            return
+        export_scope, skip_duplicates = accepted[0]
         destination = filedialog.asksaveasfilename(
             title="TXT und Diagnose-ZIP speichern", defaultextension=".txt",
             filetypes=[("Textdatei", "*.txt")],
@@ -806,7 +832,7 @@ class App(tk.Tk):
                 icon="warning", default="no", parent=self):
             return
         report = self._report_text()
-        rows = list(self.rows)
+        rows = list(self.filtered_rows() if export_scope == "filtered" else self.rows)
         root = Path(self.folder_var.get()).resolve()
         self.exporting = True
         self._set_inputs_locked(True)
@@ -815,16 +841,17 @@ class App(tk.Tk):
         self.status_var.set("TXT und Diagnose-ZIP werden erstellt …")
         threading.Thread(
             target=self._export_worker,
-            args=(txt_path, zip_path, report, rows, root, frozenset(self.ignored_paths)),
+            args=(txt_path, zip_path, report, rows, root, frozenset(self.ignored_paths), skip_duplicates, export_scope),
             daemon=True).start()
 
-    def _export_worker(self, txt_path, zip_path, report, rows, root, ignored_paths):
+    def _export_worker(self, txt_path, zip_path, report, rows, root, ignored_paths, skip_duplicates=False, export_scope='all'):
         """ZIP mit max. 300 Dateien / 100 MiB Originaldaten, ohne erneuten Scan."""
         max_files = 300
         max_bytes = 100 * 1024 * 1024
         selected = []
         skipped = []
         used_bytes = 0
+        seen_hashes = {}
         try:
             # Null-Erkennungen priorisieren, dann andere Prüffälle.
             # Innerhalb einer Gruppe Jahrgänge mischen, statt einen Jahrgang
@@ -883,15 +910,29 @@ class App(tk.Tk):
                                 skipped.append((filename, "Größenlimit erreicht"))
                             else:
                                 arcname = "Dateien/" + relative.as_posix()
-                                archive.write(path, arcname)
-                                selected.append((filename, arcname, size))
-                                used_bytes += size
+                                digest = None
+                                if skip_duplicates:
+                                    hasher = hashlib.sha256()
+                                    with path.open("rb") as stream:
+                                        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                                            hasher.update(chunk)
+                                    digest = hasher.hexdigest()
+                                if digest is not None and digest in seen_hashes:
+                                    skipped.append((filename, "Inhaltsgleich mit " + seen_hashes[digest]))
+                                else:
+                                    archive.write(path, arcname)
+                                    selected.append((filename, arcname, size))
+                                    used_bytes += size
+                                    if digest is not None:
+                                        seen_hashes[digest] = arcname
                         except (OSError, ValueError) as exc:
                             skipped.append((filename, str(exc)))
                         if index % 10 == 0 or index == len(ordered):
                             self.events.put(("export_progress", index, len(ordered)))
                     manifest = [
                         "TB2-Negativtester – Diagnosepaket",
+                        "Auswahl: " + ("Nur gefilterte Dateien" if export_scope == "filtered" else "Alle auffälligen Dateien"),
+                        "Duplikate überspringen: " + ("Ja" if skip_duplicates else "Nein"),
                         f"Enthaltene TB2/TBL-Dateien: {format_number(len(selected))} (maximal {format_number(max_files)})",
                         f"Originaldaten: {format_number(used_bytes)} Byte (Limit {format_number(max_bytes)} Byte)",
                         f"Nicht enthalten: {format_number(len(skipped))}",
@@ -910,7 +951,7 @@ class App(tk.Tk):
             finally:
                 if zip_tmp.exists():
                     zip_tmp.unlink()
-            result = (f"TXT und ZIP gespeichert: {format_number(len(rows))} Berichtszeilen, "
+            result = (f"TXT und ZIP gespeichert: {format_number(len(rows))} ZIP-Kandidaten, "
                       f"{format_number(len(selected))} Dateien im ZIP, {format_number(len(skipped))} nicht aufgenommen.\n"
                       f"TXT: {txt_path}\nZIP: {zip_path}")
             remember_export_folder(txt_path.resolve().parent)
