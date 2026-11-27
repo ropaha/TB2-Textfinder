@@ -183,6 +183,7 @@ class App(tk.Tk):
         ttk.Button(footer, text="Programm beenden", command=self.close).pack(side="right")
         ttk.Button(footer, text="Info", command=self.show_info).pack(side="right", padx=(0,8))
         ttk.Button(footer, text="Ressourcen", command=lambda: show_resource_catalog(self)).pack(side="right", padx=(0, 8))
+        ttk.Button(footer, text="Dateiversionen", command=self.show_metadata).pack(side="right", padx=(0, 8))
         results = ttk.Frame(frame)
         results.pack(fill="both", expand=True)
         self.tree = ttk.Treeview(results, columns=("category","path","old","new"), show="headings")
@@ -198,6 +199,30 @@ class App(tk.Tk):
         self.tree.bind("<Double-1>", lambda _: self.open_selected())
         self.protocol("WM_DELETE_WINDOW", self.close)
         self.after(100,self.poll)
+
+    def show_metadata(self):
+        if self.running or not self.result:
+            messagebox.showinfo("Dateiversionen", "Bitte zuerst einen Scan durchführen.", parent=self)
+            return
+        current = self.result.get("current", self.result)
+        summary = current.get("metadata_summary", {})
+        window = tk.Toplevel(self)
+        window.title("Dateiversionen")
+        window.geometry("760x420")
+        tree = ttk.Treeview(window, columns=("version", "files", "counted", "review", "resources", "rate"), show="headings")
+        for key, label in zip(tree["columns"], ("Dateiversion", "Dateien", "Gezählt", "Prüfen", "Ressourcen", "Prüfquote")):
+            tree.heading(key, text=label)
+            tree.column(key, width=110, anchor="e" if key != "version" else "w")
+        configure_result_rows(tree)
+        for i, (version, group) in enumerate(sorted(summary.items())):
+            statuses = group["statuses"]
+            review = statuses.get("Prüfen", 0)
+            tree.insert("", "end", values=(version, format_number(group["files"]),
+                        format_number(statuses.get("Gezählt", 0)), format_number(review),
+                        format_number(statuses.get("Ressourcen", 0)),
+                        format_number(100 * review / group["files"], 2) + " %"), tags=row_tags(i))
+        tree.pack(fill="both", expand=True, padx=10, pady=10)
+        ttk.Button(window, text="Schließen", command=window.destroy).pack(pady=(0, 10))
 
     def show_info(self):
         dialogs.show_info(self, "Signum Regressionstester", "Vergleicht die Erkennung von TB2- und TBL-Dateien mit einer gespeicherten Referenz. Unterordner werden immer einbezogen. Quelldateien werden ausschließlich gelesen. JSON-Berichte werden außerhalb des Quellordners gespeichert.", compact=True)
