@@ -4,7 +4,7 @@
 
 Ein kleines Windows-Programm zum Durchsuchen von `.TB2`-Dateien nach Texten, die in unterschiedlichen Signum-/SignumNext-Dateigenerationen gespeichert sein können.
 
-**Aktueller Entwicklungsstand:** 1.9.4-dev (letztes Release: 1.9.3). · [Änderungsverlauf](CHANGELOG.md) · [English version](README_EN.md)
+**Aktueller Entwicklungsstand:** 2.0.0-dev (letztes Release: 1.9.3). · [Änderungsverlauf](CHANGELOG.md) · [English version](README_EN.md)
 
 ![TB2-Textfinder Projektbanner](images/banner.svg)
 
@@ -83,7 +83,7 @@ Die Build-Skripte verwenden eine lokale virtuelle Umgebung unter `.venv`, instal
 
 **Warum lokal oft keine SmartScreen-Warnung erscheint:** Eine selbst erstellte EXE trägt normalerweise keine Internet-Downloadkennzeichnung. Das bedeutet jedoch **nicht**, dass sie automatisch sicherer ist. Je nach Windows-Konfiguration und Dateibehandlung kann auch bei lokal erstellten Dateien eine Sicherheitswarnung auftreten. Die Build-Skripte führen Python-Code aus und installieren Abhängigkeiten; verwende daher nur eine vertrauenswürdige Quelle.
 
-Der manuelle GitHub-Actions-Test-Build stellt beide EXE-Dateien als gemeinsames Artefakt bereit. Der offizielle Release-Workflow veröffentlicht beide als einzelne Release-Assets. Negativtester und Regressionstester werden ab 1.9.4 nur als Python-Entwicklungswerkzeuge bereitgestellt. Frühere Releases bleiben unverändert. Alte EXEs in `dist` werden nicht automatisch gelöscht.
+Der manuelle GitHub-Actions-Test-Build stellt beide EXE-Dateien als gemeinsames Artefakt bereit. Der offizielle Release-Workflow veröffentlicht beide als einzelne Release-Assets. Negativtester und Regressionstester werden ab 2.0.0 nur als Python-Entwicklungswerkzeuge bereitgestellt. Frühere Releases bleiben unverändert. Alte EXEs in `dist` werden nicht automatisch gelöscht.
 
 ## Bisher untersuchte TB2-Muster
 
