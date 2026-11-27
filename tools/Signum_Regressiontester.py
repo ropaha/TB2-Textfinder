@@ -12,6 +12,7 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from tb2.metadata import extract_metadata, summarize_metadata
 from tb2.counter import counter_lines, SPACE_CODE
 from tb2.window_position import center_window
 from tb2.app_identity import configure_app_identity, apply_window_icon
@@ -27,7 +28,7 @@ from tb2.settings import load_folder, remember_folder, load_json_folder, remembe
 
 def parser_hashes():
     base = Path(__file__).resolve().parents[1]
-    names = ("TB2_Textcounter.py", "tb2/counter.py", "tb2/scanner.py", "tb2/muster.py", "tb2/jpeg_fast.py", "tb2/resource_paths.py", "tools/Signum_Regressiontester.py")
+    names = ("TB2_Textcounter.py", "tb2/counter.py", "tb2/scanner.py", "tb2/metadata.py", "tb2/muster.py", "tb2/jpeg_fast.py", "tb2/resource_paths.py", "tools/Signum_Regressiontester.py")
     return {name: hashlib.sha256((base / name).read_bytes()).hexdigest()
             for name in names if (base / name).is_file()}
 
@@ -42,7 +43,7 @@ def compact_report(result):
     return dict(report_type="compact_comparison", reference_version=result["reference_version"],
                 reference_parser_hashes=result.get("reference_parser_hashes"),
                 current={k: v for k, v in current.items() if k != "files"},
-                summary=summary, changes=result["changes"])
+                summary=summary, metadata_summary=summarize_metadata(rows), changes=result["changes"])
 
 def scan(root, mode, stop, notify):
     rows = {}
@@ -62,6 +63,7 @@ def scan(root, mode, stop, notify):
             data = path.read_bytes()
             row["sha256"] = hashlib.sha256(data).hexdigest()
             row["size"] = len(data)
+            row["metadata"] = extract_metadata(data)
             resources = historical_resource_document(data)
             lines, warnings = ([], []) if resources is not None else counter_lines(data, mode)
             counts = Counter()
@@ -81,7 +83,7 @@ def scan(root, mode, stop, notify):
         if i == 1 or i % 10 == 0 or i == len(paths):
             notify(("progress", i, len(paths)))
     return dict(schema=1, version=APP_VERSION, mode=mode, root=str(root),
-                seconds=perf_counter()-started, walk_errors=errors, files=rows, parser_hashes=hashes)
+                seconds=perf_counter()-started, walk_errors=errors, files=rows, parser_hashes=hashes, metadata_summary=summarize_metadata(rows.values()))
 
 def compare(old, new):
     if old["schema"] != new["schema"] or old["mode"] != new["mode"]:
