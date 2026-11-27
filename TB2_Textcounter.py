@@ -19,6 +19,7 @@ INFO_TEXT = 'Zählt erkannte Schriftzeichen je Schriftart in TB2- und TBL-Dateie
 from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog, ttk, messagebox
+from tb2.muster import historical_resource_document
 from tb2.counter import counter_lines, SPACE_CODE
 
 def scan(root, recursive, stop, events, mode="fast"):
@@ -38,9 +39,11 @@ def scan(root, recursive, stop, events, mode="fast"):
             files += 1
             try:
                 with path.open("rb") as source:
-                    lines, warnings = counter_lines(source.read(), mode)
+                    data = source.read()
+                resources = historical_resource_document(data)
+                lines, warnings = ([], []) if resources is not None else counter_lines(data, mode)
                 lines_total += len(lines)
-                if warnings or not lines:
+                if warnings or (not lines and resources is None):
                     uncertain += 1
                 for font, glyphs in lines:
                     counts[font.upper()] += sum(c != SPACE_CODE for c in glyphs)
