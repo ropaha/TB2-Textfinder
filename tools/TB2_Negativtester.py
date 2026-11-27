@@ -813,6 +813,8 @@ class App(tk.Tk):
             options.destroy()
         ttk.Button(buttons, text="Weiter", command=accept).pack(side="right")
         ttk.Button(buttons, text="Abbrechen", command=options.destroy).pack(side="right", padx=8)
+        options.update_idletasks()
+        center_window(options, options.winfo_reqwidth(), options.winfo_reqheight(), parent=self)
         options.grab_set()
         self.wait_window(options)
         if not accepted:
