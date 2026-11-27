@@ -3,7 +3,6 @@ import re
 
 DESCRIPTIONS = {
     "textfinder": "Signum TB2-Textfinder",
-    "negativtester": "Signum TB2-Negativtester",
     "textcounter": "Signum TB2-Textcounter",
 }
 
