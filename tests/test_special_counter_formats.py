@@ -6,6 +6,9 @@ from tb2.muster import extract_counter_lines
 class SpecialFormatTests(unittest.TestCase):
     def test_confirmed_profiles(self):
         cases = (
+            (b"STRASSACKER-2007\\ANTIQUA PARABEL", 98, [(0x80, "810000")]),
+            (b"EVA2NEU", 98, [(0x80, "81abaa"), (0x81, "818fe3")]),
+            (b"KAPTALIS", 98, [(0x7c, "810000")]),
             (b"LUCIDA CALLIGRAPHY", 98, [(0x80, "810000")]),
             (b"CG TIMES (W1)", 98, [(0x81, "810000"), (0x81, "811142")]),
             (b"KAPTAL2", 98, [(0x80, "8096a8"), (0x81, "810000"),
