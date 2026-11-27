@@ -4,12 +4,15 @@
 from __future__ import annotations
 
 import os
+import sys
 import queue
 import threading
 from time import perf_counter
 import zipfile
 import re
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from tb2.scanner import discover_files
 from tb2.version import APP_VERSION
 from tb2.build_identity import window_title
