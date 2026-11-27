@@ -4,6 +4,8 @@ Alle wesentlichen Änderungen am TB2-Textfinder und Negativtester werden hier do
 
 Die Versionsnummer des Gesamtpakets ist unabhängig von den Programmversionen. Die Erkennung beruht auf empirisch untersuchten TB2-Dateien, nicht auf einer vollständigen offiziellen Formatspezifikation.
 
+## [Unveröffentlicht] – Entwicklungsbranch dev
+
 ## [2.0.0] – Release (2026-11-27)
 
 - Textcounter: ABCD0854-Schriftprofile für EVA2NEU, KAPTALIS und ANTIQUA PARABEL; Erkennung historischer 613-Byte-Ressourcenblöcke auch nach eingebetteten JPEG-Objekten. Schriftlose Ressourcendokumente werden nicht mehr als unsicher gezählt. Automatische Format- und Negativtests ergänzt. Dateiweiser Regressionstest mit 14.540 unveränderten Dateien: 7 neu gezählte Schriftdateien, 23 zusätzliche Ressourcendateien, 95 verbleibende Prüffälle, keine Regressionen; 622.303 Zeichen und 60.435 Zeilen.
