@@ -208,7 +208,7 @@ class App(tk.Tk):
         summary = current.get("metadata_summary", {})
         window = tk.Toplevel(self)
         window.title("Dateiversionen")
-        window.geometry("760x420")
+        center_window(window, 760, 420, parent=self)
         tree = ttk.Treeview(window, columns=("version", "files", "counted", "review", "resources", "rate"), show="headings")
         for key, label in zip(tree["columns"], ("Dateiversion", "Dateien", "Gezählt", "Prüfen", "Ressourcen", "Prüfquote")):
             tree.heading(key, text=label)
