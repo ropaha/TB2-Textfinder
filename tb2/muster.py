@@ -525,8 +525,33 @@ def historical_resource_339(data):
     return tuple(result)
 
 
+def historical_resource_613(data):
+    if len(data) < 1158 or data[:4] != bytes.fromhex('5408cdab'):
+        return None
+    count = data[544]
+    if not count or len(data) != 545 + count * 613:
+        return None
+    types = {1: 'STN', 2: 'ORN', 3: 'BAU'}
+    result = []
+    for p in range(545, len(data), 613):
+        ext = types.get(data[p+40])
+        n = data[p+57]
+        if (ext is None or data[p+41:p+53] != bytes(12)
+                or data[p+53] not in (0, 0x20)
+                or data[p+54:p+57] != b'\x02\x00\x00'
+                or not 5 <= n <= 255 or data[p+58+n] != 0):
+            return None
+        path = data[p+58:p+58+n].decode('latin-1').upper()
+        if not re.fullmatch(r'[A-Z]:\\STEIN\\SIGNUM\\' + ext + r'\\(?:[A-ZÄÖÜ0-9_ .#-]+\\)*[A-ZÄÖÜ0-9_ .#-]+\.' + ext, path):
+            return None
+        result.append(ext)
+    return tuple(result)
+
+
 def historical_resource_document(data):
     """Return resource types for a fully matched historical document, else None."""
+    if data[:4] == bytes.fromhex("5408cdab"):
+        return historical_resource_613(data)
     if data[:4] in (b'\x00\x05\xcd\xab', b'\x25\x07\xcd\xab'):
         return historical_resource_339(data)
     if len(data) < 150 or data[:4] != bytes.fromhex('5003cdab'):
