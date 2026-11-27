@@ -240,6 +240,10 @@ def _confirmed_counter_glyph(data, q, profile):
     g = data[q:q + 10]
     if not (32 <= g[0] <= 126 or g[0] >= 128):
         return False
+    if profile == "lucida98":
+        return ((g[1] in (0x7F, 0x80, 0x81) and g[7:] == b"\x81\x00\x00")
+                or (g[1] == 0x80 and g[7:] in (b"\x80\x81\x64", b"\x80\x49\x10", b"\x80\x58\xa4", b"\x80\x1c\x0f"))
+                or (g[1] == 0x7F and g[7:] in (b"\x81\x32\x29", b"\x80\xf0\xfb", b"\x81\x12\x12")))
     if profile == "cg98":
         return g[1] in (0x80, 0x81) and g[7:] in (b"\x81\x00\x00", b"\x81\x11\x42")
     if profile == "kaptal98":
@@ -315,7 +319,7 @@ def _counter_font_entries(data: bytes):
         # Count-bounded profiles confirmed against Signum text entry.
         profile = None
         if raw == b"LUCIDA CALLIGRAPHY":
-            profile, offset, stride, count_offset = "named98", 343, 98, 285
+            profile, offset, stride, count_offset = "lucida98", 343, 98, 285
         elif raw == b"CG TIMES (W1)":
             profile, offset, stride, count_offset = "cg98", 343, 98, 285
         elif raw == b"KAPTAL2":
@@ -465,7 +469,7 @@ def _counter_font_entries(data: bytes):
             for s, f, p, t, l in reversed(filtered):
                 if t != stride or p != s + 343:
                     continue
-                confirmed_profile = l in ("breitnut98", "ttf98", "eva98", "named98", "block98", "cg98", "kaptal98")
+                confirmed_profile = l in ("breitnut98", "ttf98", "eva98", "named98", "block98", "cg98", "kaptal98", "lucida98")
                 if l != legacy and not confirmed_profile:
                     continue
                 if confirmed_profile and not (s < start < p):
@@ -552,7 +556,7 @@ def extract_counter_lines(data: bytes):
     for i, (start, font, pos, stride, legacy) in enumerate(entries):
         boundary = entries[i + 1][0] if i + 1 < len(entries) else len(data)
         glyphs = bytearray()
-        confirmed = legacy in ("breitnut98", "ttf98", "ehrfried80", "eva98", "named98", "block98", "eva106", "cg98", "kaptal98", "bronze106", "eva4_106", "lapidar106")
+        confirmed = legacy in ("breitnut98", "ttf98", "ehrfried80", "eva98", "named98", "block98", "eva106", "cg98", "kaptal98", "lucida98", "bronze106", "eva4_106", "lapidar106")
         limit = data[start + (47 if legacy == "ehrfried80" else 285)] if confirmed else data[start + 285] if stride == 587 or legacy in ('eva2p12', 'grotesk1_number', 'grotesk1_single') else 10000
         while pos + 10 <= len(data) and pos < boundary and len(glyphs) < limit:
             if confirmed:
