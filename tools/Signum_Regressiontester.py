@@ -213,7 +213,7 @@ class App(tk.Tk):
         for key, label in zip(tree["columns"], ("Dateiversion", "Dateien", "Gezählt", "Prüfen", "Ressourcen", "Prüfquote")):
             tree.heading(key, text=label)
             tree.column(key, width=110, anchor="e" if key != "version" else "w")
-        configure_result_rows(tree)
+        configure_result_rows(tree, total=True)
         for i, (version, group) in enumerate(sorted(summary.items())):
             statuses = group["statuses"]
             review = statuses.get("Prüfen", 0)
@@ -221,6 +221,12 @@ class App(tk.Tk):
                         format_number(statuses.get("Gezählt", 0)), format_number(review),
                         format_number(statuses.get("Ressourcen", 0)),
                         format_number(100 * review / group["files"], 2) + " %"), tags=row_tags(i))
+        total = sum(group["files"] for group in summary.values())
+        counted, review, resources = (sum(group["statuses"].get(status, 0) for group in summary.values())
+                                      for status in ("Gezählt", "Prüfen", "Ressourcen"))
+        tree.insert("", "end", values=("Gesamt", format_number(total), format_number(counted),
+                    format_number(review), format_number(resources),
+                    format_number(100 * review / total if total else 0, 2) + " %"), tags=("row_total",))
         tree.pack(fill="both", expand=True, padx=10, pady=10)
         ttk.Button(window, text="Schließen", command=window.destroy).pack(pady=(0, 10))
 
