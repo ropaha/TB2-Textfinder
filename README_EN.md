@@ -2,7 +2,7 @@
 
 A small Windows utility for searching text in `.TB2` files from different Signum / SignumNext file-format generations.
 
-**Current development version:** 1.9.4-dev (latest release: 1.9.3)
+**Current development version:** 2.0.0-dev (latest release: 1.9.3)
 
 ![TB2-Textfinder project banner](images/banner.svg)
 
@@ -51,7 +51,7 @@ No third-party packages are required to run the Python script directly. Keep the
 
 The build script creates a local virtual environment in `.venv`, installs PyInstaller there, and builds a single-file, windowed executable. The Python runtime is bundled, so Python does not need to be installed on the target computer.
 
-The manual GitHub Actions test build uploads both executables in one artifact; official releases publish both as individual assets. Starting with 1.9.4, both the negative tester and regression tester are internal Python tools. Previous releases remain unchanged. Old executables in `dist` are not automatically deleted.
+The manual GitHub Actions test build uploads both executables in one artifact; official releases publish both as individual assets. Starting with 2.0.0, both the negative tester and regression tester are internal Python tools. Previous releases remain unchanged. Old executables in `dist` are not automatically deleted.
 
 ## Known format observations
 
