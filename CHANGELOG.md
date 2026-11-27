@@ -6,6 +6,8 @@ Die Versionsnummer des Gesamtpakets ist unabhängig von den Programmversionen. D
 
 ## [Unveröffentlicht] – Entwicklungsbranch dev
 
+- Textcounter: sechs anhand von Signum bestätigte Schriftformatvarianten (LUCIDA CALLIGRAPHY, CG TIMES (W1), KAPTAL2, SCHWERE BLOCK, EVA4, LAPIDAR1). Entwicklungsstand 2.0.0-dev.
+
 - Negativtester nach `tools/` verschoben, mit eigenem Batch-Starter. Negativtester und Regressionstester sind interne Python-Entwicklungswerkzeuge; lokale Builds und zukünftige Releases enthalten nur Textfinder und Textcounter als EXE. Beide Werkzeuge bleiben in der CI-Syntaxprüfung enthalten.
 
 ## [1.9.3] – Release (2026-11-26)
