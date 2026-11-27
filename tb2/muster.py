@@ -240,6 +240,24 @@ def _confirmed_counter_glyph(data, q, profile):
     g = data[q:q + 10]
     if not (32 <= g[0] <= 126 or g[0] >= 128):
         return False
+    if profile == "eva2neu854":
+        return (g[1], g[7:]) in ((0x80, b"\x81\xab\xaa"), (0x81, b"\x81\x8f\xe3"))
+    if profile == "lucida98":
+        return ((g[1] in (0x7F, 0x80, 0x81) and g[7:] == b"\x81\x00\x00")
+                or (g[1] == 0x80 and g[7:] in (b"\x80\x81\x64", b"\x80\x49\x10", b"\x80\x58\xa4", b"\x80\x1c\x0f"))
+                or (g[1] == 0x7F and g[7:] in (b"\x81\x32\x29", b"\x80\xf0\xfb", b"\x81\x12\x12")))
+    if profile == "cg98":
+        return g[1] in (0x80, 0x81) and g[7:] in (b"\x81\x00\x00", b"\x81\x11\x42")
+    if profile == "kaptal98":
+        return (g[1], g[7:]) in ((0x80, b"\x80\x96\xa8"), (0x81, b"\x81\x00\x00"),
+                                (0x81, b"\x80\x19\x9c"), (0x7F, b"\x80\x55\x55"),
+                                (0x7F, b"\x81\x00\x00"))
+    if profile == "bronze106":
+        return g[1] in (0x80, 0x81) and g[7:] == b"\x81\x00\x00"
+    if profile == "eva4_106":
+        return g[1] == 0x7D and g[7:] == b"\x81\x00\x00"
+    if profile == "lapidar106":
+        return g[1] == 0x84 and g[7:] == b"\x81\x00\x00"
     if profile == "breitnut98":
         return g[1] in (0x80, 0x81) and g[7] in (0x80, 0x81)
     if profile == "ttf98":
@@ -295,22 +313,40 @@ def _counter_font_entries(data: bytes):
                 and 65 <= data[start] <= 122):
             continue
         raw = data[start:start + length]
-        if _LEGACY_TEXT.fullmatch(raw) is None and raw not in (b"STRASSACKER\\PR\xe4GNANT", b"STRASSACKER-2007\\PR\xe4GNANT"):
+        if _LEGACY_TEXT.fullmatch(raw) is None and raw not in (b"CG TIMES (W1)", b"STRASSACKER\\PR\xe4GNANT", b"STRASSACKER-2007\\PR\xe4GNANT"):
             continue
         if length == 2 and raw != b"EK":
             continue
         value = raw.decode("latin-1")
         # Count-bounded profiles confirmed against Signum text entry.
         profile = None
-        if raw == b"BREITNUT":
+        if raw == b"LUCIDA CALLIGRAPHY":
+            profile, offset, stride, count_offset = "lucida98", 343, 98, 285
+        elif raw == b"CG TIMES (W1)":
+            profile, offset, stride, count_offset = "cg98", 343, 98, 285
+        elif raw == b"KAPTAL2":
+            profile, offset, stride, count_offset = "kaptal98", 343, 98, 285
+        elif raw == b"BRONZE\\STRASSACKER\\SCHWERE BLOCK":
+            profile, offset, stride, count_offset = "bronze106", 343, 106, 285
+        elif raw == b"LAPIDAR1":
+            profile, offset, stride, count_offset = "lapidar106", 343, 106, 285
+        elif raw == b"EVA4" and start + 285 < len(data) and data[start + 285] >= 2 and all(
+                _confirmed_counter_glyph(data, start + 343 + k * 106, "eva4_106")
+                for k in range(data[start + 285])):
+            profile, offset, stride, count_offset = "eva4_106", 343, 106, 285
+        elif raw == b"BREITNUT":
             profile, offset, stride, count_offset = "breitnut98", 343, 98, 285
         elif raw.startswith(b"TTF\\") and re.fullmatch(rb"[A-Za-z0-9_. -]{3,64}", raw[4:]):
             profile, offset, stride, count_offset = "ttf98", 343, 98, 285
         elif raw == b"EVA2NEU V1.1":
             profile, offset, stride, count_offset = "eva106", 343, 106, 285
-        elif raw in (b"EVA12", b"EVA4", b"GROTESK3", b"EVA2NEU"):
+        elif raw == b"EVA2NEU" and start + 285 < len(data) and data[start + 285] >= 2 and all(
+                _confirmed_counter_glyph(data, start + 343 + k * 98, "eva2neu854")
+                for k in range(data[start + 285])):
+            profile, offset, stride, count_offset = "eva2neu854", 343, 98, 285
+        elif raw in (b"EVA12", b"EVA4", b"GROTESK3", b"EVA2NEU", b"KAPTALIS"):
             profile, offset, stride, count_offset = "eva98", 343, 98, 285
-        elif raw in (b"STRASSACKER-2007\\ANTIQUA PRISMA", b"EK",
+        elif raw in (b"STRASSACKER-2007\\ANTIQUA PRISMA", b"STRASSACKER-2007\\ANTIQUA PARABEL", b"EK",
                      b"STRASSACKER\\PR\xe4GNANT", b"STRASSACKER-2007\\SCHWERE BLOCK",
                      b"STRASSACKER-2007\\PR\xe4GNANT"):
             profile, offset, stride, count_offset = "named98", 343, 98, 285
@@ -439,7 +475,7 @@ def _counter_font_entries(data: bytes):
             for s, f, p, t, l in reversed(filtered):
                 if t != stride or p != s + 343:
                     continue
-                confirmed_profile = l in ("breitnut98", "ttf98", "eva98", "named98", "block98")
+                confirmed_profile = l in ("breitnut98", "ttf98", "eva98", "named98", "block98", "cg98", "kaptal98", "lucida98", "eva2neu854")
                 if l != legacy and not confirmed_profile:
                     continue
                 if confirmed_profile and not (s < start < p):
@@ -489,8 +525,56 @@ def historical_resource_339(data):
     return tuple(result)
 
 
+def historical_resource_613(data):
+    if len(data) < 1158 or data[:4] != bytes.fromhex('5408cdab'):
+        return None
+    count = data[544]
+    if not count:
+        return None
+    p = 545
+    images = 0
+    # Consume complete image objects from the beginning, never search
+    # backwards from an arbitrary JPEG end marker.
+    while images < count and p + 1162 <= len(data):
+        kind = data[p+40]
+        if kind != (1 if images == 0 else 4):
+            break
+        start = p + 1162
+        if data[start:start+3] != b'\xff\xd8\xff':
+            break
+        size = int.from_bytes(data[p+902:p+906], 'little')
+        end = start + size
+        if (size < 4 or end + 268 > len(data)
+                or data[end-2:end] != b'\xff\xd9'
+                or data[end:end+268] != bytes(260) + b'\xff\xff\xff\xff\x78\x00\x00\x00'):
+            return None
+        p = end + 268
+        images += 1
+    # Keep image-only documents pending independent confirmation.
+    if count <= images or len(data) != p + (count - images) * 613:
+        return None
+    resource_start = p
+    types = {1: 'STN', 2: 'ORN', 3: 'BAU'}
+    result = []
+    for p in range(resource_start, len(data), 613):
+        ext = types.get(data[p+40])
+        n = data[p+57]
+        if (ext is None or data[p+41:p+53] != bytes(12)
+                or data[p+53] not in (0, 0x02, 0x20)
+                or data[p+54:p+57] != b'\x02\x00\x00'
+                or not 5 <= n <= 255 or data[p+58+n] != 0):
+            return None
+        path = data[p+58:p+58+n].decode('latin-1').upper()
+        if not re.fullmatch(r'[A-Z]:\\STEIN\\SIGNUM\\' + ext + r'\\(?:[A-ZÄÖÜ0-9_ .#-]+\\)*[A-ZÄÖÜ0-9_ .#-]+\.' + ext, path):
+            return None
+        result.append(ext)
+    return tuple(result)
+
+
 def historical_resource_document(data):
     """Return resource types for a fully matched historical document, else None."""
+    if data[:4] == bytes.fromhex("5408cdab"):
+        return historical_resource_613(data)
     if data[:4] in (b'\x00\x05\xcd\xab', b'\x25\x07\xcd\xab'):
         return historical_resource_339(data)
     if len(data) < 150 or data[:4] != bytes.fromhex('5003cdab'):
@@ -526,7 +610,7 @@ def extract_counter_lines(data: bytes):
     for i, (start, font, pos, stride, legacy) in enumerate(entries):
         boundary = entries[i + 1][0] if i + 1 < len(entries) else len(data)
         glyphs = bytearray()
-        confirmed = legacy in ("breitnut98", "ttf98", "ehrfried80", "eva98", "named98", "block98", "eva106")
+        confirmed = legacy in ("breitnut98", "ttf98", "ehrfried80", "eva98", "named98", "block98", "eva106", "cg98", "kaptal98", "lucida98", "bronze106", "eva4_106", "lapidar106", "eva2neu854")
         limit = data[start + (47 if legacy == "ehrfried80" else 285)] if confirmed else data[start + 285] if stride == 587 or legacy in ('eva2p12', 'grotesk1_number', 'grotesk1_single') else 10000
         while pos + 10 <= len(data) and pos < boundary and len(glyphs) < limit:
             if confirmed:

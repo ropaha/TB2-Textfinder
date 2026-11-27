@@ -12,6 +12,7 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from tb2.metadata import extract_metadata, summarize_metadata
 from tb2.counter import counter_lines, SPACE_CODE
 from tb2.window_position import center_window
 from tb2.app_identity import configure_app_identity, apply_window_icon
@@ -27,7 +28,7 @@ from tb2.settings import load_folder, remember_folder, load_json_folder, remembe
 
 def parser_hashes():
     base = Path(__file__).resolve().parents[1]
-    names = ("TB2_Textcounter.py", "tb2/counter.py", "tb2/scanner.py", "tb2/muster.py", "tb2/jpeg_fast.py", "tb2/resource_paths.py", "tools/Signum_Regressiontester.py")
+    names = ("TB2_Textcounter.py", "tb2/counter.py", "tb2/scanner.py", "tb2/metadata.py", "tb2/muster.py", "tb2/jpeg_fast.py", "tb2/resource_paths.py", "tools/Signum_Regressiontester.py")
     return {name: hashlib.sha256((base / name).read_bytes()).hexdigest()
             for name in names if (base / name).is_file()}
 
@@ -42,7 +43,7 @@ def compact_report(result):
     return dict(report_type="compact_comparison", reference_version=result["reference_version"],
                 reference_parser_hashes=result.get("reference_parser_hashes"),
                 current={k: v for k, v in current.items() if k != "files"},
-                summary=summary, changes=result["changes"])
+                summary=summary, metadata_summary=summarize_metadata(rows), changes=result["changes"])
 
 def scan(root, mode, stop, notify):
     rows = {}
@@ -62,6 +63,7 @@ def scan(root, mode, stop, notify):
             data = path.read_bytes()
             row["sha256"] = hashlib.sha256(data).hexdigest()
             row["size"] = len(data)
+            row["metadata"] = extract_metadata(data)
             resources = historical_resource_document(data)
             lines, warnings = ([], []) if resources is not None else counter_lines(data, mode)
             counts = Counter()
@@ -81,7 +83,7 @@ def scan(root, mode, stop, notify):
         if i == 1 or i % 10 == 0 or i == len(paths):
             notify(("progress", i, len(paths)))
     return dict(schema=1, version=APP_VERSION, mode=mode, root=str(root),
-                seconds=perf_counter()-started, walk_errors=errors, files=rows, parser_hashes=hashes)
+                seconds=perf_counter()-started, walk_errors=errors, files=rows, parser_hashes=hashes, metadata_summary=summarize_metadata(rows.values()))
 
 def compare(old, new):
     if old["schema"] != new["schema"] or old["mode"] != new["mode"]:
@@ -160,9 +162,9 @@ class App(tk.Tk):
         self.open_button.pack(side="left", padx=(0,8))
         self.cancel = ttk.Button(bar, text="Abbrechen", command=self.stop.set, state="disabled")
         self.cancel.pack(side="left", padx=(0,8))
-        self.save = ttk.Button(bar, text="JSON speichern", command=self.export, state="disabled")
+        self.save = ttk.Button(bar, text="Komplette JSON speichern", command=self.export, state="disabled")
         self.save.pack(side="left")
-        self.compact = ttk.Button(bar, text="Kompakt", command=lambda: self.export(True), state="disabled")
+        self.compact = ttk.Button(bar, text="Kompakte JSON speichern", command=lambda: self.export(True), state="disabled")
         self.compact.pack(side="left", padx=(8,0))
         ttk.Label(frame, textvariable=self.operation, font=("TkDefaultFont", 10, "bold"),
                   wraplength=680).pack(fill="x", pady=(0, 5))
@@ -181,6 +183,7 @@ class App(tk.Tk):
         ttk.Button(footer, text="Programm beenden", command=self.close).pack(side="right")
         ttk.Button(footer, text="Info", command=self.show_info).pack(side="right", padx=(0,8))
         ttk.Button(footer, text="Ressourcen", command=lambda: show_resource_catalog(self)).pack(side="right", padx=(0, 8))
+        ttk.Button(footer, text="Dateiversionen", command=self.show_metadata).pack(side="right", padx=(0, 8))
         results = ttk.Frame(frame)
         results.pack(fill="both", expand=True)
         self.tree = ttk.Treeview(results, columns=("category","path","old","new"), show="headings")
@@ -196,6 +199,36 @@ class App(tk.Tk):
         self.tree.bind("<Double-1>", lambda _: self.open_selected())
         self.protocol("WM_DELETE_WINDOW", self.close)
         self.after(100,self.poll)
+
+    def show_metadata(self):
+        if self.running or not self.result:
+            messagebox.showinfo("Dateiversionen", "Bitte zuerst einen Scan durchführen.", parent=self)
+            return
+        current = self.result.get("current", self.result)
+        summary = current.get("metadata_summary", {})
+        window = tk.Toplevel(self)
+        window.title("Dateiversionen")
+        center_window(window, 760, 420, parent=self)
+        tree = ttk.Treeview(window, columns=("version", "files", "counted", "review", "resources", "rate"), show="headings")
+        for key, label in zip(tree["columns"], ("Dateiversion", "Dateien", "Gezählt", "Prüfen", "Ressourcen", "Prüfquote")):
+            tree.heading(key, text=label)
+            tree.column(key, width=110, anchor="e" if key != "version" else "w")
+        configure_result_rows(tree, total=True)
+        for i, (version, group) in enumerate(sorted(summary.items())):
+            statuses = group["statuses"]
+            review = statuses.get("Prüfen", 0)
+            tree.insert("", "end", values=(version, format_number(group["files"]),
+                        format_number(statuses.get("Gezählt", 0)), format_number(review),
+                        format_number(statuses.get("Ressourcen", 0)),
+                        format_number(100 * review / group["files"], 2) + " %"), tags=row_tags(i))
+        total = sum(group["files"] for group in summary.values())
+        counted, review, resources = (sum(group["statuses"].get(status, 0) for group in summary.values())
+                                      for status in ("Gezählt", "Prüfen", "Ressourcen"))
+        tree.insert("", "end", values=("Gesamt", format_number(total), format_number(counted),
+                    format_number(review), format_number(resources),
+                    format_number(100 * review / total if total else 0, 2) + " %"), tags=("row_total",))
+        tree.pack(fill="both", expand=True, padx=10, pady=10)
+        ttk.Button(window, text="Schließen", command=window.destroy).pack(pady=(0, 10))
 
     def show_info(self):
         dialogs.show_info(self, "Signum Regressionstester", "Vergleicht die Erkennung von TB2- und TBL-Dateien mit einer gespeicherten Referenz. Unterordner werden immer einbezogen. Quelldateien werden ausschließlich gelesen. JSON-Berichte werden außerhalb des Quellordners gespeichert.", compact=True)

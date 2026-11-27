@@ -4,7 +4,7 @@
 
 Ein kleines Windows-Programm zum Durchsuchen von `.TB2`-Dateien nach Texten, die in unterschiedlichen Signum-/SignumNext-Dateigenerationen gespeichert sein können.
 
-**Aktuelle Version:** 1.9.3. · [Änderungsverlauf](CHANGELOG.md) · [English version](README_EN.md)
+**Aktuelle Version:** 2.0.0. · [Änderungsverlauf](CHANGELOG.md) · [English version](README_EN.md)
 
 ![TB2-Textfinder Projektbanner](images/banner.svg)
 
@@ -34,8 +34,11 @@ Die bisher untersuchten Dateien lassen sich in meinem Bestand inzwischen praktis
 
 ## Weitere Werkzeuge
 
-- **Negativtester:** Auffällige Dateien prüfen, filtern, ignorieren und als TXT/Diagnose-ZIP exportieren.
 - **Textcounter:** Zeichen (ohne Leerzeichen) und Zeilen nach Schriftart zählen. Start über `TB2_Textcounter.py`, Build über `packaging/Build_EXE.bat`.
+
+### Interne Entwicklungswerkzeuge
+
+- **Negativtester:** Auffällige Dateien prüfen, filtern, ignorieren und als TXT/Diagnose-ZIP exportieren. Start über `tools/Start_Negativtester.bat`.
 - **Regressionstester:** Referenz erstellen und spätere Erkennungsergebnisse einschließlich Zeichenfolgen vergleichen. Start über `tools/Start_Regressiontester.bat`; kompakte JSON-Berichte enthalten Abweichungen und Summen.
 
 ## Einstellungen und Ignorierliste
@@ -63,7 +66,7 @@ Für den direkten Start des Python-Skripts werden keine zusätzlichen Pakete ben
 ### Fertige EXE aus einem GitHub-Release
 
 1. Unter [Releases](https://github.com/ropaha/TB2-Textfinder/releases) die gewünschte Version öffnen.
-2. Unter **Assets** `TB2_Textfinder.exe`, `TB2_Negativtester.exe` oder `TB2_Textcounter.exe` herunterladen.
+2. Unter **Assets** `TB2_Textfinder.exe` oder `TB2_Textcounter.exe` herunterladen.
 3. Die heruntergeladene EXE unter Windows starten. Eine Python-Installation ist dafür nicht erforderlich.
 
 **Hinweis zu Microsoft Defender SmartScreen:** Windows kann beim Start einer heruntergeladenen EXE die Meldung **„Der Computer wurde durch Windows geschützt“** mit **„Unbekannter Herausgeber“** anzeigen. Die Programme sind derzeit nicht digital signiert. Außerdem können Browser Downloads als Dateien aus dem Internet kennzeichnen (Mark of the Web), wodurch Windows eine Reputationsprüfung auslöst. Eine solche Warnung bedeutet nicht automatisch, dass die Datei schädlich ist. Prüfe die Downloadquelle und führe nur Dateien aus, denen du vertraust.
@@ -72,15 +75,15 @@ Für den direkten Start des Python-Skripts werden keine zusätzlichen Pakete ben
 
 1. Auf der [Repository-Startseite](https://github.com/ropaha/TB2-Textfinder) **Code → Download ZIP** wählen und das ZIP entpacken (alternativ das Repository klonen).
 2. Python 3.10 oder neuer installieren.
-3. `packaging/Build_EXE.bat` (alle drei Programme) im entpackten Projektordner doppelt anklicken.
+3. `packaging/Build_EXE.bat` (beide Anwenderprogramme) im entpackten Projektordner doppelt anklicken.
 4. Beim ersten Lauf wird eine Internetverbindung benötigt, um die Build-Abhängigkeiten zu installieren.
-5. Die fertigen Dateien liegen unter `dist\\TB2_Textfinder.exe`, `dist\\TB2_Negativtester.exe` und `dist\\TB2_Textcounter.exe`.
+5. Die fertigen Dateien liegen unter `dist\\TB2_Textfinder.exe` und `dist\\TB2_Textcounter.exe`.
 
 Die Build-Skripte verwenden eine lokale virtuelle Umgebung unter `.venv`, installieren PyInstaller und erstellen eigenständige EXE-Dateien ohne zusätzliches Konsolenfenster.
 
 **Warum lokal oft keine SmartScreen-Warnung erscheint:** Eine selbst erstellte EXE trägt normalerweise keine Internet-Downloadkennzeichnung. Das bedeutet jedoch **nicht**, dass sie automatisch sicherer ist. Je nach Windows-Konfiguration und Dateibehandlung kann auch bei lokal erstellten Dateien eine Sicherheitswarnung auftreten. Die Build-Skripte führen Python-Code aus und installieren Abhängigkeiten; verwende daher nur eine vertrauenswürdige Quelle.
 
-Der manuelle GitHub-Actions-Test-Build stellt alle drei EXE-Dateien als gemeinsames Artefakt bereit. Der offizielle Release-Workflow veröffentlicht alle drei als einzelne Release-Assets. Der Regressionstester wird nicht als EXE ausgeliefert.
+Der manuelle GitHub-Actions-Test-Build stellt beide EXE-Dateien als gemeinsames Artefakt bereit. Der offizielle Release-Workflow veröffentlicht beide als einzelne Release-Assets. Negativtester und Regressionstester werden ab 2.0.0 nur als Python-Entwicklungswerkzeuge bereitgestellt. Frühere Releases bleiben unverändert. Alte EXEs in `dist` werden nicht automatisch gelöscht.
 
 ## Bisher untersuchte TB2-Muster
 
@@ -116,4 +119,4 @@ Dieses Projekt ist ein unabhängiges Community-Projekt zur Untersuchung von TB2-
 
 ## Zentrales Buildsystem
 
-`packaging/build.py` enthält die gemeinsame PyInstaller-Konfiguration für lokale Builds und beide GitHub-Workflows. `packaging/Build_EXE.bat` bleibt als einziger Build-Starter erhalten. Alternativ: `python packaging/build.py all --local`; einzelne Ziele: `textfinder`, `negativtester`, `textcounter`. Mit `--dry-run` werden die Befehle ohne Build angezeigt.
+`packaging/build.py` enthält die gemeinsame PyInstaller-Konfiguration für lokale Builds und beide GitHub-Workflows. `packaging/Build_EXE.bat` bleibt als einziger Build-Starter erhalten. Alternativ: `python packaging/build.py all --local`; einzelne Ziele: `textfinder`, `textcounter`. Mit `--dry-run` werden die Befehle ohne Build angezeigt.
