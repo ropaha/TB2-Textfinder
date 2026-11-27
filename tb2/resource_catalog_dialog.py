@@ -4,6 +4,7 @@ import queue
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from .resource_catalog import EXTENSIONS, load_catalog, scan_resources, save_catalog
+from .window_position import center_window
 from .settings import load_option, remember_directory, load_export_folder, remember_export_folder
 
 def show_resource_catalog(parent):
@@ -132,3 +133,5 @@ def show_resource_catalog(parent):
     ttk.Button(actions, text="Schließen", command=close).pack(side="right")
     dialog.protocol("WM_DELETE_WINDOW", close)
     refresh()
+    dialog.update_idletasks()
+    center_window(dialog, dialog.winfo_reqwidth(), dialog.winfo_reqheight(), parent=parent)
