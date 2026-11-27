@@ -33,3 +33,23 @@ class Resource613Tests(unittest.TestCase):
                 self.assertIsNone(historical_resource_document(bytes(data)))
         self.assertIsNone(historical_resource_document(bytes(original[:-1])))
         self.assertIsNone(historical_resource_document(bytes(original) + b"\x00"))
+
+
+    def test_images_and_resources(self):
+        image = bytearray(1162)
+        image[40] = 1
+        jpeg = b'\xff\xd8\xff\xe0\x00\x02\xff\xd9'
+        image[902:906] = len(jpeg).to_bytes(4, 'little')
+        footer = bytes(260) + b'\xff\xff\xff\xff\x78\x00\x00\x00'
+        original = self.sample()
+        original[544] = 5
+        second = image.copy()
+        second[40] = 4
+        data = original[:545] + image + jpeg + footer + second + jpeg + footer + original[545:]
+        self.assertEqual(historical_resource_document(bytes(data)), ("STN", "ORN", "BAU"))
+        for offset in (545+902, 545+1162, 545+1162+len(jpeg), 544):
+            with self.subTest(offset=offset):
+                broken = data.copy()
+                broken[offset] ^= 1
+                self.assertIsNone(historical_resource_document(bytes(broken)))
+        self.assertIsNone(historical_resource_document(bytes(data) + b'\x00'))
