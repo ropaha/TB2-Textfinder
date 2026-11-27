@@ -6,6 +6,8 @@ Die Versionsnummer des Gesamtpakets ist unabhängig von den Programmversionen. D
 
 ## [Unveröffentlicht] – Entwicklungsbranch dev
 
+- Negativtester nach `tools/` verschoben, mit eigenem Batch-Starter. Negativtester und Regressionstester sind interne Python-Entwicklungswerkzeuge; lokale Builds und zukünftige Releases enthalten nur Textfinder und Textcounter als EXE. Beide Werkzeuge bleiben in der CI-Syntaxprüfung enthalten.
+
 ## [1.9.3] – Release (2026-11-26)
 
 - Gemeinsame TB2/TBL-Dateisuche in `tb2/scanner.py` für alle vier Programme, mit bisherigen Link-Regeln, Abbruch, Fehlerbehandlung und automatischen Scanner-Tests. Vollständiger Regressionstest ohne Abweichungen.
