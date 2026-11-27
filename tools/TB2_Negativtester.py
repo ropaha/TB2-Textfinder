@@ -13,6 +13,7 @@ import re
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from tb2.metadata import extract_metadata
 from tb2.scanner import discover_files
 from tb2.version import APP_VERSION
 from tb2.build_identity import window_title
@@ -164,6 +165,7 @@ class App(tk.Tk):
         self.protocol("WM_DELETE_WINDOW", self.request_exit)
         self.rows: list[tuple[str, str, str]] = []
         self.ignored_paths: set[str] = set()
+        self.metadata = {}
         self.filter_var = tk.StringVar(value="Alle auffälligen Dateien")
         self.filter_options = {
             "Alle auffälligen Dateien": None,
@@ -243,6 +245,10 @@ class App(tk.Tk):
         self.filter_box = ttk.Combobox(filters, textvariable=self.filter_var, state="disabled",
                                        values=list(self.filter_options), width=42)
         self.filter_box.pack(side="left")
+        self.version_filter = ttk.Combobox(filters, state="disabled", width=16, values=("Alle Versionen",))
+        self.version_filter.set("Alle Versionen")
+        self.version_filter.pack(side="left", padx=(8, 0))
+        self.version_filter.bind("<<ComboboxSelected>>", self.apply_filter)
         self.mode_var.trace_add("write", self._on_mode_change)
         self.filter_box.bind("<<ComboboxSelected>>", self.apply_filter)
         self.visible_count_var = tk.StringVar(value="Noch keine Ergebnisse")
@@ -251,11 +257,14 @@ class App(tk.Tk):
         results_frame.grid(row=7, column=0, columnspan=3, sticky="nsew")
         results_frame.columnconfigure(0, weight=1)
         results_frame.rowconfigure(0, weight=1)
-        self.tree = ttk.Treeview(results_frame, columns=("category", "path", "detail"), show="headings")
+        self.tree = ttk.Treeview(results_frame, columns=("category", "path", "detail", "file_version", "exe_version"), show="headings")
         configure_result_rows(self.tree)
         self.tree.heading("category", text="Status")
         self.tree.heading("path", text="Dateipfad")
         self.tree.heading("detail", text="Hinweis")
+        for column, title in (("file_version", "Dateiversion"), ("exe_version", "Programmversion")):
+            self.tree.heading(column, text=title)
+            self.tree.column(column, width=120, stretch=False)
         self.tree.column("category", width=150, minwidth=120, stretch=False, anchor="w")
         self.tree.column("path", width=100, minwidth=100, stretch=False, anchor="w")
         self.tree.column("detail", width=190, minwidth=130, stretch=False, anchor="w")
@@ -302,6 +311,8 @@ class App(tk.Tk):
         self.filter_box.configure(values=list(self.filter_options))
         self.filter_var.set("Alle auffälligen Dateien")
         self.rows = []
+        self.metadata = {}
+        self.version_filter.set("Alle Versionen")
         self.scan_totals = None
         self.scan_summary = ""
         self.apply_filter()
@@ -384,6 +395,8 @@ class App(tk.Tk):
         self.scanning = True
         self._set_inputs_locked(True)
         self.rows = []
+        self.metadata = {}
+        self.version_filter.set("Alle Versionen")
         self.ignored_paths = set()
         self.scan_summary = ""
         self.scan_totals = None
@@ -424,6 +437,7 @@ class App(tk.Tk):
                                          root, self.cancel_scan_event, skipped)
             self.events.put(("discovery_done", len(files), checked_dirs))
             flagged = []
+            metadata = {}
             recognized = errors = empty = fragments = probably_no_text = 0
             processed = 0
             for index, path in enumerate(files, start=1):
@@ -442,6 +456,11 @@ class App(tk.Tk):
                     recognized += 1
                 else:
                     flagged.append((category, str(path.absolute()), detail))
+                    try:
+                        with path.open("rb") as stream:
+                            metadata[str(path.absolute())] = extract_metadata(stream.read(268))
+                    except OSError:
+                        metadata[str(path.absolute())] = {}
                     if category == "Fehler":
                         errors += 1
                     elif category == "Leer":
@@ -454,7 +473,7 @@ class App(tk.Tk):
             self.events.put(("finished", flagged, processed, len(files), recognized,
                              fragments, probably_no_text, empty, errors,
                              self.cancel_scan_event.is_set(), ignored, skipped, checked_dirs,
-                             perf_counter() - self.scan_started_at))
+                             perf_counter() - self.scan_started_at, metadata))
         except Exception as exc:
             self.events.put(("worker_error", str(exc)))
 
@@ -487,12 +506,14 @@ class App(tk.Tk):
                         return
                     (_, flagged, processed, total, recognized, fragments,
                      probably_no_text, empty, errors, cancelled,
-                     ignored, skipped, checked_dirs, self.scan_elapsed) = event
+                     ignored, skipped, checked_dirs, self.scan_elapsed, self.metadata) = event
                     self.scan_cancelled = cancelled
                     self.scan_discovered = total
                     self.progress.stop()
                     self.ignored_paths = ignored
                     self.rows = flagged
+                    self.version_filter.configure(values=("Alle Versionen", *sorted({self.version_values(row[1])[0] for row in flagged})))
+                    self.version_filter.set("Alle Versionen")
                     self.scanning = False
                     self._set_inputs_locked(False)
                     self.apply_filter()
@@ -584,12 +605,18 @@ class App(tk.Tk):
     def is_ignored(self, path: str) -> bool:
         return self._path_key(Path(path)) in self.ignored_paths
 
+    def version_values(self, path):
+        meta = self.metadata.get(path, {})
+        return (meta.get("file_version") or "Unbekannt", meta.get("created_exe_version") or "Unbekannt")
+
     def filtered_rows(self):
         selected_filter = self.filter_var.get()
+        version = self.version_filter.get()
+        rows = [row for row in self.rows if version == "Alle Versionen" or self.version_values(row[1])[0] == version]
         if selected_filter == "Ignoriert":
-            return [row for row in self.rows if self.is_ignored(row[1])]
+            return [row for row in rows if self.is_ignored(row[1])]
         allowed = self.filter_options.get(selected_filter)
-        return [row for row in self.rows if allowed is None or
+        return [row for row in rows if allowed is None or
                 (not self.is_ignored(row[1]) and row[0] in allowed)]
 
     def apply_filter(self, _event=None):
@@ -599,11 +626,12 @@ class App(tk.Tk):
         for item in self.tree.get_children():
             self.tree.delete(item)
         self.filter_box.configure(state="readonly" if self.rows and not self.scanning and not self.exporting else "disabled")
+        self.version_filter.configure(state="readonly" if self.rows and not self.scanning and not self.exporting else "disabled")
         visible = self.filtered_rows()
         for index, (category, path, detail) in enumerate(visible):
             ignored = self.is_ignored(path)
             iid = self.tree.insert("", "end", values=(
-                "Ignoriert" if ignored else category, path, detail),
+                "Ignoriert" if ignored else category, path, detail, *self.version_values(path)),
                 tags=row_tags(index, "ignored") if ignored else row_tags(index))
             if path in selected_paths:
                 self.tree.selection_add(iid)
@@ -663,7 +691,7 @@ class App(tk.Tk):
         lines = []
         for item in selected:
             values = self.tree.item(item, "values")
-            if len(values) == 3:
+            if len(values) == 5:
                 lines.append("\t".join(map(str, values)))
         if lines:
             self.clipboard_clear()
@@ -740,10 +768,10 @@ class App(tk.Tk):
             "Hinweis: 'Erkannt' garantiert keine vollständige Texterkennung.",
             "Ein Nichttreffer beweist nicht, dass die Datei keinen Text enthält.",
             "",
-            "Status\tDateipfad\tHinweis",
+            "Status\tDateipfad\tHinweis\tDateiversion\tProgrammversion\tProgrammname",
         ]
         lines.extend(
-            f"{'Ignoriert (' + category + ')' if self.is_ignored(path) else category}\t{path}\t{detail}"
+            f"{'Ignoriert (' + category + ')' if self.is_ignored(path) else category}\t{path}\t{detail}\t" + "\t".join((*self.version_values(path), self.metadata.get(path, {}).get("created_exe_name") or "Unbekannt"))
             for category, path, detail in self.rows
         )
         if self.access_issues:
@@ -894,6 +922,8 @@ class App(tk.Tk):
         if self.scanning or not self.rows:
             return
         self.rows = []
+        self.metadata = {}
+        self.version_filter.set("Alle Versionen")
         self.clear_button.configure(state="disabled")
         self.scan_summary = ""
         self.apply_filter()
