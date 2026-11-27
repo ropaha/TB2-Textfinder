@@ -162,9 +162,9 @@ class App(tk.Tk):
         self.open_button.pack(side="left", padx=(0,8))
         self.cancel = ttk.Button(bar, text="Abbrechen", command=self.stop.set, state="disabled")
         self.cancel.pack(side="left", padx=(0,8))
-        self.save = ttk.Button(bar, text="JSON speichern", command=self.export, state="disabled")
+        self.save = ttk.Button(bar, text="Komplette JSON speichern", command=self.export, state="disabled")
         self.save.pack(side="left")
-        self.compact = ttk.Button(bar, text="Kompakt", command=lambda: self.export(True), state="disabled")
+        self.compact = ttk.Button(bar, text="Kompakte JSON speichern", command=lambda: self.export(True), state="disabled")
         self.compact.pack(side="left", padx=(8,0))
         ttk.Label(frame, textvariable=self.operation, font=("TkDefaultFont", 10, "bold"),
                   wraplength=680).pack(fill="x", pady=(0, 5))
